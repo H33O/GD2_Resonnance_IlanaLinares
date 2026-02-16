@@ -1208,10 +1208,12 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   collectiblePrefab: {fileID: 1083978023019957827, guid: bcefe9c1ea9507b428679a939cd934fc, type: 3}
+  fastEnemyPrefab: {fileID: 6058775408093793959, guid: 09d7a7caa4a2cb84d852d3adc72374d4, type: 3}
   baseSpawnInterval: 1.5
   numberOfColumns: 3
   columnSpacing: 2
   spawnY: 5
+  fastEnemySpawnChance: 0.122
 --- !u!1 &838320236
 GameObject:
   m_ObjectHideFlags: 0
