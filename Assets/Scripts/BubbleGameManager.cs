@@ -76,15 +76,27 @@ public class BubbleGameManager : MonoBehaviour
 
     private void CreateUI()
     {
-        var canvasGO = new GameObject("BubbleCanvas");
-        var canvas = canvasGO.AddComponent<Canvas>();
-        canvas.renderMode = RenderMode.ScreenSpaceOverlay;
-        canvas.sortingOrder = 10;
-        var scaler = canvasGO.AddComponent<CanvasScaler>();
-        scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
-        scaler.referenceResolution = new Vector2(1080, 1920);
-        canvasGO.AddComponent<GraphicRaycaster>();
-        canvasTransform = canvas.transform;
+        // Réutilise le Canvas existant dans la scène s'il y en a un
+        Canvas existing = FindFirstObjectByType<Canvas>();
+        GameObject canvasGO;
+
+        if (existing != null)
+        {
+            canvasGO = existing.gameObject;
+        }
+        else
+        {
+            canvasGO = new GameObject("BubbleCanvas");
+            var canvas = canvasGO.AddComponent<Canvas>();
+            canvas.renderMode  = RenderMode.ScreenSpaceOverlay;
+            canvas.sortingOrder = 10;
+            var scaler = canvasGO.AddComponent<CanvasScaler>();
+            scaler.uiScaleMode         = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+            scaler.referenceResolution = new Vector2(1080, 1920);
+            canvasGO.AddComponent<GraphicRaycaster>();
+        }
+
+        canvasTransform = canvasGO.transform;
 
         Transform ct = canvasTransform;
 
@@ -159,38 +171,28 @@ public class BubbleGameManager : MonoBehaviour
 
     private TextMeshProUGUI MakeShotsPanel(Transform parent)
     {
+        // Fond semi-transparent compact, ancré en bas centré
         var bg = new GameObject("ShotsPanel");
         bg.transform.SetParent(parent, false);
         var bgRT = bg.AddComponent<RectTransform>();
-        bgRT.anchorMin = bgRT.anchorMax = new Vector2(0.5f, 0f);
-        bgRT.sizeDelta = new Vector2(260, 90);
-        bgRT.anchoredPosition = new Vector2(0f, 50f);
+        bgRT.anchorMin      = bgRT.anchorMax = new Vector2(0.5f, 0f);
+        bgRT.sizeDelta      = new Vector2(160f, 80f);
+        bgRT.anchoredPosition = new Vector2(0f, 100f);
         var bgImg = bg.AddComponent<Image>();
         bgImg.color = new Color(0f, 0f, 0f, 0.55f);
 
-        var label = new GameObject("Label");
-        label.transform.SetParent(bg.transform, false);
-        var labelRT = label.AddComponent<RectTransform>();
-        labelRT.anchorMin = new Vector2(0f, 0.5f);
-        labelRT.anchorMax = new Vector2(1f, 1f);
-        labelRT.offsetMin = labelRT.offsetMax = Vector2.zero;
-        var labelTMP = label.AddComponent<TextMeshProUGUI>();
-        labelTMP.text = "COUPS RESTANTS";
-        labelTMP.fontSize = 14;
-        labelTMP.color = new Color(1f, 1f, 1f, 0.7f);
-        labelTMP.alignment = TextAlignmentOptions.Center;
-
+        // Chiffre seul, centré dans le panel
         var count = new GameObject("Count");
         count.transform.SetParent(bg.transform, false);
         var countRT = count.AddComponent<RectTransform>();
-        countRT.anchorMin = new Vector2(0f, 0f);
-        countRT.anchorMax = new Vector2(1f, 0.58f);
+        countRT.anchorMin = Vector2.zero;
+        countRT.anchorMax = Vector2.one;
         countRT.offsetMin = countRT.offsetMax = Vector2.zero;
         var countTMP = count.AddComponent<TextMeshProUGUI>();
-        countTMP.text = $"{maxShots}";
-        countTMP.fontSize = 42;
+        countTMP.text      = $"{maxShots}";
+        countTMP.fontSize  = 52;
         countTMP.fontStyle = FontStyles.Bold;
-        countTMP.color = Color.white;
+        countTMP.color     = Color.white;
         countTMP.alignment = TextAlignmentOptions.Center;
 
         return countTMP;

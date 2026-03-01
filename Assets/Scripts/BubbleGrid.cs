@@ -12,7 +12,7 @@ public class BubbleGrid : MonoBehaviour
     [Header("Grille")]
     [SerializeField] private int cols = 9;
     [SerializeField] private int maxRows = 14;
-    [SerializeField] private float diameter = 1f;
+    [SerializeField] private float diameter = 0.5f;
     [SerializeField] private int startRows = 5;
     [SerializeField] private int minMatch = 3;
 

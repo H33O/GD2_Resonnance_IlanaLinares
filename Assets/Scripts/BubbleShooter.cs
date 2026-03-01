@@ -19,7 +19,9 @@ public class BubbleShooter : MonoBehaviour
     {
         cam = Camera.main;
         lastInputPosition = new Vector2(Screen.width * 0.5f, Screen.height * 0.5f);
-        transform.position = new Vector3(0f, -cam.orthographicSize + 1.5f, 0f);
+
+        // Remonté de 1.5 → 2.5 pour laisser de la place à l'UI du bas
+        transform.position = new Vector3(0f, -cam.orthographicSize + 2.5f, 0f);
 
         SetupAimLine();
         CreateBubbleIndicators();
@@ -42,11 +44,12 @@ public class BubbleShooter : MonoBehaviour
     {
         float d = BubbleGrid.Instance.Diameter;
 
-        var curGO = MakeCircle("Current", transform.position, d * 0.9f, 3);
+        // Indicateurs plus petits (0.75 et 0.5 au lieu de 0.9 et 0.6)
+        var curGO = MakeCircle("Current", transform.position, d * 0.75f, 3);
         curGO.transform.SetParent(transform);
         currentSR = curGO.GetComponent<SpriteRenderer>();
 
-        var nxtGO = MakeCircle("Next", transform.position + new Vector3(-2f, 0f, 0f), d * 0.6f, 3);
+        var nxtGO = MakeCircle("Next", transform.position + new Vector3(-1.2f, 0f, 0f), d * 0.5f, 3);
         nxtGO.transform.SetParent(transform);
         nextSR = nxtGO.GetComponent<SpriteRenderer>();
 

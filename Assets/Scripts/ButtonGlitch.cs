@@ -27,10 +27,14 @@ public class ButtonGlitch : MonoBehaviour, IPointerDownHandler, IPointerUpHandle
     [SerializeField] private float charOffsetX = 7f;
     [SerializeField] private float charOffsetY = 4f;
 
+    [Header("Pulse")]
+    [SerializeField] private float pulseAmplitude = 0.03f;
+    [SerializeField] private float pulseSpeed     = 1.4f;
+
     [Header("Feedback pression")]
-    [SerializeField] private float pressScaleDown  = 0.92f;
-    [SerializeField] private float pressScaleDuration = 0.08f;
-    [SerializeField] private float releaseScaleDuration = 0.12f;
+    [SerializeField] private float pressScaleDown        = 0.92f;
+    [SerializeField] private float pressScaleDuration    = 0.08f;
+    [SerializeField] private float releaseScaleDuration  = 0.12f;
 
     private RectTransform    rectTransform;
     private TextMeshProUGUI  tmp;
@@ -38,6 +42,7 @@ public class ButtonGlitch : MonoBehaviour, IPointerDownHandler, IPointerUpHandle
     private Vector3          baseScale;
     private bool             isGlitching;
     private bool             isPressed;
+    private float            pulseOffset;
 
     private void Awake()
     {
@@ -49,13 +54,25 @@ public class ButtonGlitch : MonoBehaviour, IPointerDownHandler, IPointerUpHandle
     {
         basePosition = rectTransform.anchoredPosition;
         baseScale    = rectTransform.localScale;
+        // Décalage aléatoire pour que chaque bouton pulse en décalé
+        pulseOffset  = Random.Range(0f, Mathf.PI * 2f);
         StartCoroutine(GlitchLoop());
     }
 
     private void Update()
     {
-        if (isGlitching || isPressed) return;
+        if (isPressed) return;
 
+        // Pulse sinusoïdal permanent
+        float pulse = 1f + pulseAmplitude * Mathf.Sin(Time.time * pulseSpeed + pulseOffset);
+
+        if (isGlitching)
+        {
+            rectTransform.localScale = baseScale * pulse;
+            return;
+        }
+
+        // Jitter position
         if (Random.value < jitterChance)
         {
             rectTransform.anchoredPosition = basePosition + new Vector2(
@@ -67,6 +84,8 @@ public class ButtonGlitch : MonoBehaviour, IPointerDownHandler, IPointerUpHandle
         {
             rectTransform.anchoredPosition = basePosition;
         }
+
+        rectTransform.localScale = baseScale * pulse;
     }
 
     // ── Feedback pression ────────────────────────────────────────────────────
