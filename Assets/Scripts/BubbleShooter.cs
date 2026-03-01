@@ -1,7 +1,8 @@
 using UnityEngine;
+using UnityEngine.InputSystem;
 
 /// <summary>
-/// Canon en bas de l'écran. Vise avec la souris, tire au clic gauche ou Espace.
+/// Canon en bas de l'écran. Vise avec la souris ou le toucher, tire au tap ou clic.
 /// Affiche la ligne de visée et la prochaine bulle.
 /// </summary>
 public class BubbleShooter : MonoBehaviour
@@ -11,11 +12,13 @@ public class BubbleShooter : MonoBehaviour
     private LineRenderer aimLine;
     private Camera cam;
 
-    private static readonly float MinAngleDeg = 8f; // angle min par rapport à l'horizontal
+    private Vector2 lastInputPosition;
+    private static readonly float MinAngleDeg = 8f;
 
     private void Start()
     {
         cam = Camera.main;
+        lastInputPosition = new Vector2(Screen.width * 0.5f, Screen.height * 0.5f);
         transform.position = new Vector3(0f, -cam.orthographicSize + 1.5f, 0f);
 
         SetupAimLine();
@@ -39,17 +42,14 @@ public class BubbleShooter : MonoBehaviour
     {
         float d = BubbleGrid.Instance.Diameter;
 
-        // Bulle courante (au centre du canon)
         var curGO = MakeCircle("Current", transform.position, d * 0.9f, 3);
         curGO.transform.SetParent(transform);
         currentSR = curGO.GetComponent<SpriteRenderer>();
 
-        // Prochaine bulle (à gauche, plus petite)
         var nxtGO = MakeCircle("Next", transform.position + new Vector3(-2f, 0f, 0f), d * 0.6f, 3);
         nxtGO.transform.SetParent(transform);
         nextSR = nxtGO.GetComponent<SpriteRenderer>();
 
-        // Génère les premières couleurs
         current = BubbleColorExtensions.Random(BubbleGrid.Instance.ColorCount);
         next    = BubbleColorExtensions.Random(BubbleGrid.Instance.ColorCount);
     }
@@ -75,16 +75,45 @@ public class BubbleShooter : MonoBehaviour
     {
         if (BubbleGameManager.Instance != null && !BubbleGameManager.Instance.IsGameActive) return;
 
-        UpdateAimLine();
+        bool shoot = false;
 
-        if (Input.GetMouseButtonDown(0) || Input.GetKeyDown(KeyCode.Space))
-            Shoot();
+        // Touch (mobile)
+        var touchscreen = Touchscreen.current;
+        if (touchscreen != null)
+        {
+            foreach (var touch in touchscreen.touches)
+            {
+                var phase = touch.phase.ReadValue();
+                if (phase == UnityEngine.InputSystem.TouchPhase.Began ||
+                    phase == UnityEngine.InputSystem.TouchPhase.Moved ||
+                    phase == UnityEngine.InputSystem.TouchPhase.Stationary)
+                {
+                    lastInputPosition = touch.position.ReadValue();
+                }
+                if (phase == UnityEngine.InputSystem.TouchPhase.Began)
+                {
+                    shoot = true;
+                }
+            }
+        }
+        else
+        {
+            // Souris / clavier — éditeur
+            lastInputPosition = Input.mousePosition;
+            if (Input.GetMouseButtonDown(0) || Input.GetKeyDown(KeyCode.Space))
+                shoot = true;
+        }
+
+        UpdateAimLine();
+        if (shoot) Shoot();
     }
 
+    /// <summary>Calcule la direction de visée depuis la dernière position d'entrée.</summary>
     private Vector2 AimDir()
     {
-        Vector3 mouse = cam.ScreenToWorldPoint(Input.mousePosition);
-        Vector2 dir = ((Vector2)mouse - (Vector2)transform.position).normalized;
+        Vector3 world = cam.ScreenToWorldPoint(
+            new Vector3(lastInputPosition.x, lastInputPosition.y, 10f));
+        Vector2 dir = ((Vector2)world - (Vector2)transform.position).normalized;
         float minY = Mathf.Sin(MinAngleDeg * Mathf.Deg2Rad);
         if (dir.y < minY) dir = new Vector2(dir.x, minY).normalized;
         return dir;
@@ -107,7 +136,6 @@ public class BubbleShooter : MonoBehaviour
         var proj = go.AddComponent<BubbleProjectile>();
         proj.Init(current, AimDir(), BubbleGrid.Instance.Diameter);
 
-        // Avancer à la prochaine bulle
         current = next;
         next = BubbleColorExtensions.Random(BubbleGrid.Instance.ColorCount);
         DrawNextBubbles();

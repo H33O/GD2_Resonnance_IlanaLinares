@@ -14,6 +14,8 @@ public class BubbleGameManager : MonoBehaviour
     [SerializeField] private int maxShots = 30;
     [SerializeField] private int targetScore = 500;
 
+    private const string SceneMenu = "Menu";
+
     public int Score { get; private set; }
     public int ShotsLeft { get; private set; }
     public bool IsGameActive { get; private set; }
@@ -22,6 +24,7 @@ public class BubbleGameManager : MonoBehaviour
     private TextMeshProUGUI scoreText;
     private TextMeshProUGUI shotsText;
     private TextMeshProUGUI statusText;
+    private Transform canvasTransform;
 
     private void Awake()
     {
@@ -66,12 +69,7 @@ public class BubbleGameManager : MonoBehaviour
         IsGameActive = false;
         statusText.text = win ? "Victoire !" : "Défaite";
         statusText.gameObject.SetActive(true);
-    }
-
-    private void Update()
-    {
-        if (Input.GetKeyDown(KeyCode.R))
-            SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
+        CreateEndButtons();
     }
 
     // ── UI créée automatiquement ──────────────────────────────────────────────
@@ -86,8 +84,9 @@ public class BubbleGameManager : MonoBehaviour
         scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
         scaler.referenceResolution = new Vector2(1080, 1920);
         canvasGO.AddComponent<GraphicRaycaster>();
+        canvasTransform = canvas.transform;
 
-        Transform ct = canvas.transform;
+        Transform ct = canvasTransform;
 
         // — Score (haut gauche)
         scoreText = MakeText(ct, "Score : 0", new Vector2(20, -20), new Vector2(300, 55), TextAlignmentOptions.TopLeft);
@@ -98,7 +97,7 @@ public class BubbleGameManager : MonoBehaviour
         obj.fontSize = 22;
         obj.color = new Color(1f, 0.9f, 0.4f);
 
-        // — Coups restants (bas, centré, bien visible)
+        // — Coups restants (bas, centré)
         shotsText = MakeShotsPanel(ct);
 
         // — Message victoire / défaite (centre écran)
@@ -107,26 +106,68 @@ public class BubbleGameManager : MonoBehaviour
         statusText.gameObject.SetActive(false);
     }
 
+    /// <summary>Ajoute les boutons Rejouer et Menu après la fin de partie.</summary>
+    private void CreateEndButtons()
+    {
+        MakeButton(canvasTransform, "Rejouer",
+                   new Vector2(0f, -100f),
+                   new Color(0.18f, 0.44f, 0.90f),
+                   () => SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex));
+
+        MakeButton(canvasTransform, "Menu",
+                   new Vector2(0f, -220f),
+                   new Color(0.35f, 0.35f, 0.35f),
+                   () => SceneManager.LoadScene(SceneMenu));
+    }
+
+    private void MakeButton(Transform parent, string label, Vector2 pos, Color color,
+                             UnityEngine.Events.UnityAction onClick)
+    {
+        var go = new GameObject(label + "Button");
+        go.transform.SetParent(parent, false);
+        var rt = go.AddComponent<RectTransform>();
+        rt.anchorMin = rt.anchorMax = new Vector2(0.5f, 0.5f);
+        rt.sizeDelta = new Vector2(380f, 110f);
+        rt.anchoredPosition = pos;
+
+        var img = go.AddComponent<Image>();
+        img.color = color;
+
+        var btn = go.AddComponent<Button>();
+        btn.targetGraphic = img;
+        btn.onClick.AddListener(onClick);
+
+        var textGO = new GameObject("Label");
+        textGO.transform.SetParent(go.transform, false);
+        var textRT = textGO.AddComponent<RectTransform>();
+        textRT.anchorMin = Vector2.zero;
+        textRT.anchorMax = Vector2.one;
+        textRT.offsetMin = textRT.offsetMax = Vector2.zero;
+        var tmp = textGO.AddComponent<TextMeshProUGUI>();
+        tmp.text = label;
+        tmp.fontSize = 42;
+        tmp.fontStyle = FontStyles.Bold;
+        tmp.color = Color.white;
+        tmp.alignment = TextAlignmentOptions.Center;
+    }
+
     private void RefreshUI()
     {
         scoreText.text = $"Score : {Score}";
         shotsText.text = $"{ShotsLeft}";
     }
 
-    // Panneau coups restants : encadré centré en bas de l'écran
     private TextMeshProUGUI MakeShotsPanel(Transform parent)
     {
-        // Fond semi-transparent
         var bg = new GameObject("ShotsPanel");
         bg.transform.SetParent(parent, false);
         var bgRT = bg.AddComponent<RectTransform>();
-        bgRT.anchorMin = bgRT.anchorMax = new Vector2(0.5f, 0f); // bas centré
+        bgRT.anchorMin = bgRT.anchorMax = new Vector2(0.5f, 0f);
         bgRT.sizeDelta = new Vector2(260, 90);
         bgRT.anchoredPosition = new Vector2(0f, 50f);
-        var bgImg = bg.AddComponent<UnityEngine.UI.Image>();
+        var bgImg = bg.AddComponent<Image>();
         bgImg.color = new Color(0f, 0f, 0f, 0.55f);
 
-        // Label "COUPS"
         var label = new GameObject("Label");
         label.transform.SetParent(bg.transform, false);
         var labelRT = label.AddComponent<RectTransform>();
@@ -139,7 +180,6 @@ public class BubbleGameManager : MonoBehaviour
         labelTMP.color = new Color(1f, 1f, 1f, 0.7f);
         labelTMP.alignment = TextAlignmentOptions.Center;
 
-        // Nombre de coups (grand, en bas du panneau)
         var count = new GameObject("Count");
         count.transform.SetParent(bg.transform, false);
         var countRT = count.AddComponent<RectTransform>();
@@ -164,13 +204,9 @@ public class BubbleGameManager : MonoBehaviour
         var rt = go.AddComponent<RectTransform>();
 
         if (center)
-        {
             rt.anchorMin = rt.anchorMax = new Vector2(0.5f, 0.5f);
-        }
         else
-        {
-            rt.anchorMin = rt.anchorMax = new Vector2(0f, 1f); // coin haut-gauche
-        }
+            rt.anchorMin = rt.anchorMax = new Vector2(0f, 1f);
 
         rt.sizeDelta = size;
         rt.anchoredPosition = pos;

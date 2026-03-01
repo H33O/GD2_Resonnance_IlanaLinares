@@ -62,20 +62,35 @@ public class PlayerController : MonoBehaviour
         }
 
         HandleKeyboardInput();
+        HandleTouchInput();
     }
 
     private void HandleKeyboardInput()
     {
         if (Input.GetKeyDown(KeyCode.LeftArrow) || Input.GetKeyDown(KeyCode.A))
-        {
             MoveLeft();
-        }
         else if (Input.GetKeyDown(KeyCode.RightArrow) || Input.GetKeyDown(KeyCode.D))
-        {
             MoveRight();
+    }
+
+    /// <summary>Lit le touchscreen directement via le nouveau Input System.</summary>
+    private void HandleTouchInput()
+    {
+        var touchscreen = Touchscreen.current;
+        if (touchscreen == null) return;
+
+        foreach (var touch in touchscreen.touches)
+        {
+            if (touch.phase.ReadValue() == UnityEngine.InputSystem.TouchPhase.Began)
+            {
+                lastTouchPosition = touch.position.ReadValue();
+                ProcessTouchInput();
+                break;
+            }
         }
     }
 
+    // Gardés pour compatibilité avec un éventuel PlayerInput component
     public void OnTouch(InputAction.CallbackContext context)
     {
         if (context.performed)
@@ -94,16 +109,13 @@ public class PlayerController : MonoBehaviour
     {
         if (isMoving) return;
 
-        Vector3 worldPosition = mainCamera.ScreenToWorldPoint(new Vector3(lastTouchPosition.x, lastTouchPosition.y, 10f));
-        
+        Vector3 worldPosition = mainCamera.ScreenToWorldPoint(
+            new Vector3(lastTouchPosition.x, lastTouchPosition.y, 10f));
+
         if (worldPosition.x < positions[currentPosition] - positionSpacing / 2f)
-        {
             MoveLeft();
-        }
         else if (worldPosition.x > positions[currentPosition] + positionSpacing / 2f)
-        {
             MoveRight();
-        }
     }
 
     public void MoveLeft()

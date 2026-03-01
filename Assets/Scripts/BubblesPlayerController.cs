@@ -1,7 +1,9 @@
 using UnityEngine;
+using UnityEngine.InputSystem;
 
 /// <summary>
 /// Contrôle le déplacement horizontal fluide du joueur dans le Minijeu-Bulles.
+/// Supporte clavier (éditeur) et touch drag (mobile).
 /// </summary>
 public class BubblesPlayerController : MonoBehaviour
 {
@@ -13,6 +15,8 @@ public class BubblesPlayerController : MonoBehaviour
     public float HorizontalVelocity { get; private set; }
 
     private float previousX;
+    private Vector2 touchStartPosition;
+    private bool isTouching;
 
     private void Start()
     {
@@ -34,12 +38,44 @@ public class BubblesPlayerController : MonoBehaviour
         previousX = transform.position.x;
     }
 
+    /// <summary>Retourne une valeur entre -1 et 1 selon le clavier ou le glissement tactile.</summary>
     private float GetHorizontalInput()
     {
-        if (Input.GetKey(KeyCode.LeftArrow) || Input.GetKey(KeyCode.A))
-            return -1f;
-        if (Input.GetKey(KeyCode.RightArrow) || Input.GetKey(KeyCode.D))
-            return 1f;
+        // Clavier — utilisé en éditeur
+        if (Input.GetKey(KeyCode.LeftArrow) || Input.GetKey(KeyCode.A))  return -1f;
+        if (Input.GetKey(KeyCode.RightArrow) || Input.GetKey(KeyCode.D)) return  1f;
+
+        // Touch — glissement horizontal
+        var touchscreen = Touchscreen.current;
+        if (touchscreen == null) return 0f;
+
+        foreach (var touch in touchscreen.touches)
+        {
+            var phase = touch.phase.ReadValue();
+
+            if (phase == UnityEngine.InputSystem.TouchPhase.Began)
+            {
+                touchStartPosition = touch.position.ReadValue();
+                isTouching = true;
+                continue;
+            }
+
+            if (!isTouching) continue;
+
+            if (phase == UnityEngine.InputSystem.TouchPhase.Moved)
+            {
+                float deltaX = touch.delta.ReadValue().x;
+                if (Mathf.Abs(deltaX) > 0.5f)
+                    return Mathf.Sign(deltaX);
+            }
+
+            if (phase == UnityEngine.InputSystem.TouchPhase.Ended ||
+                phase == UnityEngine.InputSystem.TouchPhase.Canceled)
+            {
+                isTouching = false;
+            }
+        }
+
         return 0f;
     }
 }
