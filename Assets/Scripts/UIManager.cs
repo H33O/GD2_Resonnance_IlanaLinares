@@ -43,12 +43,12 @@ public class UIManager : MonoBehaviour
     {
         if (livesText != null)
         {
-            string squares = "";
+            string hearts = "";
             for (int i = 0; i < lives; i++)
             {
-                squares += "■ ";
+                hearts += "♥ ";
             }
-            livesText.text = squares;
+            livesText.text = hearts;
         }
     }
 
