@@ -17,7 +17,9 @@ public class UIManager : MonoBehaviour
     [SerializeField] private GameObject gameOverPanel;
     [SerializeField] private TextMeshProUGUI finalScoreText;
 
-    [Header("Score Gain Popup")]
+    [Header("Perfect Effect")]
+    [SerializeField] private TMP_FontAsset perfectFont;
+    [SerializeField] private TMP_FontAsset speedUpFont;
     [SerializeField] private float popupRiseDuration = 0.8f;
     [SerializeField] private float popupRiseDistance = 60f;
 
@@ -36,6 +38,7 @@ public class UIManager : MonoBehaviour
             GameManager.Instance.OnLivesChanged.AddListener(UpdateLivesUI);
             GameManager.Instance.OnHighScoreChanged.AddListener(UpdateHighScoreUI);
             GameManager.Instance.OnGameOver.AddListener(ShowGameOverPanel);
+            GameManager.Instance.OnDifficultyIncreased.AddListener(ShowSpeedUpEffect);
 
             // Synchronise l'UI avec l'état courant au cas où GameManager.Start()
             // aurait tiré ses événements avant notre abonnement.
@@ -128,6 +131,253 @@ public class UIManager : MonoBehaviour
 
         Destroy(go);
     }
+
+    // ── Speed-up x2 effect ────────────────────────────────────────────────────
+
+    private static readonly Color SpeedColor = new Color(1f, 0.85f, 0.2f, 1f);
+
+    /// <summary>
+    /// Pause le jeu, affiche "x{level}" avec grésillage, puis reprend.
+    /// Utilise unscaledDeltaTime pour fonctionner avec Time.timeScale = 0.
+    /// </summary>
+    public void ShowSpeedUpEffect(int level)
+    {
+        StartCoroutine(SpeedUpRoutine(level));
+    }
+
+    private IEnumerator SpeedUpRoutine(int level)
+    {
+        // Bref grésillage avant la pause
+        ScreenGlitch.Instance?.Trigger();
+        yield return new WaitForSecondsRealtime(0.08f);
+
+        Time.timeScale = 0f;
+
+        Canvas canvas = scoreText != null
+            ? scoreText.canvas
+            : GetComponentInParent<Canvas>();
+        if (canvas == null) { Time.timeScale = 1f; yield break; }
+
+        Transform ct = canvas.transform;
+
+        // ── Fond semi-transparent ─────────────────────────────────────────────
+        var bgGO = new GameObject("SpeedUpBg");
+        bgGO.transform.SetParent(ct, false);
+        var bgImg = bgGO.AddComponent<Image>();
+        bgImg.color         = new Color(0f, 0f, 0f, 0.55f);
+        bgImg.raycastTarget = false;
+        var bgRT = bgImg.rectTransform;
+        bgRT.anchorMin = Vector2.zero;
+        bgRT.anchorMax = Vector2.one;
+        bgRT.offsetMin = bgRT.offsetMax = Vector2.zero;
+
+        // ── Texte x{level} ────────────────────────────────────────────────────
+        var go = new GameObject("SpeedUpText");
+        go.transform.SetParent(ct, false);
+        var rt = go.AddComponent<RectTransform>();
+        rt.anchorMin        = new Vector2(0.5f, 0.5f);
+        rt.anchorMax        = new Vector2(0.5f, 0.5f);
+        rt.pivot            = new Vector2(0.5f, 0.5f);
+        rt.sizeDelta        = new Vector2(600f, 160f);
+        rt.anchoredPosition = Vector2.zero;
+
+        var tmp = go.AddComponent<TextMeshProUGUI>();
+        tmp.text      = $"x{level + 1}";
+        tmp.fontSize  = 120;
+        tmp.fontStyle = FontStyles.Bold;
+        tmp.color     = SpeedColor;
+        tmp.alignment = TextAlignmentOptions.Center;
+        if (speedUpFont != null) tmp.font = speedUpFont;
+
+        // ── Animation (unscaled) ──────────────────────────────────────────────
+        float holdDuration = 1.4f;
+        float elapsed      = 0f;
+        float glitchTimer  = 0f;
+
+        while (elapsed < holdDuration)
+        {
+            elapsed     += Time.unscaledDeltaTime;
+            glitchTimer += Time.unscaledDeltaTime;
+            float t      = elapsed / holdDuration;
+
+            if (glitchTimer >= 0.07f)
+            {
+                glitchTimer = 0f;
+                GlitchTMPVertices(tmp);
+            }
+            else
+            {
+                tmp.ForceMeshUpdate();
+            }
+
+            // Scale sin (pic +20%)
+            float scale = 1f + 0.2f * Mathf.Sin(t * Mathf.PI);
+            go.transform.localScale = Vector3.one * scale;
+
+            // Fondu sur les 25% finaux
+            float alpha = t > 0.75f ? Mathf.Lerp(1f, 0f, (t - 0.75f) / 0.25f) : 1f;
+            tmp.color   = new Color(SpeedColor.r, SpeedColor.g, SpeedColor.b, alpha);
+            bgImg.color = new Color(0f, 0f, 0f, 0.55f * alpha);
+
+            yield return null;
+        }
+
+        Destroy(bgGO);
+        Destroy(go);
+        Time.timeScale = 1f;
+    }
+
+
+
+    private static readonly Color PerfectColor = new Color(1f, 0.85f, 0.2f, 1f);
+
+    /// <summary>
+    /// Affiche "PERFECT!" avec glitch sur le score et envoie des pulsations
+    /// depuis l'UI du haut.
+    /// </summary>
+    public void ShowPerfectEffect()
+    {
+        StartCoroutine(PerfectRoutine());
+    }
+
+    private IEnumerator PerfectRoutine()
+    {
+        Canvas canvas = scoreText != null
+            ? scoreText.canvas
+            : GetComponentInParent<Canvas>();
+        if (canvas == null) yield break;
+
+        Transform ct = canvas.transform;
+
+        // ── Pulsations depuis le score ────────────────────────────────────────
+        Vector2 pulseOrigin = scoreText != null
+            ? scoreText.rectTransform.anchoredPosition + new Vector2(scoreText.preferredWidth * 0.5f, -25f)
+            : new Vector2(150f, -45f);
+
+        for (int i = 0; i < 3; i++)
+            StartCoroutine(PulseRing(ct, pulseOrigin,
+                                     scoreText?.rectTransform.anchorMin ?? new Vector2(0f, 1f),
+                                     scoreText?.rectTransform.anchorMax ?? new Vector2(0f, 1f),
+                                     i * 0.18f));
+
+        // ── Texte PERFECT! ───────────────────────────────────────────────────
+        var go = new GameObject("PerfectText");
+        go.transform.SetParent(ct, false);
+
+        var rt = go.AddComponent<RectTransform>();
+        rt.anchorMin        = new Vector2(0.5f, 0.5f);
+        rt.anchorMax        = new Vector2(0.5f, 0.5f);
+        rt.pivot            = new Vector2(0.5f, 0.5f);
+        rt.sizeDelta        = new Vector2(700f, 140f);
+        rt.anchoredPosition = new Vector2(0f, 120f);
+
+        var tmp = go.AddComponent<TextMeshProUGUI>();
+        tmp.text      = "PERFECT!";
+        tmp.fontSize  = 95;
+        tmp.fontStyle = FontStyles.Bold;
+        tmp.color     = PerfectColor;
+        tmp.alignment = TextAlignmentOptions.Center;
+        if (perfectFont != null) tmp.font = perfectFont;
+
+        // ── Animation glitch + scale + fade ──────────────────────────────────
+        float totalDuration = 1.3f;
+        float elapsed       = 0f;
+        float glitchTimer   = 0f;
+
+        while (elapsed < totalDuration)
+        {
+            elapsed     += Time.deltaTime;
+            glitchTimer += Time.deltaTime;
+            float t      = elapsed / totalDuration;
+
+            // Glitch toutes les 0.07s
+            if (glitchTimer >= 0.07f)
+            {
+                glitchTimer = 0f;
+                GlitchTMPVertices(tmp);
+            }
+            else
+            {
+                tmp.ForceMeshUpdate(); // reset vertices entre les glitchs
+            }
+
+            // Scale sin — pic au milieu, retour à 1 à la fin
+            float scale = 1f + 0.18f * Mathf.Sin(t * Mathf.PI);
+            go.transform.localScale = Vector3.one * scale;
+
+            // Fondu sur les 30% finaux
+            float alpha = t > 0.7f ? Mathf.Lerp(1f, 0f, (t - 0.7f) / 0.3f) : 1f;
+            tmp.color = new Color(PerfectColor.r, PerfectColor.g, PerfectColor.b, alpha);
+
+            yield return null;
+        }
+
+        Destroy(go);
+    }
+
+    private void GlitchTMPVertices(TextMeshProUGUI tmp)
+    {
+        tmp.ForceMeshUpdate();
+        TMP_TextInfo info = tmp.textInfo;
+
+        for (int i = 0; i < info.characterCount; i++)
+        {
+            TMP_CharacterInfo ci = info.characterInfo[i];
+            if (!ci.isVisible || Random.value > 0.55f) continue;
+
+            int matIdx  = ci.materialReferenceIndex;
+            int vertIdx = ci.vertexIndex;
+            Vector3[] verts = info.meshInfo[matIdx].vertices;
+            Vector3   off   = new Vector3(
+                Random.Range(-10f, 10f),
+                Random.Range(-6f,  6f),
+                0f
+            );
+            for (int v = 0; v < 4; v++)
+                verts[vertIdx + v] += off;
+        }
+
+        tmp.UpdateVertexData(TMP_VertexDataUpdateFlags.Vertices);
+    }
+
+    private IEnumerator PulseRing(Transform parent, Vector2 origin,
+                                   Vector2 anchorMin, Vector2 anchorMax,
+                                   float delay)
+    {
+        if (delay > 0f) yield return new WaitForSeconds(delay);
+
+        var go = new GameObject("PulseRing");
+        go.transform.SetParent(parent, false);
+
+        var rt = go.AddComponent<RectTransform>();
+        rt.anchorMin        = anchorMin;
+        rt.anchorMax        = anchorMax;
+        rt.pivot            = new Vector2(0.5f, 0.5f);
+        rt.sizeDelta        = new Vector2(80f, 80f);
+        rt.anchoredPosition = origin;
+
+        var img = go.AddComponent<Image>();
+        img.color         = new Color(PerfectColor.r, PerfectColor.g, PerfectColor.b, 0.65f);
+        img.raycastTarget = false;
+
+        float duration = 0.55f;
+        float elapsed  = 0f;
+
+        while (elapsed < duration)
+        {
+            elapsed += Time.deltaTime;
+            float t  = elapsed / duration;
+
+            go.transform.localScale = Vector3.one * Mathf.Lerp(0.4f, 5f, t);
+            img.color = new Color(PerfectColor.r, PerfectColor.g, PerfectColor.b,
+                                  Mathf.Lerp(0.65f, 0f, t));
+
+            yield return null;
+        }
+
+        Destroy(go);
+    }
+
 
     private void UpdateScoreUI(int score)
     {

@@ -21,12 +21,15 @@ public class GameManager : MonoBehaviour
     public UnityEvent<int> OnScoreChanged;
     public UnityEvent<int> OnLivesChanged;
     public UnityEvent<int> OnHighScoreChanged;
-    public UnityEvent OnGameOver;
+    public UnityEvent      OnGameOver;
+    public UnityEvent<int> OnDifficultyIncreased;
 
-    public int CurrentScore => currentScore;
-    public int CurrentLives => currentLives;
-    public int HighScore => highScore;
+    public int CurrentScore  => currentScore;
+    public int CurrentLives  => currentLives;
+    public int HighScore     => highScore;
     public bool IsGameActive => isGameActive;
+
+    private int difficultyLevel = 0;
 
     private void Awake()
     {
@@ -50,10 +53,11 @@ public class GameManager : MonoBehaviour
     public void StartGame()
     {
         ClearAllCollectibles();
-        
-        currentScore = 0;
-        currentLives = startingLives;
-        isGameActive = true;
+
+        currentScore   = 0;
+        currentLives   = startingLives;
+        difficultyLevel = 0;
+        isGameActive   = true;
         OnScoreChanged?.Invoke(currentScore);
         OnLivesChanged?.Invoke(currentLives);
         OnHighScoreChanged?.Invoke(highScore);
@@ -103,11 +107,10 @@ public class GameManager : MonoBehaviour
 
     private void IncreaseDifficulty()
     {
-        Spawner spawner = FindObjectOfType<Spawner>();
-        if (spawner != null)
-        {
-            spawner.IncreaseSpeed();
-        }
+        difficultyLevel++;
+        Spawner spawner = FindFirstObjectByType<Spawner>();
+        if (spawner != null) spawner.IncreaseSpeed();
+        OnDifficultyIncreased?.Invoke(difficultyLevel);
     }
 
     private void EndGame()
@@ -123,13 +126,14 @@ public class GameManager : MonoBehaviour
 
     public float GetCurrentSpawnInterval()
     {
-        float decrease = (currentScore / scoreForSpeedIncrease) * 0.1f;
-        return Mathf.Max(minSpawnInterval, 1.5f - decrease);
+        // Diminue plus lentement (0.06 par niveau) et s'arrête à 0.6s minimum
+        float decrease = difficultyLevel * 0.06f;
+        return Mathf.Max(0.6f, 1.5f - decrease);
     }
 
     public float GetCurrentStepDuration()
     {
-        float decrease = (currentScore / scoreForSpeedIncrease) * 0.02f;
-        return Mathf.Max(minStepDuration, 0.3f - decrease);
+        float decrease = difficultyLevel * 0.02f;
+        return Mathf.Max(minStepDuration, 0.4f - decrease);
     }
 }

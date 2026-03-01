@@ -750,6 +750,7 @@ GameObject:
   - component: {fileID: 519420031}
   - component: {fileID: 519420029}
   - component: {fileID: 519420030}
+  - component: {fileID: 519420033}
   m_Layer: 0
   m_Name: Main Camera
   m_TagString: MainCamera
@@ -875,6 +876,23 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &519420033
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 519420028}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e19287caf1c0dfa459bc7f4cb05657fa, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  burstCount: 5
+  burstStepDuration: 0.04
+  maxOverlayAlpha: 0.07
+  cameraJitterAmount: 0.04
+  glitchTint: {r: 0.85, g: 1, b: 1, a: 1}
 --- !u!1 &535431368
 GameObject:
   m_ObjectHideFlags: 0
@@ -999,6 +1017,8 @@ MonoBehaviour:
   livesText: {fileID: 435684686}
   gameOverPanel: {fileID: 838320236}
   finalScoreText: {fileID: 231092804}
+  perfectFont: {fileID: 11400000, guid: fa42bccc98f5c1e4ca813a28bf662889, type: 2}
+  speedUpFont: {fileID: 11400000, guid: fa42bccc98f5c1e4ca813a28bf662889, type: 2}
   popupRiseDuration: 0.8
   popupRiseDistance: 60
 --- !u!1 &619394800
@@ -1252,7 +1272,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c7ef5471c8a394845b3e29cc01d22d31, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  musicClip: {fileID: 0}
+  musicClip: {fileID: 8300000, guid: 491135042c5401f40a01a5829d5c7739, type: 3}
   targetVolume: 0.7
   fadeInDuration: 3
 --- !u!82 &729449447
@@ -1820,6 +1840,9 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls: []
   OnGameOver:
+    m_PersistentCalls:
+      m_Calls: []
+  OnDifficultyIncreased:
     m_PersistentCalls:
       m_Calls: []
 --- !u!1 &1739424367

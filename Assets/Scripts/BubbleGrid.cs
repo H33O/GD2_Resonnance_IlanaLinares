@@ -16,6 +16,9 @@ public class BubbleGrid : MonoBehaviour
     [SerializeField] private int startRows = 5;
     [SerializeField] private int minMatch = 3;
 
+    [Header("Position")]
+    [SerializeField] private float topOffset = 1.5f;  // marge depuis le haut de la caméra
+
     [Header("Couleurs actives")]
     [SerializeField] private int colorCount = 4;
 
@@ -36,7 +39,7 @@ public class BubbleGrid : MonoBehaviour
     private void Start()
     {
         Camera cam = Camera.main;
-        topY = cam.orthographicSize - 0.5f;
+        topY   = cam.orthographicSize - topOffset;
         startX = -(cols - 1) * diameter * 0.5f;
         SpawnInitial();
     }

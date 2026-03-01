@@ -82,6 +82,8 @@ public class FastEnemy : MonoBehaviour
             GameManager.Instance.AddScore(scoreValue);
 
         UIManager.Instance?.ShowScoreGain(scoreValue);
+        UIManager.Instance?.ShowPerfectEffect();
+        ScreenGlitch.Instance?.Trigger();
 
         Destroy(gameObject);
     }

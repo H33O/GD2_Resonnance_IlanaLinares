@@ -171,17 +171,28 @@ public class BubbleGameManager : MonoBehaviour
 
     private TextMeshProUGUI MakeShotsPanel(Transform parent)
     {
-        // Fond semi-transparent compact, ancré en bas centré
-        var bg = new GameObject("ShotsPanel");
-        bg.transform.SetParent(parent, false);
-        var bgRT = bg.AddComponent<RectTransform>();
-        bgRT.anchorMin      = bgRT.anchorMax = new Vector2(0.5f, 0f);
-        bgRT.sizeDelta      = new Vector2(160f, 80f);
-        bgRT.anchoredPosition = new Vector2(0f, 100f);
-        var bgImg = bg.AddComponent<Image>();
-        bgImg.color = new Color(0f, 0f, 0f, 0.55f);
+        // ── Cadre (border) ────────────────────────────────────────────────────
+        var border = new GameObject("ShotsBorder");
+        border.transform.SetParent(parent, false);
+        var borderRT = border.AddComponent<RectTransform>();
+        borderRT.anchorMin        = borderRT.anchorMax = new Vector2(0.5f, 0f);
+        borderRT.sizeDelta        = new Vector2(196f, 116f);
+        borderRT.anchoredPosition = new Vector2(0f, 180f);
+        var borderImg = border.AddComponent<Image>();
+        borderImg.color = new Color(1f, 0.85f, 0.2f, 0.9f);   // doré
 
-        // Chiffre seul, centré dans le panel
+        // ── Fond sombre ───────────────────────────────────────────────────────
+        var bg = new GameObject("ShotsPanel");
+        bg.transform.SetParent(border.transform, false);
+        var bgRT = bg.AddComponent<RectTransform>();
+        bgRT.anchorMin = Vector2.zero;
+        bgRT.anchorMax = Vector2.one;
+        bgRT.offsetMin = new Vector2( 4f,  4f);
+        bgRT.offsetMax = new Vector2(-4f, -4f);
+        var bgImg = bg.AddComponent<Image>();
+        bgImg.color = new Color(0f, 0f, 0f, 0.85f);
+
+        // ── Chiffre centré ────────────────────────────────────────────────────
         var count = new GameObject("Count");
         count.transform.SetParent(bg.transform, false);
         var countRT = count.AddComponent<RectTransform>();
@@ -190,9 +201,9 @@ public class BubbleGameManager : MonoBehaviour
         countRT.offsetMin = countRT.offsetMax = Vector2.zero;
         var countTMP = count.AddComponent<TextMeshProUGUI>();
         countTMP.text      = $"{maxShots}";
-        countTMP.fontSize  = 52;
+        countTMP.fontSize  = 68;
         countTMP.fontStyle = FontStyles.Bold;
-        countTMP.color     = Color.white;
+        countTMP.color     = new Color(1f, 0.85f, 0.2f, 1f);
         countTMP.alignment = TextAlignmentOptions.Center;
 
         return countTMP;
