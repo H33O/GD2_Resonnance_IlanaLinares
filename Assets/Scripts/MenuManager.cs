@@ -11,13 +11,16 @@ public class MenuManager : MonoBehaviour
 {
     private const string SceneRetour = "GameAndWatch";
     private const string SceneEcho   = "Minijeu-Bulles";
+    private const string TitleRetour = "RETOUR";
+    private const string TitleEcho   = "ÉCHO";
 
     private void Start()
     {
         EnsureEventSystem();
+        EnsureSceneTransition();
 
-        WireButton("RetourButton", () => SceneManager.LoadScene(SceneRetour));
-        WireButton("EchoButton",   () => SceneManager.LoadScene(SceneEcho));
+        WireButton("RetourButton", () => SceneTransition.Instance.LoadScene(SceneRetour, TitleRetour));
+        WireButton("EchoButton",   () => SceneTransition.Instance.LoadScene(SceneEcho,   TitleEcho));
         WireButton("QuitButton",   OnQuit);
     }
 
@@ -60,6 +63,13 @@ public class MenuManager : MonoBehaviour
         var es = new GameObject("EventSystem");
         es.AddComponent<EventSystem>();
         es.AddComponent<StandaloneInputModule>();
+    }
+
+    /// <summary>Crée le SceneTransition singleton s'il n'existe pas encore.</summary>
+    private void EnsureSceneTransition()
+    {
+        if (SceneTransition.Instance != null) return;
+        new GameObject("SceneTransition").AddComponent<SceneTransition>();
     }
 }
 

@@ -4,12 +4,15 @@ public class FastEnemy : MonoBehaviour
 {
     [Header("Grid Movement Settings")]
     [SerializeField] private float gridSize = 0.5f;
-    [SerializeField] private float stepDuration = 0.15f;
+    [SerializeField] private float stepDuration = 0.4f;
     [SerializeField] private float destroyY = -6f;
     [SerializeField] private float groundY = -4.5f;
 
     [Header("Score Value")]
     [SerializeField] private int scoreValue = 10;
+
+    [Header("Visuel")]
+    [SerializeField] private Sprite enemySprite;
 
     private float columnX;
     private bool columnSet = false;
@@ -17,6 +20,16 @@ public class FastEnemy : MonoBehaviour
     private float nextStepTime;
     private float currentGridY;
 
+    private void Awake()
+    {
+        if (enemySprite != null)
+        {
+            SpriteRenderer sr = GetComponent<SpriteRenderer>();
+            if (sr != null) sr.sprite = enemySprite;
+        }
+    }
+
+    /// <summary>Positionne l'ennemi sur la colonne donnée.</summary>
     public void SetColumn(float xPosition)
     {
         columnX = xPosition;
@@ -66,9 +79,9 @@ public class FastEnemy : MonoBehaviour
         wasCollected = true;
 
         if (GameManager.Instance != null)
-        {
             GameManager.Instance.AddScore(scoreValue);
-        }
+
+        UIManager.Instance?.ShowScoreGain(scoreValue);
 
         Destroy(gameObject);
     }

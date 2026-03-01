@@ -175,6 +175,7 @@ GameObject:
   - component: {fileID: 273993466}
   - component: {fileID: 273993465}
   - component: {fileID: 273993464}
+  - component: {fileID: 273993467}
   m_Layer: 0
   m_Name: EchoButton
   m_TagString: Untagged
@@ -285,6 +286,32 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 273993462}
   m_CullTransparentMesh: 1
+--- !u!114 &273993467
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 273993462}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: cf2aec756a035d146926f6cc1a1df25e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  jitterAmplitude: 1.2
+  jitterChance: 0.04
+  glitchIntervalMin: 2.5
+  glitchIntervalMax: 6
+  glitchBurstDuration: 0.12
+  glitchBurstCount: 4
+  glitchShiftX: 12
+  glitchShiftY: 3
+  charGlitchChance: 0.4
+  charOffsetX: 7
+  charOffsetY: 4
+  pressScaleDown: 0.92
+  pressScaleDuration: 0.08
+  releaseScaleDuration: 0.12
 --- !u!1 &448192446
 GameObject:
   m_ObjectHideFlags: 0
@@ -584,13 +611,13 @@ RectTransform:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 784053205}
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalRotation: {x: -0, y: -0, z: 0.706037, w: 0.708175}
   m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_LocalScale: {x: 1.7890086, y: 0.57521, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 872108189}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 89.827}
   m_AnchorMin: {x: 0, y: 0}
   m_AnchorMax: {x: 1, y: 1}
   m_AnchoredPosition: {x: 0, y: 0}
@@ -646,6 +673,7 @@ GameObject:
   - component: {fileID: 836174360}
   - component: {fileID: 836174359}
   - component: {fileID: 836174358}
+  - component: {fileID: 836174361}
   m_Layer: 0
   m_Name: QuitButton
   m_TagString: Untagged
@@ -756,6 +784,32 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 836174356}
   m_CullTransparentMesh: 1
+--- !u!114 &836174361
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 836174356}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: cf2aec756a035d146926f6cc1a1df25e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  jitterAmplitude: 1.2
+  jitterChance: 0.04
+  glitchIntervalMin: 2.5
+  glitchIntervalMax: 6
+  glitchBurstDuration: 0.12
+  glitchBurstCount: 4
+  glitchShiftX: 12
+  glitchShiftY: 3
+  charGlitchChance: 0.4
+  charOffsetX: 7
+  charOffsetY: 4
+  pressScaleDown: 0.92
+  pressScaleDuration: 0.08
+  releaseScaleDuration: 0.12
 --- !u!1 &872108185
 GameObject:
   m_ObjectHideFlags: 0
@@ -856,7 +910,7 @@ RectTransform:
   - {fileID: 273993463}
   - {fileID: 836174357}
   m_Father: {fileID: 0}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: -1.53}
   m_AnchorMin: {x: 0, y: 0}
   m_AnchorMax: {x: 0, y: 0}
   m_AnchoredPosition: {x: 0, y: 0}
@@ -949,6 +1003,7 @@ GameObject:
   - component: {fileID: 1412833045}
   - component: {fileID: 1412833044}
   - component: {fileID: 1412833043}
+  - component: {fileID: 1412833046}
   m_Layer: 0
   m_Name: RetourButton
   m_TagString: Untagged
@@ -1059,6 +1114,32 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1412833041}
   m_CullTransparentMesh: 1
+--- !u!114 &1412833046
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1412833041}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: cf2aec756a035d146926f6cc1a1df25e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  jitterAmplitude: 1.2
+  jitterChance: 0.04
+  glitchIntervalMin: 2.5
+  glitchIntervalMax: 6
+  glitchBurstDuration: 0.12
+  glitchBurstCount: 4
+  glitchShiftX: 12
+  glitchShiftY: 3
+  charGlitchChance: 0.4
+  charOffsetX: 7
+  charOffsetY: 4
+  pressScaleDown: 0.92
+  pressScaleDuration: 0.08
+  releaseScaleDuration: 0.12
 --- !u!1 &1420691899
 GameObject:
   m_ObjectHideFlags: 0
@@ -1494,6 +1575,7 @@ GameObject:
   - component: {fileID: 2144564124}
   - component: {fileID: 2144564126}
   - component: {fileID: 2144564125}
+  - component: {fileID: 2144564127}
   m_Layer: 0
   m_Name: Title
   m_TagString: Untagged
@@ -1544,7 +1626,8 @@ MonoBehaviour:
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: fa42bccc98f5c1e4ca813a28bf662889, type: 2}
   m_sharedMaterial: {fileID: 6273095480746869009, guid: fa42bccc98f5c1e4ca813a28bf662889, type: 2}
-  m_fontSharedMaterials: []
+  m_fontSharedMaterials:
+  - {fileID: 6273095480746869009, guid: fa42bccc98f5c1e4ca813a28bf662889, type: 2}
   m_fontMaterial: {fileID: 0}
   m_fontMaterials: []
   m_fontColor32:
@@ -1620,6 +1703,30 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 2144564123}
   m_CullTransparentMesh: 1
+--- !u!114 &2144564127
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2144564123}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5258dc57f65640e458b635c914d593bc, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  jitterAmplitude: 2.5
+  jitterChance: 0.06
+  glitchIntervalMin: 1.8
+  glitchIntervalMax: 4.5
+  glitchBurstDuration: 0.14
+  glitchBurstCount: 5
+  glitchShiftX: 20
+  glitchShiftY: 4
+  glitchTint: {r: 0.65, g: 0.95, b: 1, a: 1}
+  charGlitchChance: 0.45
+  charOffsetX: 10
+  charOffsetY: 5
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0
