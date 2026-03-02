@@ -24,10 +24,11 @@ public class GameManager : MonoBehaviour
     public UnityEvent      OnGameOver;
     public UnityEvent<int> OnDifficultyIncreased;
 
-    public int CurrentScore  => currentScore;
-    public int CurrentLives  => currentLives;
-    public int HighScore     => highScore;
-    public bool IsGameActive => isGameActive;
+    public int CurrentScore    => currentScore;
+    public int CurrentLives    => currentLives;
+    public int HighScore       => highScore;
+    public bool IsGameActive   => isGameActive;
+    public int DifficultyLevel => difficultyLevel;
 
     private int difficultyLevel = 0;
 
@@ -128,14 +129,13 @@ public class GameManager : MonoBehaviour
     {
         if (difficultyLevel < 5)
         {
-            // Gentle ramp-up before x5: −0.06s per level
+            // Gentle ramp-up before x5: −0.06s per level (1.5s → 1.26s)
             return Mathf.Max(0.6f, 1.5f - difficultyLevel * 0.06f);
         }
         else
         {
-            // Steep ramp-up from x5: −0.15s per level, hard floor at 0.28s
-            float baseAtFive = 1.5f - 5 * 0.06f; // 1.2s
-            return Mathf.Max(0.28f, baseAtFive - (difficultyLevel - 5) * 0.15f);
+            // Brutal jump at x5 to 0.80s, then −0.18s per level, floor 0.20s
+            return Mathf.Max(0.20f, 0.80f - (difficultyLevel - 5) * 0.18f);
         }
     }
 
@@ -143,22 +143,32 @@ public class GameManager : MonoBehaviour
     {
         if (difficultyLevel < 5)
         {
-            // Gentle ramp-up before x5: −0.02s per level
+            // Gentle ramp-up before x5: −0.02s per level (0.4s → 0.32s)
             return Mathf.Max(minStepDuration, 0.4f - difficultyLevel * 0.02f);
         }
         else
         {
-            // Steep ramp-up from x5: −0.04s per level, hard floor at 0.06s
-            float baseAtFive = 0.4f - 5 * 0.02f; // 0.3s
-            return Mathf.Max(0.06f, baseAtFive - (difficultyLevel - 5) * 0.04f);
+            // Brutal jump at x5 to 0.18s, then −0.04s per level, floor 0.04s
+            return Mathf.Max(0.04f, 0.18f - (difficultyLevel - 5) * 0.04f);
         }
     }
 
     /// <summary>Returns the fast enemy spawn probability for the current difficulty level.</summary>
     public float GetFastEnemyChance()
     {
-        if (difficultyLevel < 5) return 0.30f;
-        // +7% per level from x5, capped at 65%
-        return Mathf.Min(0.65f, 0.30f + (difficultyLevel - 5) * 0.07f);
+        if (difficultyLevel < 5) return 0.25f;
+        // Jump to 55% at x5, +12% per level, capped at 90%
+        return Mathf.Min(0.90f, 0.55f + (difficultyLevel - 5) * 0.12f);
+    }
+
+    /// <summary>Returns how many objects to spawn simultaneously at the current difficulty.</summary>
+    public int GetMultiSpawnCount()
+    {
+        if (difficultyLevel < 6) return 1;
+
+        float roll = Random.value;
+        if (difficultyLevel >= 8) return roll < 0.10f ? 3 : roll < 0.60f ? 2 : 1;
+        if (difficultyLevel >= 7) return roll < 0.40f ? 2 : 1;
+        return roll < 0.20f ? 2 : 1; // level 6
     }
 }

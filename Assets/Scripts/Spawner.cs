@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 public class Spawner : MonoBehaviour
@@ -52,7 +53,30 @@ public class Spawner : MonoBehaviour
 
     private void SpawnObject()
     {
-        GameObject prefabToSpawn = Random.value < fastEnemySpawnChance ? fastEnemyPrefab : collectiblePrefab;
+        int spawnCount = GameManager.Instance != null
+            ? GameManager.Instance.GetMultiSpawnCount()
+            : 1;
+
+        // Pick unique columns to avoid stacking two objects in the same lane
+        List<int> availableColumns = new List<int>();
+        for (int i = 0; i < numberOfColumns; i++) availableColumns.Add(i);
+
+        for (int i = 0; i < spawnCount && availableColumns.Count > 0; i++)
+        {
+            int pick = Random.Range(0, availableColumns.Count);
+            int col  = availableColumns[pick];
+            availableColumns.RemoveAt(pick);
+            SpawnSingleObject(columnPositions[col]);
+        }
+    }
+
+    private void SpawnSingleObject(float xPos)
+    {
+        float fastChance = GameManager.Instance != null
+            ? GameManager.Instance.GetFastEnemyChance()
+            : fastEnemySpawnChance;
+
+        GameObject prefabToSpawn = Random.value < fastChance ? fastEnemyPrefab : collectiblePrefab;
 
         if (prefabToSpawn == null)
         {
@@ -60,22 +84,20 @@ public class Spawner : MonoBehaviour
             return;
         }
 
-        int randomColumn = Random.Range(0, numberOfColumns);
-        Vector3 spawnPosition = new Vector3(columnPositions[randomColumn], spawnY, 0f);
-
+        Vector3 spawnPosition = new Vector3(xPos, spawnY, 0f);
         GameObject spawnedObject = Instantiate(prefabToSpawn, spawnPosition, Quaternion.identity);
 
         Collectible collectibleScript = spawnedObject.GetComponent<Collectible>();
         if (collectibleScript != null)
         {
-            collectibleScript.SetColumn(columnPositions[randomColumn]);
+            collectibleScript.SetColumn(xPos);
             collectibleScript.SetStepDuration(currentStepDuration);
         }
 
         FastEnemy fastEnemyScript = spawnedObject.GetComponent<FastEnemy>();
         if (fastEnemyScript != null)
         {
-            fastEnemyScript.SetColumn(columnPositions[randomColumn]);
+            fastEnemyScript.SetColumn(xPos);
             fastEnemyScript.SetStepDuration(currentStepDuration);
         }
     }
