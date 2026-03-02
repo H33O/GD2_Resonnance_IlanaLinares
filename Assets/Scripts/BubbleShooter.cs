@@ -9,6 +9,8 @@ public class BubbleShooter : MonoBehaviour
 {
     private BubbleColor current, next;
     private SpriteRenderer currentSR, nextSR;
+    private Transform currentBubbleTransform;
+    private Vector3 baseCurrentScale;
     private LineRenderer aimLine;
     private Camera cam;
 
@@ -33,21 +35,27 @@ public class BubbleShooter : MonoBehaviour
         aimLine = gameObject.AddComponent<LineRenderer>();
         aimLine.positionCount = 2;
         aimLine.startWidth = 0.06f;
-        aimLine.endWidth = 0.02f;
-        aimLine.startColor = new Color(1f, 1f, 1f, 0.7f);
+        aimLine.endWidth   = 0.02f;
+        aimLine.startColor = new Color(1f, 1f, 1f, 0.8f);
         aimLine.endColor   = new Color(1f, 1f, 1f, 0f);
         aimLine.useWorldSpace = true;
-        aimLine.sortingOrder = 5;
+        aimLine.sortingOrder  = 5;
+
+        // Force un matériau blanc — le matériau URP par défaut rend violet en 2D
+        var mat = new Material(Shader.Find("Sprites/Default"));
+        mat.color = Color.white;
+        aimLine.material = mat;
     }
 
     private void CreateBubbleIndicators()
     {
         float d = BubbleGrid.Instance.Diameter;
 
-        // Indicateurs plus petits (0.75 et 0.5 au lieu de 0.9 et 0.6)
         var curGO = MakeCircle("Current", transform.position, d * 0.75f, 3);
         curGO.transform.SetParent(transform);
-        currentSR = curGO.GetComponent<SpriteRenderer>();
+        currentSR              = curGO.GetComponent<SpriteRenderer>();
+        currentBubbleTransform = curGO.transform;
+        baseCurrentScale       = curGO.transform.localScale;
 
         var nxtGO = MakeCircle("Next", transform.position + new Vector3(-1.2f, 0f, 0f), d * 0.5f, 3);
         nxtGO.transform.SetParent(transform);
@@ -70,13 +78,35 @@ public class BubbleShooter : MonoBehaviour
 
     private void DrawNextBubbles()
     {
-        currentSR.color = current.ToUnityColor();
-        nextSR.color    = next.ToUnityColor();
+        ApplyColorToIndicator(currentSR, current);
+        ApplyColorToIndicator(nextSR, next);
+    }
+
+    private void ApplyColorToIndicator(SpriteRenderer sr, BubbleColor color)
+    {
+        Sprite colorSprite = BubbleGrid.Instance?.GetSprite(color);
+        if (colorSprite != null)
+        {
+            sr.sprite = colorSprite;
+            sr.color = Color.white;
+        }
+        else
+        {
+            sr.sprite = SpriteGenerator.Circle();
+            sr.color = color.ToUnityColor();
+        }
     }
 
     private void Update()
     {
         if (BubbleGameManager.Instance != null && !BubbleGameManager.Instance.IsGameActive) return;
+
+        // Pulse léger sur la bulle courante
+        if (currentBubbleTransform != null)
+        {
+            float pulse = 1f + 0.07f * Mathf.Sin(Time.time * 3.2f);
+            currentBubbleTransform.localScale = baseCurrentScale * pulse;
+        }
 
         bool shoot = false;
 

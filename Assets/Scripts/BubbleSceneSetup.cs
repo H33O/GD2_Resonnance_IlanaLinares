@@ -13,7 +13,7 @@ public class BubbleSceneSetup : MonoBehaviour
 
     private void Start()
     {
-        BuildBackground();
+        // Background disabled — camera uses solid black.
     }
 
     /// <summary>

@@ -20,8 +20,16 @@ public class BubbleProjectile : MonoBehaviour
         dir = direction.normalized;
 
         var sr = GetComponent<SpriteRenderer>();
-        sr.color = c.ToUnityColor();
-        sr.sprite = SpriteGenerator.Circle();
+        Sprite colorSprite = BubbleGrid.Instance?.GetSprite(c);
+        if (colorSprite != null)
+        {
+            sr.sprite = colorSprite;
+        }
+        else
+        {
+            sr.sprite = SpriteGenerator.Circle();
+            sr.color = c.ToUnityColor();
+        }
         sr.sortingOrder = 4;
 
         transform.localScale = Vector3.one * bubbleDiameter;
@@ -40,12 +48,32 @@ public class BubbleProjectile : MonoBehaviour
         if (transform.position.x < -halfW) { dir.x = Mathf.Abs(dir.x); }
         if (transform.position.x > halfW)  { dir.x = -Mathf.Abs(dir.x); }
 
-        // Plafond
+        // Goal : victoire quand le projectile atteint la barre du haut
+        if (BubbleGoal.Instance != null && BubbleGoal.Instance.Contains(transform.position))
+        {
+            BubbleGameManager.Instance?.TriggerVictory();
+            Destroy(gameObject);
+            return;
+        }
+
+        // Plafond (fallback si le goal n'est pas initialisé)
         if (transform.position.y >= topY) { Land(); return; }
 
         // Collision avec une bulle de la grille
         Collider2D hit = Physics2D.OverlapCircle(transform.position, detectionRadius);
-        if (hit != null && hit.TryGetComponent<Bubble>(out _)) { Land(); }
+        if (hit != null)
+        {
+            // Bonus bubble : direct hit → coups bonus (sans condition de couleur)
+            if (hit.TryGetComponent<BonusBubble>(out var bonus))
+            {
+                BubbleGameManager.Instance?.AwardBonusShots(bonus.BonusAmount);
+                BubbleGrid.Instance?.RemoveBonusBubble(hit.GetComponent<Bubble>());
+                Destroy(gameObject);
+                return;
+            }
+            // Bulle normale
+            if (hit.TryGetComponent<Bubble>(out _)) { Land(); }
+        }
     }
 
     private void Land()
