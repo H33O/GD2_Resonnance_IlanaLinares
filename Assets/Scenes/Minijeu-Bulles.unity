@@ -336,6 +336,7 @@ MonoBehaviour:
   - {fileID: -6292546400551498635, guid: 4bf020b4d06cb5744a03fcf228e3d599, type: 3}
   - {fileID: 9013466344291217193, guid: 5db110332ea90164b9ebb3c9bc740cf0, type: 3}
   - {fileID: -4824209864999181613, guid: 6b25f2523987b5a43bbdb50409004068, type: 3}
+  bonusBubbleChance: 0.08
 --- !u!1 &1502494748
 GameObject:
   m_ObjectHideFlags: 0

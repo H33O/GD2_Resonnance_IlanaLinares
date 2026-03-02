@@ -1,9 +1,10 @@
 using UnityEngine;
-using UnityEngine.InputSystem;
 
 /// <summary>
-/// Canon en bas de l'écran. Vise avec la souris ou le toucher, tire au tap ou clic.
-/// Affiche la ligne de visée et la prochaine bulle.
+/// Canon en bas de l'écran.
+/// Mobile : doigt posé = vise, doigt levé = tire UNE bulle.
+/// Éditeur  : souris maintenue = vise, clic relâché = tire.
+/// Une seule bulle en vol à la fois.
 /// </summary>
 public class BubbleShooter : MonoBehaviour
 {
@@ -15,6 +16,8 @@ public class BubbleShooter : MonoBehaviour
     private Camera cam;
 
     private Vector2 lastInputPosition;
+    private BubbleProjectile activeProjectile; // null = prêt à tirer
+
     private static readonly float MinAngleDeg = 8f;
 
     private void Start()
@@ -22,7 +25,6 @@ public class BubbleShooter : MonoBehaviour
         cam = Camera.main;
         lastInputPosition = new Vector2(Screen.width * 0.5f, Screen.height * 0.5f);
 
-        // Remonté de 1.5 → 2.5 pour laisser de la place à l'UI du bas
         transform.position = new Vector3(0f, -cam.orthographicSize + 2.5f, 0f);
 
         SetupAimLine();
@@ -33,15 +35,15 @@ public class BubbleShooter : MonoBehaviour
     private void SetupAimLine()
     {
         aimLine = gameObject.AddComponent<LineRenderer>();
-        aimLine.positionCount = 2;
-        aimLine.startWidth = 0.06f;
-        aimLine.endWidth   = 0.02f;
-        aimLine.startColor = new Color(1f, 1f, 1f, 0.8f);
-        aimLine.endColor   = new Color(1f, 1f, 1f, 0f);
-        aimLine.useWorldSpace = true;
-        aimLine.sortingOrder  = 5;
+        aimLine.positionCount  = 2;
+        aimLine.startWidth     = 0.06f;
+        aimLine.endWidth       = 0.02f;
+        aimLine.startColor     = new Color(1f, 1f, 1f, 0.8f);
+        aimLine.endColor       = new Color(1f, 1f, 1f, 0f);
+        aimLine.useWorldSpace  = true;
+        aimLine.sortingOrder   = 5;
+        aimLine.enabled        = false;
 
-        // Force un matériau blanc — le matériau URP par défaut rend violet en 2D
         var mat = new Material(Shader.Find("Sprites/Default"));
         mat.color = Color.white;
         aimLine.material = mat;
@@ -68,10 +70,10 @@ public class BubbleShooter : MonoBehaviour
     private GameObject MakeCircle(string name, Vector3 pos, float scale, int order)
     {
         var go = new GameObject(name);
-        go.transform.position = pos;
+        go.transform.position   = pos;
         go.transform.localScale = Vector3.one * scale;
         var sr = go.AddComponent<SpriteRenderer>();
-        sr.sprite = SpriteGenerator.Circle();
+        sr.sprite       = SpriteGenerator.Circle();
         sr.sortingOrder = order;
         return go;
     }
@@ -85,68 +87,69 @@ public class BubbleShooter : MonoBehaviour
     private void ApplyColorToIndicator(SpriteRenderer sr, BubbleColor color)
     {
         Sprite colorSprite = BubbleGrid.Instance?.GetSprite(color);
-        if (colorSprite != null)
-        {
-            sr.sprite = colorSprite;
-            sr.color = Color.white;
-        }
-        else
-        {
-            sr.sprite = SpriteGenerator.Circle();
-            sr.color = color.ToUnityColor();
-        }
+        if (colorSprite != null) { sr.sprite = colorSprite; sr.color = Color.white; }
+        else                     { sr.sprite = SpriteGenerator.Circle(); sr.color = color.ToUnityColor(); }
     }
 
     private void Update()
     {
         if (BubbleGameManager.Instance != null && !BubbleGameManager.Instance.IsGameActive) return;
 
-        // Pulse léger sur la bulle courante
+        // Pulse bulle courante
         if (currentBubbleTransform != null)
         {
             float pulse = 1f + 0.07f * Mathf.Sin(Time.time * 3.2f);
             currentBubbleTransform.localScale = baseCurrentScale * pulse;
         }
 
-        bool shoot = false;
+        bool fingerDown = false;
+        bool shoot      = false;
 
-        var touchscreen = Touchscreen.current;
-        if (touchscreen != null)
+        if (Input.touchCount > 0)
         {
-            // Le touch remplace directement le curseur souris :
-            // - doigt posé/glissé → lastInputPosition suit le doigt (= Input.mousePosition)
-            // - doigt levé        → tir (= GetMouseButtonDown de l'ancienne version)
-            var   primary = touchscreen.primaryTouch;
-            var   phase   = primary.phase.ReadValue();
+            // ── Mobile : Input.GetTouch — universel et fiable ─────────────────
+            Touch t = Input.GetTouch(0);
 
-            if (phase != UnityEngine.InputSystem.TouchPhase.None &&
-                phase != UnityEngine.InputSystem.TouchPhase.Canceled)
+            if (t.phase == TouchPhase.Began     ||
+                t.phase == TouchPhase.Moved      ||
+                t.phase == TouchPhase.Stationary)
             {
-                lastInputPosition = primary.position.ReadValue();
+                lastInputPosition = t.position;
+                fingerDown        = true;
             }
 
-            if (phase == UnityEngine.InputSystem.TouchPhase.Ended)
+            // Tir uniquement au lever du doigt (Ended)
+            if (t.phase == TouchPhase.Ended)
                 shoot = true;
         }
         else
         {
-            // Souris / clavier — éditeur (comportement inchangé)
+            // ── Éditeur : souris ──────────────────────────────────────────────
             lastInputPosition = Input.mousePosition;
-            if (Input.GetMouseButtonDown(0) || Input.GetKeyDown(KeyCode.Space))
+            fingerDown        = Input.GetMouseButton(0);
+
+            // Cohérent avec le mobile : tir au relâcher
+            if (Input.GetMouseButtonUp(0))
                 shoot = true;
         }
 
-        UpdateAimLine();
-        if (shoot) Shoot();
+        // Ligne de visée : visible uniquement quand le doigt est posé
+        // et qu'aucun projectile n'est en vol
+        bool canAim = fingerDown && activeProjectile == null;
+        aimLine.enabled = canAim;
+        if (canAim) UpdateAimLine();
+
+        // Une bulle à la fois : on ne tire pas si un projectile est déjà en vol
+        if (shoot && activeProjectile == null)
+            Shoot();
     }
 
-    /// <summary>Calcule la direction de visée depuis la dernière position d'entrée.</summary>
     private Vector2 AimDir()
     {
         Vector3 world = cam.ScreenToWorldPoint(
             new Vector3(lastInputPosition.x, lastInputPosition.y, 10f));
         Vector2 dir = ((Vector2)world - (Vector2)transform.position).normalized;
-        float minY = Mathf.Sin(MinAngleDeg * Mathf.Deg2Rad);
+        float minY  = Mathf.Sin(MinAngleDeg * Mathf.Deg2Rad);
         if (dir.y < minY) dir = new Vector2(dir.x, minY).normalized;
         return dir;
     }
@@ -165,11 +168,17 @@ public class BubbleShooter : MonoBehaviour
         var go = new GameObject("Projectile");
         go.transform.position = transform.position;
         go.AddComponent<SpriteRenderer>();
+
         var proj = go.AddComponent<BubbleProjectile>();
         proj.Init(current, AimDir(), BubbleGrid.Instance.Diameter);
 
+        // Suivi du projectile actif → libéré par son callback OnLanded
+        activeProjectile = proj;
+        proj.OnLanded = () => activeProjectile = null;
+
         current = next;
-        next = BubbleColorExtensions.Random(BubbleGrid.Instance.ColorCount);
+        next    = BubbleColorExtensions.Random(BubbleGrid.Instance.ColorCount);
         DrawNextBubbles();
     }
 }
+

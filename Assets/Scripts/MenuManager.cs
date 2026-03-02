@@ -1,11 +1,10 @@
 using UnityEngine;
 using UnityEngine.EventSystems;
-using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 
 /// <summary>
 /// Gère uniquement la logique fonctionnelle du menu : câblage des boutons.
-/// Toute l'esthétique est définie directement dans la scène via le Canvas.
+/// La transition visuelle est entièrement gérée par SceneTransition.
 /// </summary>
 public class MenuManager : MonoBehaviour
 {
@@ -24,24 +23,13 @@ public class MenuManager : MonoBehaviour
         WireButton("QuitButton",   OnQuit);
     }
 
-    // ── Logique boutons ───────────────────────────────────────────────────────
-
-    /// <summary>Trouve un GameObject par nom et y attache une action au Button.</summary>
     private void WireButton(string objectName, UnityEngine.Events.UnityAction action)
     {
         GameObject go = GameObject.Find(objectName);
-        if (go == null)
-        {
-            Debug.LogWarning($"[MenuManager] Bouton '{objectName}' introuvable dans la scène.");
-            return;
-        }
+        if (go == null) { Debug.LogWarning($"[MenuManager] '{objectName}' introuvable."); return; }
 
         Button btn = go.GetComponent<Button>();
-        if (btn == null)
-        {
-            Debug.LogWarning($"[MenuManager] Composant Button manquant sur '{objectName}'.");
-            return;
-        }
+        if (btn == null) { Debug.LogWarning($"[MenuManager] Button manquant sur '{objectName}'."); return; }
 
         btn.onClick.AddListener(action);
     }
@@ -55,8 +43,6 @@ public class MenuManager : MonoBehaviour
 #endif
     }
 
-    // ── EventSystem ───────────────────────────────────────────────────────────
-
     private void EnsureEventSystem()
     {
         if (FindFirstObjectByType<EventSystem>() != null) return;
@@ -65,11 +51,11 @@ public class MenuManager : MonoBehaviour
         es.AddComponent<StandaloneInputModule>();
     }
 
-    /// <summary>Crée le SceneTransition singleton s'il n'existe pas encore.</summary>
     private void EnsureSceneTransition()
     {
         if (SceneTransition.Instance != null) return;
         new GameObject("SceneTransition").AddComponent<SceneTransition>();
     }
 }
+
 

@@ -275,13 +275,13 @@ public class BubbleGameManager : MonoBehaviour
         labelGO.transform.SetParent(canvasTransform, false);
         var labelRT = labelGO.AddComponent<RectTransform>();
         labelRT.anchorMin = labelRT.anchorMax = new Vector2(0.5f, 0f);
-        labelRT.sizeDelta        = new Vector2(200f, 80f);
+        labelRT.sizeDelta        = new Vector2(320f, 130f);
         labelRT.anchoredPosition = new Vector2(0f, 310f);
         var labelTMP        = labelGO.AddComponent<TextMeshProUGUI>();
         labelTMP.text       = $"+{amount}";
-        labelTMP.fontSize   = 58f;
+        labelTMP.fontSize   = 96f;
         labelTMP.fontStyle  = FontStyles.Bold;
-        labelTMP.color      = new Color(0.25f, 1f, 0.45f);
+        labelTMP.color      = new Color(1f, 0.5f, 0.05f);
         labelTMP.alignment  = TextAlignmentOptions.Center;
 
         // ── Swallow scale animation on the shots border ────────────────────────
@@ -328,7 +328,7 @@ public class BubbleGameManager : MonoBehaviour
         {
             fe += Time.deltaTime;
             float t = fe / fade;
-            labelTMP.color          = new Color(0.25f, 1f, 0.45f, 1f - t);
+            labelTMP.color          = new Color(1f, 0.5f, 0.05f, 1f - t);
             labelRT.anchoredPosition = startPos + Vector2.up * (80f * t);
             yield return null;
         }
@@ -439,14 +439,24 @@ public class BubbleGameManager : MonoBehaviour
             esGO.AddComponent<InputSystemUIInputModule>();
         }
 
-        // — Canvas : réutilise l'existant ou en crée un
-        Canvas existing = FindFirstObjectByType<Canvas>();
-        GameObject canvasGO;
+        // — Canvas : cherche uniquement dans la scène active (pas dans DontDestroyOnLoad)
+        // SceneTransition vit en DontDestroyOnLoad ; l'utiliser comme parent ferait
+        // disparaître le compteur de coups dès que l'overlay de transition se cache.
+        Canvas existing = null;
+        var activeScene = UnityEngine.SceneManagement.SceneManager.GetActiveScene();
+        foreach (var c in FindObjectsByType<Canvas>(FindObjectsSortMode.None))
+        {
+            if (c.gameObject.scene == activeScene)
+            {
+                existing = c;
+                break;
+            }
+        }
 
+        GameObject canvasGO;
         if (existing != null)
         {
             canvasGO = existing.gameObject;
-            // S'assure que le canvas existant peut recevoir les clics
             if (canvasGO.GetComponent<GraphicRaycaster>() == null)
                 canvasGO.AddComponent<GraphicRaycaster>();
         }
@@ -459,6 +469,7 @@ public class BubbleGameManager : MonoBehaviour
             var scaler = canvasGO.AddComponent<CanvasScaler>();
             scaler.uiScaleMode         = CanvasScaler.ScaleMode.ScaleWithScreenSize;
             scaler.referenceResolution = new Vector2(1080, 1920);
+            scaler.matchWidthOrHeight  = 0f;
             canvasGO.AddComponent<GraphicRaycaster>();
         }
 
