@@ -31,6 +31,10 @@ public class GameManager : MonoBehaviour
     public int DifficultyLevel => difficultyLevel;
 
     private int difficultyLevel = 0;
+    private float gridStepTimer = 0f;
+
+    /// <summary>Fires every global grid tick — all falling objects move in sync on this event.</summary>
+    public event System.Action OnGridStep;
 
     private void Awake()
     {
@@ -51,14 +55,28 @@ public class GameManager : MonoBehaviour
         StartGame();
     }
 
+    private void Update()
+    {
+        if (!isGameActive) return;
+
+        gridStepTimer += Time.deltaTime;
+        float stepDuration = GetCurrentStepDuration();
+        if (gridStepTimer >= stepDuration)
+        {
+            gridStepTimer -= stepDuration;
+            OnGridStep?.Invoke();
+        }
+    }
+
     public void StartGame()
     {
         ClearAllCollectibles();
 
-        currentScore   = 0;
-        currentLives   = startingLives;
+        currentScore    = 0;
+        currentLives    = startingLives;
         difficultyLevel = 0;
-        isGameActive   = true;
+        gridStepTimer   = 0f;
+        isGameActive    = true;
         OnScoreChanged?.Invoke(currentScore);
         OnLivesChanged?.Invoke(currentLives);
         OnHighScoreChanged?.Invoke(highScore);

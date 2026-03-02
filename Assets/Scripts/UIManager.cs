@@ -425,4 +425,10 @@ public class UIManager : MonoBehaviour
         if (GameManager.Instance != null)
             UpdateLivesUI(GameManager.Instance.CurrentLives);
     }
+
+    /// <summary>Appelé par le bouton Menu dans le GameOverPanel — retour au menu principal.</summary>
+    public void OnMenuButton()
+    {
+        UnityEngine.SceneManagement.SceneManager.LoadScene("Menu");
+    }
 }

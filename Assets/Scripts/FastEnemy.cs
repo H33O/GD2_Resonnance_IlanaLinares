@@ -15,9 +15,8 @@ public class FastEnemy : MonoBehaviour
     [SerializeField] private Sprite enemySprite;
 
     private float columnX;
-    private bool columnSet = false;
-    private bool wasCollected = false;
-    private float nextStepTime;
+    private bool  columnSet    = false;
+    private bool  wasCollected = false;
     private float currentGridY;
 
     private void Awake()
@@ -29,38 +28,48 @@ public class FastEnemy : MonoBehaviour
         }
     }
 
-    /// <summary>Positionne l'ennemi sur la colonne donnée.</summary>
+    // ── API publique ──────────────────────────────────────────────────────────
+
+    /// <summary>Snaps the enemy to its column and registers it to the global grid tick.</summary>
     public void SetColumn(float xPosition)
     {
-        columnX = xPosition;
-        columnSet = true;
+        columnX      = xPosition;
+        columnSet    = true;
         currentGridY = Mathf.Round(transform.position.y / gridSize) * gridSize;
         transform.position = new Vector3(columnX, currentGridY, transform.position.z);
-        nextStepTime = Time.time + stepDuration;
     }
 
-    public void SetStepDuration(float duration)
+    /// <summary>No-op — step rate is now driven by the global GameManager tick.</summary>
+    public void SetStepDuration(float duration) { }
+
+    // ── Lifecycle ─────────────────────────────────────────────────────────────
+
+    private void OnEnable()
     {
-        stepDuration = duration * 0.5f;
+        if (GameManager.Instance != null)
+            GameManager.Instance.OnGridStep += OnStep;
     }
 
-    private void Update()
+    private void OnDisable()
+    {
+        if (GameManager.Instance != null)
+            GameManager.Instance.OnGridStep -= OnStep;
+    }
+
+    // ── Grid step (2 pas par tick = deux fois plus rapide) ────────────────────
+
+    private void OnStep()
     {
         if (!columnSet || wasCollected) return;
 
-        if (Time.time >= nextStepTime)
-        {
-            currentGridY -= gridSize;
-            transform.position = new Vector3(columnX, currentGridY, transform.position.z);
-            nextStepTime = Time.time + stepDuration;
-        }
+        currentGridY -= gridSize * 2f;
+        transform.position = new Vector3(columnX, currentGridY, transform.position.z);
 
-        if (!wasCollected && currentGridY <= groundY)
+        if (currentGridY <= groundY)
         {
             MissedEnemy();
         }
-
-        if (currentGridY < destroyY)
+        else if (currentGridY < destroyY)
         {
             Destroy(gameObject);
         }

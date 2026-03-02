@@ -97,38 +97,14 @@ public class SceneTransition : MonoBehaviour
 
     private IEnumerator TransitionRoutine(string sceneName, string gameTitle)
     {
-        overlayCanvas.gameObject.SetActive(true);
-        canvasGroup.blocksRaycasts = true;
-        titleText.text  = gameTitle;
-        titleText.color = new Color(1f, 1f, 1f, 0f);
-
-        // Fondu vers le noir
-        yield return StartCoroutine(Fade(0f, 1f, fadeInDuration));
-
-        // Apparition du titre
-        yield return StartCoroutine(FadeTitle(0f, 1f, 0.25f));
-
-        // Charge la scène de manière asynchrone
+        // Pas de fondu — chargement direct
         AsyncOperation asyncLoad = SceneManager.LoadSceneAsync(sceneName);
         asyncLoad.allowSceneActivation = false;
 
-        // Attend que la scène soit prête
         while (asyncLoad.progress < 0.9f)
             yield return null;
 
-        // Maintient le titre visible
-        yield return new WaitForSeconds(titleHoldDuration);
-
-        // Active la scène
         asyncLoad.allowSceneActivation = true;
-        yield return null;
-
-        // Fondu depuis le noir vers la nouvelle scène
-        yield return StartCoroutine(FadeTitle(1f, 0f, 0.2f));
-        yield return StartCoroutine(Fade(1f, 0f, fadeOutDuration));
-
-        canvasGroup.blocksRaycasts = false;
-        overlayCanvas.gameObject.SetActive(false);
     }
 
     private IEnumerator Fade(float from, float to, float duration)

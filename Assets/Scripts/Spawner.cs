@@ -1,4 +1,3 @@
-using System.Collections.Generic;
 using UnityEngine;
 
 public class Spawner : MonoBehaviour
@@ -18,6 +17,10 @@ public class Spawner : MonoBehaviour
     private float nextSpawnTime;
     private float currentSpawnInterval;
     private float currentStepDuration = 0.3f;
+
+    // Bounce pattern state — reproduit le défilé ordonné style Game & Watch
+    private int spawnColIdx = 0;
+    private int spawnColDir = 1;
 
     private void Awake()
     {
@@ -57,17 +60,43 @@ public class Spawner : MonoBehaviour
             ? GameManager.Instance.GetMultiSpawnCount()
             : 1;
 
-        // Pick unique columns to avoid stacking two objects in the same lane
-        List<int> availableColumns = new List<int>();
-        for (int i = 0; i < numberOfColumns; i++) availableColumns.Add(i);
-
-        for (int i = 0; i < spawnCount && availableColumns.Count > 0; i++)
+        if (spawnCount == 1)
         {
-            int pick = Random.Range(0, availableColumns.Count);
-            int col  = availableColumns[pick];
-            availableColumns.RemoveAt(pick);
-            SpawnSingleObject(columnPositions[col]);
+            // Bounce : 0 → 1 → 2 → 1 → 0 → 1 → 2 ... (style Game & Watch)
+            SpawnSingleObject(columnPositions[NextColumnBounce()]);
         }
+        else if (spawnCount == 2)
+        {
+            // Les deux extrémités simultanément
+            SpawnSingleObject(columnPositions[0]);
+            SpawnSingleObject(columnPositions[numberOfColumns - 1]);
+        }
+        else
+        {
+            // Toutes les colonnes
+            for (int i = 0; i < Mathf.Min(spawnCount, numberOfColumns); i++)
+                SpawnSingleObject(columnPositions[i]);
+        }
+    }
+
+    /// <summary>Returns the next column index following a ping-pong bounce pattern.</summary>
+    private int NextColumnBounce()
+    {
+        int col = spawnColIdx;
+        spawnColIdx += spawnColDir;
+
+        if (spawnColIdx >= numberOfColumns)
+        {
+            spawnColDir = -1;
+            spawnColIdx = numberOfColumns - 2;
+        }
+        else if (spawnColIdx < 0)
+        {
+            spawnColDir = 1;
+            spawnColIdx = 1;
+        }
+
+        return Mathf.Clamp(col, 0, numberOfColumns - 1);
     }
 
     private void SpawnSingleObject(float xPos)

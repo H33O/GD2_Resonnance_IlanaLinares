@@ -110,28 +110,27 @@ public class BubbleShooter : MonoBehaviour
 
         bool shoot = false;
 
-        // Touch (mobile)
         var touchscreen = Touchscreen.current;
         if (touchscreen != null)
         {
-            foreach (var touch in touchscreen.touches)
+            // Le touch remplace directement le curseur souris :
+            // - doigt posé/glissé → lastInputPosition suit le doigt (= Input.mousePosition)
+            // - doigt levé        → tir (= GetMouseButtonDown de l'ancienne version)
+            var   primary = touchscreen.primaryTouch;
+            var   phase   = primary.phase.ReadValue();
+
+            if (phase != UnityEngine.InputSystem.TouchPhase.None &&
+                phase != UnityEngine.InputSystem.TouchPhase.Canceled)
             {
-                var phase = touch.phase.ReadValue();
-                if (phase == UnityEngine.InputSystem.TouchPhase.Began ||
-                    phase == UnityEngine.InputSystem.TouchPhase.Moved ||
-                    phase == UnityEngine.InputSystem.TouchPhase.Stationary)
-                {
-                    lastInputPosition = touch.position.ReadValue();
-                }
-                if (phase == UnityEngine.InputSystem.TouchPhase.Began)
-                {
-                    shoot = true;
-                }
+                lastInputPosition = primary.position.ReadValue();
             }
+
+            if (phase == UnityEngine.InputSystem.TouchPhase.Ended)
+                shoot = true;
         }
         else
         {
-            // Souris / clavier — éditeur
+            // Souris / clavier — éditeur (comportement inchangé)
             lastInputPosition = Input.mousePosition;
             if (Input.GetMouseButtonDown(0) || Input.GetKeyDown(KeyCode.Space))
                 shoot = true;
