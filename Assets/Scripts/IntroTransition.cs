@@ -31,9 +31,11 @@ public class IntroTransition : MonoBehaviour
     private const float BallStartY          = -900f;   // balle part du bas
     private const float BallSize            = 44f;
     private const int   ShapeCount          = 18;
-    private const float ShapeSpreadRadius   = 500f;
-    private const float ShapeMinSize        = 30f;
-    private const float ShapeMaxSize        = 90f;
+    private const float ShapeSpreadRadius   = 780f;    // dispersion plus large
+    private const float ShapeMinSize        = 70f;     // formes plus grosses
+    private const float ShapeMaxSize        = 180f;    // formes plus grosses
+    private const float ShapeVerticalBias   = 1.6f;    // pousse les formes plus haut
+    private const float PhaseBallRumbleDuration = 1.1f;
 
     // ── Références ────────────────────────────────────────────────────────────
 
@@ -142,6 +144,9 @@ public class IntroTransition : MonoBehaviour
 
         // ── Phase 6 : Formes aspirées vers le centre ──────────────────────────
         yield return StartCoroutine(PhaseShapesCollapse());
+
+        // ── Phase 6b : Balle tremble et grandit (feedback avant le noir) ──────
+        yield return StartCoroutine(PhaseBallRumble());
 
         // ── Phase 7 : Fondu vers le noir ──────────────────────────────────────
         yield return StartCoroutine(PhaseFadeToBlack());
@@ -259,9 +264,10 @@ public class IntroTransition : MonoBehaviour
             float angle      = (i / (float)ShapeCount) * 360f + Random.Range(-15f, 15f);
             float dist       = Random.Range(ShapeSpreadRadius * 0.5f, ShapeSpreadRadius);
             float rad        = angle * Mathf.Deg2Rad;
-            // Les formes se dispersent en arc au-dessus du ring, décalées de RingPositionY
-            Vector2 target   = new Vector2(Mathf.Cos(rad), Mathf.Abs(Mathf.Sin(rad)) * 0.8f + 0.1f) * dist
-                             + new Vector2(0f, RingPositionY);
+            // Formes poussées haut : composante Y amplifiée + décalage vertical du ring
+            float spreadX    = Mathf.Cos(rad) * dist;
+            float spreadY    = (Mathf.Abs(Mathf.Sin(rad)) * ShapeVerticalBias + 0.15f) * dist;
+            Vector2 target   = new Vector2(spreadX, RingPositionY + spreadY);
             shapeTargetPositions.Add(target);
             shapeAngularSpeeds.Add(Random.Range(-90f, 90f));
 
@@ -354,6 +360,49 @@ public class IntroTransition : MonoBehaviour
 
             yield return null;
         }
+    }
+
+    // ── Phase 6b : Balle tremble et grossit (feedback pré-fondu) ─────────────
+
+    private IEnumerator PhaseBallRumble()
+    {
+        float elapsed      = 0f;
+        Vector2 basePos    = ballRT.anchoredPosition;
+        float   baseSize   = BallSize;
+        float   maxSize    = BallSize * 3.8f;   // grossit jusqu'à ~4x
+
+        // Paramètres du tremblement : fréquence augmente, amplitude aussi puis diminue
+        const float freqBase  = 18f;
+        const float freqMax   = 42f;
+        const float ampBase   = 6f;
+        const float ampMax    = 22f;
+
+        while (elapsed < PhaseBallRumbleDuration)
+        {
+            elapsed += Time.deltaTime;
+            float t  = Mathf.Clamp01(elapsed / PhaseBallRumbleDuration);
+
+            // Croissance smooth de la taille — accélère vers la fin
+            float growT  = Mathf.SmoothStep(0f, 1f, t);
+            float size   = Mathf.Lerp(baseSize, maxSize, growT * growT);
+            ballRT.sizeDelta = Vector2.one * size;
+
+            // Tremblement : fréquence et amplitude montent avec t
+            float freq   = Mathf.Lerp(freqBase, freqMax, t);
+            float amp    = Mathf.Lerp(ampBase, ampMax, Mathf.SmoothStep(0f, 1f, t));
+
+            // Deux axes indépendants avec phases décalées → mouvement organique
+            float offsetX = Mathf.Sin(elapsed * freq)               * amp;
+            float offsetY = Mathf.Sin(elapsed * freq * 1.37f + 1f)  * amp * 0.6f;
+
+            ballRT.anchoredPosition = basePos + new Vector2(offsetX, offsetY);
+
+            yield return null;
+        }
+
+        // Fin : balle centrée, taille maximale (le fondu va la couvrir)
+        ballRT.anchoredPosition = basePos;
+        ballRT.sizeDelta        = Vector2.one * maxSize;
     }
 
     // ── Phase 7 : Fondu vers le noir ──────────────────────────────────────────

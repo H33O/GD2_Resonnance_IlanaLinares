@@ -8,10 +8,12 @@ using UnityEngine.UI;
 /// </summary>
 public class MenuManager : MonoBehaviour
 {
-    private const string SceneRetour = "GameAndWatch";
-    private const string SceneEcho   = "Minijeu-Bulles";
-    private const string TitleRetour = "RETOUR";
-    private const string TitleEcho   = "ÉCHO";
+    private const string SceneRetour  = "GameAndWatch";
+    private const string SceneEcho    = "Minijeu-Bulles";
+    private const string SceneArena   = "CircleArena";
+    private const string TitleRetour  = "RETOUR";
+    private const string TitleEcho    = "ÉCHO";
+    private const string TitleArena   = "ARÈNE";
 
     private void Start()
     {
@@ -20,6 +22,7 @@ public class MenuManager : MonoBehaviour
 
         WireButton("RetourButton", () => SceneTransition.Instance.LoadScene(SceneRetour, TitleRetour));
         WireButton("EchoButton",   () => SceneTransition.Instance.LoadScene(SceneEcho,   TitleEcho));
+        WireButton("ArenaButton",  () => SceneTransition.Instance.LoadScene(SceneArena,  TitleArena));
         WireButton("QuitButton",   OnQuit);
     }
 

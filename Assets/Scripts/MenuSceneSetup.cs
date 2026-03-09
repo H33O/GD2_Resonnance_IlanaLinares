@@ -254,28 +254,38 @@ public class MenuSceneSetup : MonoBehaviour
 
     private void BuildButtons(RectTransform parent)
     {
-        var zone = MakeZone("ButtonsZone", parent, new Vector2(0.5f, 0.14f), new Vector2(0.5f, 0.51f));
+        var zone = MakeZone("ButtonsZone", parent, new Vector2(0.5f, 0.10f), new Vector2(0.5f, 0.51f));
         zone.sizeDelta = new Vector2(640f, 0f);
 
-        var play = BuildButton("PlayButton",    "PLAY",    zone,
-                               new Vector2(0f, 0.68f), new Vector2(1f, 1f),
-                               ColBtnPlay, ColBtnPlayText, 64f, isAccent: true);
+        // ARÈNE — bouton principal accent
+        var arena = BuildButton("ArenaButton",  "ARÈNE",   zone,
+                                new Vector2(0f, 0.74f), new Vector2(1f, 1f),
+                                ColBtnPlay, ColBtnPlayText, 64f, isAccent: true);
 
-        var opt  = BuildButton("OptionsButton", "OPTIONS", zone,
-                               new Vector2(0f, 0.34f), new Vector2(1f, 0.62f),
-                               ColBtnSecond, ColBtnText, 46f);
+        // ÉCHO — bouton secondaire
+        var echo  = BuildButton("EchoButton",   "ÉCHO",    zone,
+                                new Vector2(0f, 0.50f), new Vector2(1f, 0.68f),
+                                ColBtnSecond, ColBtnText, 46f);
 
-        var quit = BuildButton("QuitButton",    "QUIT",    zone,
-                               new Vector2(0f, 0f),    new Vector2(1f, 0.28f),
-                               ColBtnSecond, ColBtnText, 46f);
+        // RETOUR — bouton secondaire
+        var retour = BuildButton("RetourButton", "RETOUR",  zone,
+                                new Vector2(0f, 0.26f), new Vector2(1f, 0.44f),
+                                ColBtnSecond, ColBtnText, 46f);
 
-        ball.RegisterButton(play);
-        ball.RegisterButton(opt);
+        // QUIT — bouton secondaire
+        var quit  = BuildButton("QuitButton",   "QUIT",    zone,
+                                new Vector2(0f, 0f),    new Vector2(1f, 0.20f),
+                                ColBtnSecond, ColBtnText, 46f);
+
+        ball.RegisterButton(arena);
+        ball.RegisterButton(echo);
+        ball.RegisterButton(retour);
         ball.RegisterButton(quit);
 
-        play.OnClick += OnPlay;
-        opt.OnClick  += OnOptions;
-        quit.OnClick += OnQuit;
+        arena.OnClick  += OnArena;
+        echo.OnClick   += OnEcho;
+        retour.OnClick += OnRetour;
+        quit.OnClick   += OnQuit;
     }
 
     private MenuCanvasButton BuildButton(string goName, string label, RectTransform parent,
@@ -323,12 +333,28 @@ public class MenuSceneSetup : MonoBehaviour
 
     // ── Actions ───────────────────────────────────────────────────────────────
 
-    private void OnPlay()
+    private void OnArena()
+    {
+        if (SceneTransition.Instance != null)
+            SceneTransition.Instance.LoadScene("CircleArena", "ARÈNE");
+        else
+            SceneManager.LoadScene("CircleArena");
+    }
+
+    private void OnEcho()
     {
         if (SceneTransition.Instance != null)
             SceneTransition.Instance.LoadScene("Minijeu-Bulles", "ÉCHO");
         else
             SceneManager.LoadScene("Minijeu-Bulles");
+    }
+
+    private void OnRetour()
+    {
+        if (SceneTransition.Instance != null)
+            SceneTransition.Instance.LoadScene("GameAndWatch", "RETOUR");
+        else
+            SceneManager.LoadScene("GameAndWatch");
     }
 
     private void OnOptions() => Debug.Log("[MenuSceneSetup] Options : à implémenter.");

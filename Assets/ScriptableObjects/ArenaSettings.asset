@@ -1,0 +1,45 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a8c1e138ac71f7244843a5815ee57920, type: 3}
+  m_Name: ArenaSettings
+  m_EditorClassIdentifier: 
+  orbitRadius: 6.5
+  ballSpeedStart: 90
+  ballSpeedMax: 280
+  speedRampDuration: 70
+  jumpDepthRatio: 0.5
+  jumpDurationIn: 0.2
+  jumpDurationOut: 0.28
+  squashX: 0.65
+  squashY: 1.38
+  squashDuration: 0.07
+  trailSegments: 14
+  trailInterval: 0.018
+  trailMaxAlpha: 0.45
+  obstacleSpawnDelayStart: 1.8
+  obstacleSpawnDelayMin: 0.5
+  obstacleSpawnAngleAhead: 150
+  obstacleSpawnJitter: 30
+  obstacleHalfAngle: 8
+  dodgeWindowDeg: 12
+  nearMissWindowDeg: 22
+  shakeMagnitude: 0.18
+  shakeDuration: 0.35
+  slowMoScale: 0.12
+  slowMoDuration: 0.3
+  nearMissFlashAlpha: 0.25
+  nearMissFlashDuration: 0.12
+  dodgeParticleCount: 8
+  dodgeParticleSpeed: 3.5
+  dodgeParticleLifetime: 0.35
+  rippleMaxRadius: 0.7
+  rippleDuration: 0.28
