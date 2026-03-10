@@ -8,22 +8,22 @@ using UnityEngine.UI;
 /// </summary>
 public class MenuManager : MonoBehaviour
 {
-    private const string SceneRetour  = "GameAndWatch";
-    private const string SceneEcho    = "Minijeu-Bulles";
-    private const string SceneArena   = "CircleArena";
-    private const string TitleRetour  = "RETOUR";
-    private const string TitleEcho    = "ÉCHO";
-    private const string TitleArena   = "ARÈNE";
+    private const string SceneSonantia  = "GameAndWatch";
+    private const string SceneEcho      = "Minijeu-Bulles";
+    private const string SceneArena     = "CircleArena";
+    private const string TitleSonantia  = "SONANTIA";
+    private const string TitleEcho      = "ÉCHO";
+    private const string TitleArena     = "ARÈNE";
 
     private void Start()
     {
         EnsureEventSystem();
         EnsureSceneTransition();
 
-        WireButton("RetourButton", () => SceneTransition.Instance.LoadScene(SceneRetour, TitleRetour));
-        WireButton("EchoButton",   () => SceneTransition.Instance.LoadScene(SceneEcho,   TitleEcho));
-        WireButton("ArenaButton",  () => SceneTransition.Instance.LoadScene(SceneArena,  TitleArena));
-        WireButton("QuitButton",   OnQuit);
+        WireButton("SonantiaButton", () => SceneTransition.Instance.LoadScene(SceneSonantia, TitleSonantia));
+        WireButton("EchoButton",     () => SceneTransition.Instance.LoadScene(SceneEcho,     TitleEcho));
+        WireButton("ArenaButton",    () => SceneTransition.Instance.LoadScene(SceneArena,    TitleArena));
+        WireButton("QuitButton",     OnQuit);
     }
 
     private void WireButton(string objectName, UnityEngine.Events.UnityAction action)

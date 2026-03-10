@@ -15,11 +15,11 @@ public class BubbleSpawner : MonoBehaviour
     [Header("Couleurs")]
     [SerializeField] private Color[] bubbleColors =
     {
-        new Color(0.92f, 0.23f, 0.23f, 1f),
-        new Color(0.20f, 0.44f, 0.92f, 1f),
-        new Color(0.20f, 0.80f, 0.32f, 1f),
-        new Color(1.00f, 0.86f, 0.10f, 1f),
-        new Color(0.72f, 0.20f, 0.90f, 1f)
+        new Color(0.85f, 0.82f, 0.80f, 1f),   // gris chaud
+        new Color(0.78f, 0.82f, 0.88f, 1f),   // gris bleuté
+        new Color(0.80f, 0.86f, 0.80f, 1f),   // gris verdâtre
+        new Color(0.90f, 0.88f, 0.82f, 1f),   // blanc crème
+        new Color(0.84f, 0.80f, 0.86f, 1f),   // gris mauve
     };
 
     private void Start()

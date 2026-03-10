@@ -364,7 +364,7 @@ public class BubbleGameManager : MonoBehaviour
     {
         int shotsUsed = maxShots - ShotsLeft;
 
-        // ── Dark overlay ──────────────────────────────────────────────────────
+        // ── Dark overlay (DA menu) ────────────────────────────────────────────
         var overlay = new GameObject("VictoryOverlay");
         overlay.transform.SetParent(canvasTransform, false);
         var overlayRT = overlay.AddComponent<RectTransform>();
@@ -372,41 +372,46 @@ public class BubbleGameManager : MonoBehaviour
         overlayRT.anchorMax = Vector2.one;
         overlayRT.offsetMin = overlayRT.offsetMax = Vector2.zero;
         var overlayImg = overlay.AddComponent<Image>();
-        overlayImg.color         = new Color(0f, 0f, 0f, 0.72f);
-        overlayImg.raycastTarget = false;
+        overlayImg.color          = new Color(0.05f, 0.05f, 0.05f, 0.88f);
+        overlayImg.sprite         = SpriteGenerator.CreateWhiteSquare();
+        overlayImg.raycastTarget  = false;
 
-        // ── Central panel ─────────────────────────────────────────────────────
+        // ── Central panel noir ────────────────────────────────────────────────
         var panel = new GameObject("VictoryPanel");
         panel.transform.SetParent(overlay.transform, false);
         var panelRT = panel.AddComponent<RectTransform>();
         panelRT.anchorMin        = panelRT.anchorMax = new Vector2(0.5f, 0.5f);
-        panelRT.sizeDelta        = new Vector2(620f, 540f);
+        panelRT.sizeDelta        = new Vector2(680f, 580f);
         panelRT.anchoredPosition = Vector2.zero;
-        var panelImg = panel.AddComponent<Image>();
-        panelImg.color = new Color(0.05f, 0.10f, 0.08f, 0.96f);
+        var panelImg  = panel.AddComponent<Image>();
+        panelImg.sprite = SpriteGenerator.CreateWhiteSquare();
+        panelImg.color  = new Color(0.08f, 0.08f, 0.08f, 0.96f);
 
-        // ── VICTORY title ─────────────────────────────────────────────────────
-        MakePanelText(panel.transform, "VICTORY!", new Vector2(0f, -75f), new Vector2(580f, 130f),
-                      72, FontStyles.Bold, new Color(0.25f, 1f, 0.45f));
+        // Séparateur horizontal
+        MakeSeparator(panel.transform, new Vector2(0f, -130f), new Vector2(600f, 2f));
 
-        // ── Shot count ────────────────────────────────────────────────────────
-        string shotLabel = shotsUsed == 1 ? "Completed in 1 shot!" : $"Completed in {shotsUsed} shots!";
-        MakePanelText(panel.transform, shotLabel, new Vector2(0f, -185f), new Vector2(580f, 70f),
-                      34, FontStyles.Normal, new Color(1f, 0.92f, 0.3f));
+        // ── VICTORY ───────────────────────────────────────────────────────────
+        MakePanelText(panel.transform, "VICTORY", new Vector2(0f, -75f), new Vector2(620f, 110f),
+                      80, FontStyles.Bold, Color.white);
+
+        // ── Info tir ──────────────────────────────────────────────────────────
+        string shotLabel = shotsUsed == 1 ? "1 shot" : $"{shotsUsed} shots";
+        MakePanelText(panel.transform, shotLabel, new Vector2(0f, -200f), new Vector2(620f, 65f),
+                      38, FontStyles.Normal, new Color(1f, 1f, 1f, 0.55f));
 
         // ── Score ─────────────────────────────────────────────────────────────
-        MakePanelText(panel.transform, $"Score: {Score}", new Vector2(0f, -255f), new Vector2(580f, 55f),
-                      28, FontStyles.Normal, new Color(0.8f, 0.8f, 0.8f));
+        MakePanelText(panel.transform, $"Score  {Score}", new Vector2(0f, -270f), new Vector2(620f, 55f),
+                      30, FontStyles.Normal, new Color(1f, 1f, 1f, 0.40f));
 
-        // ── Buttons ───────────────────────────────────────────────────────────
-        MakeButton(panel.transform, "Restart",
-                   new Vector2(0f, -355f),
-                   new Color(0.18f, 0.44f, 0.90f),
+        // ── Boutons (DA menu : blanc = accent, dark = secondaire) ─────────────
+        MakeButton(panel.transform, "RESTART",
+                   new Vector2(0f, -375f),
+                   Color.white,
                    () => SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex));
 
-        MakeButton(panel.transform, "Menu",
-                   new Vector2(0f, -460f),
-                   new Color(0.35f, 0.35f, 0.35f),
+        MakeButton(panel.transform, "MENU",
+                   new Vector2(0f, -500f),
+                   new Color(0.12f, 0.12f, 0.12f),
                    () => SceneManager.LoadScene(SceneMenu));
     }
 
@@ -425,13 +430,29 @@ public class BubbleGameManager : MonoBehaviour
         tmp.fontStyle  = style;
         tmp.color      = color;
         tmp.alignment  = TextAlignmentOptions.Center;
+        tmp.characterSpacing = 2f;
+    }
+
+    /// <summary>Séparateur horizontal fine ligne (DA menu).</summary>
+    private void MakeSeparator(Transform parent, Vector2 pos, Vector2 size)
+    {
+        var go = new GameObject("Separator");
+        go.transform.SetParent(parent, false);
+        var rt = go.AddComponent<RectTransform>();
+        rt.anchorMin        = rt.anchorMax = new Vector2(0.5f, 1f);
+        rt.sizeDelta        = size;
+        rt.anchoredPosition = pos;
+        var img             = go.AddComponent<Image>();
+        img.sprite          = SpriteGenerator.CreateWhiteSquare();
+        img.color           = new Color(1f, 1f, 1f, 0.18f);
+        img.raycastTarget   = false;
     }
 
     // ── UI créée automatiquement ──────────────────────────────────────────────
 
     private void CreateUI()
     {
-        // — EventSystem (obligatoire pour que les boutons répondent aux clics)
+        // — EventSystem
         if (FindFirstObjectByType<EventSystem>() == null)
         {
             var esGO = new GameObject("EventSystem");
@@ -439,9 +460,7 @@ public class BubbleGameManager : MonoBehaviour
             esGO.AddComponent<InputSystemUIInputModule>();
         }
 
-        // — Canvas : cherche uniquement dans la scène active (pas dans DontDestroyOnLoad)
-        // SceneTransition vit en DontDestroyOnLoad ; l'utiliser comme parent ferait
-        // disparaître le compteur de coups dès que l'overlay de transition se cache.
+        // — Canvas dans la scène active uniquement
         Canvas existing = null;
         var activeScene = UnityEngine.SceneManagement.SceneManager.GetActiveScene();
         foreach (var c in FindObjectsByType<Canvas>(FindObjectsSortMode.None))
@@ -469,23 +488,23 @@ public class BubbleGameManager : MonoBehaviour
             var scaler = canvasGO.AddComponent<CanvasScaler>();
             scaler.uiScaleMode         = CanvasScaler.ScaleMode.ScaleWithScreenSize;
             scaler.referenceResolution = new Vector2(1080, 1920);
-            scaler.matchWidthOrHeight  = 0f;
+            scaler.matchWidthOrHeight  = 0.5f;
             canvasGO.AddComponent<GraphicRaycaster>();
         }
 
         canvasTransform = canvasGO.transform;
-        Transform ct = canvasTransform;
+        Transform ct    = canvasTransform;
 
-        // — Score (top-left)
-        scoreText = MakeText(ct, "Score: 0", new Vector2(20, -20), new Vector2(300, 55), TextAlignmentOptions.TopLeft);
-        scoreText.fontSize = 30;
+        // — Score (top-left, style menu)
+        scoreText = MakeHudText(ct, "Score: 0", new Vector2(40f, -40f), new Vector2(340f, 60f),
+                                TextAlignmentOptions.TopLeft, 32f);
 
-        // — Shots remaining (bottom centre)
-        shotsText = MakeShotsPanel(ct);
+        // — Tirs restants (bas centre, pastille ronde)
+        shotsText = MakeShotsPanelNew(ct);
 
-        // — Win / loss message (centre screen)
-        statusText = MakeText(ct, "", Vector2.zero, new Vector2(500, 120), TextAlignmentOptions.Center, center: true);
-        statusText.fontSize = 55;
+        // — Message central (victoire/défaite), masqué au départ
+        statusText = MakeHudText(ct, "", Vector2.zero, new Vector2(600f, 120f),
+                                 TextAlignmentOptions.Center, 55f, center: true);
         statusText.gameObject.SetActive(false);
     }
 
@@ -506,7 +525,7 @@ public class BubbleGameManager : MonoBehaviour
     /// <summary>Shows the full defeat screen with dark overlay, score, and action buttons.</summary>
     private void CreateDefeatScreen()
     {
-        // ── Dark full-screen overlay ───────────────────────────────────────────
+        // ── Dark overlay (DA menu) ─────────────────────────────────────────────
         var overlay = new GameObject("DefeatOverlay");
         overlay.transform.SetParent(canvasTransform, false);
         var overlayRT = overlay.AddComponent<RectTransform>();
@@ -514,56 +533,42 @@ public class BubbleGameManager : MonoBehaviour
         overlayRT.anchorMax = Vector2.one;
         overlayRT.offsetMin = overlayRT.offsetMax = Vector2.zero;
         var overlayImg = overlay.AddComponent<Image>();
-        overlayImg.color        = new Color(0f, 0f, 0f, 0.75f);
-        overlayImg.raycastTarget = false; // ne bloque pas les clics vers les boutons enfants
+        overlayImg.sprite         = SpriteGenerator.CreateWhiteSquare();
+        overlayImg.color          = new Color(0.05f, 0.05f, 0.05f, 0.88f);
+        overlayImg.raycastTarget  = false;
 
         // ── Central panel ─────────────────────────────────────────────────────
         var panel = new GameObject("DefeatPanel");
         panel.transform.SetParent(overlay.transform, false);
         var panelRT = panel.AddComponent<RectTransform>();
         panelRT.anchorMin        = panelRT.anchorMax = new Vector2(0.5f, 0.5f);
-        panelRT.sizeDelta        = new Vector2(600f, 500f);
+        panelRT.sizeDelta        = new Vector2(680f, 560f);
         panelRT.anchoredPosition = Vector2.zero;
-        var panelImg = panel.AddComponent<Image>();
-        panelImg.color = new Color(0.08f, 0.08f, 0.12f, 0.95f);
+        var panelImg  = panel.AddComponent<Image>();
+        panelImg.sprite = SpriteGenerator.CreateWhiteSquare();
+        panelImg.color  = new Color(0.08f, 0.08f, 0.08f, 0.96f);
 
-        // ── DEFEAT title ──────────────────────────────────────────────────────
-        var title = new GameObject("DefeatTitle");
-        title.transform.SetParent(panel.transform, false);
-        var titleRT = title.AddComponent<RectTransform>();
-        titleRT.anchorMin        = titleRT.anchorMax = new Vector2(0.5f, 1f);
-        titleRT.sizeDelta        = new Vector2(560f, 130f);
-        titleRT.anchoredPosition = new Vector2(0f, -80f);
-        var titleTMP = title.AddComponent<TextMeshProUGUI>();
-        titleTMP.text      = "DEFEAT";
-        titleTMP.fontSize  = 72;
-        titleTMP.fontStyle = FontStyles.Bold;
-        titleTMP.color     = new Color(0.95f, 0.25f, 0.25f);
-        titleTMP.alignment = TextAlignmentOptions.Center;
+        // Séparateur horizontal
+        MakeSeparator(panel.transform, new Vector2(0f, -130f), new Vector2(600f, 2f));
+
+        // ── DEFEAT ────────────────────────────────────────────────────────────
+        MakePanelText(panel.transform, "DEFEAT", new Vector2(0f, -75f), new Vector2(620f, 110f),
+                      80, FontStyles.Bold, Color.white);
 
         // ── Final score ───────────────────────────────────────────────────────
-        var scoreLine = new GameObject("DefeatScore");
-        scoreLine.transform.SetParent(panel.transform, false);
-        var scoreRT = scoreLine.AddComponent<RectTransform>();
-        scoreRT.anchorMin        = scoreRT.anchorMax = new Vector2(0.5f, 1f);
-        scoreRT.sizeDelta        = new Vector2(560f, 70f);
-        scoreRT.anchoredPosition = new Vector2(0f, -195f);
-        var scoreTMP = scoreLine.AddComponent<TextMeshProUGUI>();
-        scoreTMP.text      = $"Score: {Score}";
-        scoreTMP.fontSize  = 38;
-        scoreTMP.color     = new Color(1f, 0.85f, 0.3f);
-        scoreTMP.alignment = TextAlignmentOptions.Center;
+        MakePanelText(panel.transform, $"Score  {Score}", new Vector2(0f, -210f), new Vector2(620f, 65f),
+                      38, FontStyles.Normal, new Color(1f, 1f, 1f, 0.55f));
 
-        // ── Restart button ────────────────────────────────────────────────────
-        MakeButton(panel.transform, "Restart",
-                   new Vector2(0f, -295f),
-                   new Color(0.18f, 0.44f, 0.90f),
+        // ── Restart ───────────────────────────────────────────────────────────
+        MakeButton(panel.transform, "RESTART",
+                   new Vector2(0f, -345f),
+                   Color.white,
                    () => SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex));
 
-        // ── Menu button ───────────────────────────────────────────────────────
-        MakeButton(panel.transform, "Menu",
-                   new Vector2(0f, -395f),
-                   new Color(0.35f, 0.35f, 0.35f),
+        // ── Menu ──────────────────────────────────────────────────────────────
+        MakeButton(panel.transform, "MENU",
+                   new Vector2(0f, -470f),
+                   new Color(0.12f, 0.12f, 0.12f),
                    () => SceneManager.LoadScene(SceneMenu));
     }
 
@@ -573,29 +578,46 @@ public class BubbleGameManager : MonoBehaviour
         var go = new GameObject(label + "Button");
         go.transform.SetParent(parent, false);
         var rt = go.AddComponent<RectTransform>();
-        rt.anchorMin = rt.anchorMax = new Vector2(0.5f, 0.5f);
-        rt.sizeDelta = new Vector2(380f, 110f);
+        rt.anchorMin        = rt.anchorMax = new Vector2(0.5f, 0.5f);
+        rt.sizeDelta        = new Vector2(500f, 110f);
         rt.anchoredPosition = pos;
 
-        var img = go.AddComponent<Image>();
-        img.color = color;
+        // Fond du bouton : cercle (DA menu)
+        var img    = go.AddComponent<Image>();
+        img.sprite = SpriteGenerator.CreateWhiteSquare();
+        img.color  = color;
 
-        var btn = go.AddComponent<Button>();
+        // Contour blanc translucide
+        var outGO           = new GameObject("Outline");
+        outGO.transform.SetParent(rt, false);
+        var outRT           = outGO.AddComponent<RectTransform>();
+        outRT.anchorMin     = Vector2.zero;
+        outRT.anchorMax     = Vector2.one;
+        outRT.offsetMin     = new Vector2(-2f, -2f);
+        outRT.offsetMax     = new Vector2( 2f,  2f);
+        var outImg          = outGO.AddComponent<Image>();
+        outImg.sprite       = SpriteGenerator.CreateWhiteSquare();
+        outImg.color        = new Color(1f, 1f, 1f, 0.22f);
+        outImg.raycastTarget = false;
+        outGO.transform.SetAsFirstSibling();
+
+        var btn           = go.AddComponent<Button>();
         btn.targetGraphic = img;
         btn.onClick.AddListener(onClick);
 
-        var textGO = new GameObject("Label");
-        textGO.transform.SetParent(go.transform, false);
-        var textRT = textGO.AddComponent<RectTransform>();
-        textRT.anchorMin = Vector2.zero;
-        textRT.anchorMax = Vector2.one;
-        textRT.offsetMin = textRT.offsetMax = Vector2.zero;
-        var tmp = textGO.AddComponent<TextMeshProUGUI>();
-        tmp.text = label;
-        tmp.fontSize = 42;
-        tmp.fontStyle = FontStyles.Bold;
-        tmp.color = Color.white;
-        tmp.alignment = TextAlignmentOptions.Center;
+        var textGO   = new GameObject("Label");
+        textGO.transform.SetParent(rt, false);
+        var textRT           = textGO.AddComponent<RectTransform>();
+        textRT.anchorMin     = Vector2.zero;
+        textRT.anchorMax     = Vector2.one;
+        textRT.offsetMin     = textRT.offsetMax = Vector2.zero;
+        var tmp              = textGO.AddComponent<TextMeshProUGUI>();
+        tmp.text             = label;
+        tmp.fontSize         = 46f;
+        tmp.fontStyle        = FontStyles.Bold;
+        tmp.color            = Color.white;
+        tmp.alignment        = TextAlignmentOptions.Center;
+        tmp.characterSpacing = 4f;
     }
 
     private void RefreshUI()
@@ -610,6 +632,65 @@ public class BubbleGameManager : MonoBehaviour
             if (shotsBorderImage != null) shotsBorderImage.color = ColorShotsNormal;
         }
     }
+
+    private TextMeshProUGUI MakeShotsPanelNew(Transform parent)
+    {
+        // ── Pastille ronde (DA menu) ──────────────────────────────────────────
+        var border = new GameObject("ShotsBorderNew");
+        border.transform.SetParent(parent, false);
+        var borderRT = border.AddComponent<RectTransform>();
+        borderRT.anchorMin        = borderRT.anchorMax = new Vector2(0.5f, 0f);
+        borderRT.sizeDelta        = new Vector2(160f, 160f);
+        borderRT.anchoredPosition = new Vector2(0f, 200f);
+        shotsBorderImage          = border.AddComponent<Image>();
+        shotsBorderImage.sprite   = SpriteGenerator.CreateCircle(128);
+        shotsBorderImage.color    = ColorShotsNormal;
+
+        var bg        = new GameObject("ShotsBg");
+        bg.transform.SetParent(border.transform, false);
+        var bgRT      = bg.AddComponent<RectTransform>();
+        bgRT.anchorMin = Vector2.zero;
+        bgRT.anchorMax = Vector2.one;
+        bgRT.offsetMin = new Vector2(6f, 6f);
+        bgRT.offsetMax = new Vector2(-6f, -6f);
+        var bgImg      = bg.AddComponent<Image>();
+        bgImg.sprite   = SpriteGenerator.CreateCircle(128);
+        bgImg.color    = new Color(0.05f, 0.05f, 0.05f, 0.95f);
+        bgImg.raycastTarget = false;
+
+        var count        = new GameObject("Count");
+        count.transform.SetParent(bg.transform, false);
+        var countRT      = count.AddComponent<RectTransform>();
+        countRT.anchorMin = Vector2.zero;
+        countRT.anchorMax = Vector2.one;
+        countRT.offsetMin = countRT.offsetMax = Vector2.zero;
+        var countTMP       = count.AddComponent<TextMeshProUGUI>();
+        countTMP.text      = $"{maxShots}";
+        countTMP.fontSize  = 68f;
+        countTMP.fontStyle = FontStyles.Bold;
+        countTMP.color     = ColorShotsNormal;
+        countTMP.alignment = TextAlignmentOptions.Center;
+        return countTMP;
+    }
+
+    private TextMeshProUGUI MakeHudText(Transform parent, string text, Vector2 pos, Vector2 size,
+                                         TextAlignmentOptions align, float fontSize = 28f, bool center = false)
+    {
+        var go = new GameObject("HudText");
+        go.transform.SetParent(parent, false);
+        var rt = go.AddComponent<RectTransform>();
+        rt.anchorMin        = rt.anchorMax = center ? new Vector2(0.5f, 0.5f) : new Vector2(0f, 1f);
+        rt.sizeDelta        = size;
+        rt.anchoredPosition = pos;
+        var tmp              = go.AddComponent<TextMeshProUGUI>();
+        tmp.text             = text;
+        tmp.fontSize         = fontSize;
+        tmp.color            = Color.white;
+        tmp.alignment        = align;
+        tmp.characterSpacing = 2f;
+        return tmp;
+    }
+
 
     private TextMeshProUGUI MakeShotsPanel(Transform parent)
     {

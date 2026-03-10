@@ -9,42 +9,42 @@ MonoBehaviour:
   m_GameObject: {fileID: 0}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: a8c1e138ac71f7244843a5815ee57920, type: 3}
-  m_Name: ArenaSettings
+  m_Script: {fileID: 11500000, guid: 76f080a0c7b33fe48ba6a2728073a41e, type: 3}
+  m_Name: CGSettings
   m_EditorClassIdentifier: 
-  orbitRadius: 4
-  ballSpeedStart: 90
-  ballSpeedMax: 260
-  speedRampDuration: 60
-  jumpDepthRatio: 0.5
+  arenaRadius: 4
+  ringLineWidth: 0.22
+  playerSpeedStart: 90
+  playerSpeedMax: 280
+  speedRampDuration: 70
+  jumpDistance: 0.5
   jumpDurationIn: 0.2
   jumpDurationOut: 0.28
   squashX: 0.65
-  squashY: 1.38
+  squashY: 1.4
   squashDuration: 0.07
-  trailSegments: 14
-  trailInterval: 0.018
-  trailMaxAlpha: 0.45
-  obstacleSpawnDelayStart: 2
-  obstacleSpawnDelayMin: 0.55
+  obstacleSpawnDelayStart: 1.8
+  obstacleSpawnDelayMin: 0.5
   obstacleSpawnAngleAhead: 150
   obstacleSpawnJitter: 30
+  obstacleRotationSpeed: 0
+  obstacleWidth: 0.22
+  obstacleHeight: 0.8
   obstacleHalfAngle: 8
-  collectibleSpawnInterval: 4
+  collectibleSpawnRate: 4
   collectibleSpawnAngleAhead: 200
   collectibleSpawnJitter: 45
   collectibleScoreBonus: 5
   obstaclesPerCollectible: 1
-  dodgeWindowDeg: 12
-  nearMissWindowDeg: 22
-  shakeMagnitude: 0.18
-  shakeDuration: 0.35
+  cameraShakeStrength: 0.2
+  cameraShakeDuration: 0.35
   slowMoScale: 0.12
   slowMoDuration: 0.3
-  nearMissFlashAlpha: 0.25
+  nearMissWindowDeg: 22
+  nearMissFlashAlpha: 0.3
   nearMissFlashDuration: 0.12
-  dodgeParticleCount: 8
-  dodgeParticleSpeed: 3.5
-  dodgeParticleLifetime: 0.35
+  collectParticleCount: 12
+  dodgeParticleCount: 6
+  particleIntensity: 1
   rippleMaxRadius: 0.7
-  rippleDuration: 0.28
+  rippleDuration: 0.25

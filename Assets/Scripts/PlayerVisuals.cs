@@ -1,45 +1,92 @@
 using UnityEngine;
 
+/// <summary>
+/// Représentation visuelle du joueur sous forme d'un disque blanc lumineux
+/// entouré d'éclairs procéduraux. Grandit à chaque collectible ramassé.
+/// </summary>
 public class PlayerVisuals : MonoBehaviour
 {
-    [Header("Visual Settings")]
-    [SerializeField] private Sprite playerSprite;
-    [SerializeField] private Color chariotColor = new Color(1f, 1f, 1f);
-    [SerializeField] private Vector2 chariotSize = new Vector2(1.2f, 0.6f);
+    [Header("Cercle joueur")]
+    [SerializeField] private float baseRadius  = 0.30f;
+    [SerializeField] private Color playerColor = Color.white;
+    [SerializeField] private Color glowColor   = new Color(1f, 1f, 1f, 0.25f);
+
+    /// <summary>Accès à l'effet d'éclairs pour notifier une collecte.</summary>
+    public PlayerLightningEffect Lightning { get; private set; }
+
+    private SpriteRenderer bodyRenderer;
+    private SpriteRenderer glowRenderer;
 
     private void Start()
     {
-        CreateChariotSprite();
+        BuildCircle();
+        BuildGlow();
+        BuildLightning();
+        AdjustCollider();
     }
 
-    private void CreateChariotSprite()
+    private void BuildCircle()
     {
-        SpriteRenderer sr = GetComponent<SpriteRenderer>();
-        if (sr == null)
-            sr = gameObject.AddComponent<SpriteRenderer>();
+        bodyRenderer = GetComponent<SpriteRenderer>();
+        if (bodyRenderer == null)
+            bodyRenderer = gameObject.AddComponent<SpriteRenderer>();
 
-        if (playerSprite != null)
+        bodyRenderer.sprite       = SpriteGenerator.CreateCircle(128);
+        bodyRenderer.color        = playerColor;
+        bodyRenderer.sortingOrder = 10;
+
+        float diameter       = baseRadius * 2f;
+        transform.localScale = Vector3.one * diameter;
+    }
+
+    private void BuildGlow()
+    {
+        var glowGO                  = new GameObject("PlayerGlow");
+        glowGO.transform.SetParent(transform, false);
+        glowGO.transform.localScale    = Vector3.one * 1.8f;
+        glowGO.transform.localPosition = Vector3.zero;
+
+        glowRenderer              = glowGO.AddComponent<SpriteRenderer>();
+        glowRenderer.sprite       = SpriteGenerator.CreateCircle(128);
+        glowRenderer.color        = glowColor;
+        glowRenderer.sortingOrder = 9;
+    }
+
+    private void BuildLightning()
+    {
+        Lightning = gameObject.AddComponent<PlayerLightningEffect>();
+    }
+
+    private void AdjustCollider()
+    {
+        // Conserve le BoxCollider2D existant s'il y en a un, sinon ajoute un CircleCollider2D
+        var box = GetComponent<BoxCollider2D>();
+        if (box != null)
         {
-            sr.sprite = playerSprite;
+            box.size = Vector2.one;
+            return;
         }
-        else
+
+        var col  = GetComponent<CircleCollider2D>();
+        if (col == null) col = gameObject.AddComponent<CircleCollider2D>();
+        col.radius = 0.5f;
+    }
+
+    private void Update()
+    {
+        // Pulsation douce du glow
+        if (glowRenderer != null)
         {
-            Texture2D texture = new Texture2D(64, 32);
-            Color[] pixels = new Color[64 * 32];
-            for (int i = 0; i < pixels.Length; i++)
-                pixels[i] = chariotColor;
-            texture.SetPixels(pixels);
-            texture.filterMode = FilterMode.Point;
-            texture.Apply();
-            sr.sprite = Sprite.Create(texture, new Rect(0, 0, 64, 32), new Vector2(0.5f, 0.5f), 32);
+            float alpha       = 0.18f + 0.10f * Mathf.Sin(Time.time * 2.8f);
+            glowRenderer.color = new Color(glowColor.r, glowColor.g, glowColor.b, alpha);
         }
+    }
 
-        sr.sortingOrder = 10;
-
-        BoxCollider2D col = GetComponent<BoxCollider2D>();
-        if (col != null)
-            col.size = chariotSize;
-
-        transform.localScale = Vector3.one;
+    /// <summary>
+    /// Appelé depuis le système de collecte — déclenche la croissance et le flash d'éclairs.
+    /// </summary>
+    public void OnCollect()
+    {
+        Lightning?.OnCollect();
     }
 }

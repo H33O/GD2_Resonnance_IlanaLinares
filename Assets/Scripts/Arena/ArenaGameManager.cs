@@ -83,6 +83,14 @@ public class ArenaGameManager : MonoBehaviour
 
     // ── Public API ────────────────────────────────────────────────────────────
 
+    /// <summary>Called when the ball collects a collectible. Awards a score bonus.</summary>
+    public void NotifyCollectiblePickup()
+    {
+        if (State != GameState.Playing) return;
+        Score += settings.collectibleScoreBonus;
+        OnScoreChanged?.Invoke(Score);
+    }
+
     /// <summary>Called by ArenaBall when it collides with an obstacle.</summary>
     public void NotifyCollision()
     {

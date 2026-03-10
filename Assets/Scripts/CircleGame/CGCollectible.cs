@@ -2,28 +2,39 @@ using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
-/// Visuel du collectible dans GameAndWatch.
-/// Boule blanche électrique avec éclairs procéduraux et trainée de petites boules.
-/// Même style que FastEnemy mais en blanc pur.
-/// Le sprite sérialisé dans le prefab est écrasé à l'Awake.
+/// Collectible électrique sur la piste circulaire.
+/// Visuel : même style que FastEnemy mais en blanc pur — boule blanche,
+/// halo blanc, éclairs blancs, trainée de petites boules blanches.
 /// </summary>
-public class CollectibleVisuals : MonoBehaviour
+[RequireComponent(typeof(SpriteRenderer))]
+[RequireComponent(typeof(CircleCollider2D))]
+public class CGCollectible : MonoBehaviour
 {
     // ── Palette blanche ───────────────────────────────────────────────────────
 
     private static readonly Color CoreColor  = new Color(1.00f, 1.00f, 1.00f, 1.00f);
-    private static readonly Color GlowColor  = new Color(0.88f, 0.94f, 1.00f, 0.28f);
+    private static readonly Color GlowColor  = new Color(0.90f, 0.95f, 1.00f, 0.28f);
     private static readonly Color BoltInner  = new Color(1.00f, 1.00f, 1.00f, 0.95f);
     private static readonly Color BoltOuter  = new Color(0.80f, 0.90f, 1.00f, 0.00f);
-    private static readonly Color TrailColor = new Color(0.88f, 0.94f, 1.00f, 0.60f);
+    private static readonly Color TrailColor = new Color(0.90f, 0.95f, 1.00f, 0.65f);
 
     private const float CoreDiameter   = 0.28f;
     private const int   BoltCount      = 4;
     private const float BoltUpdateRate = 0.05f;
     private const int   TrailLength    = 5;
 
+    // ── Inspector ─────────────────────────────────────────────────────────────
+
+    [Header("Settings")]
+    public CGSettings settings;
+
+    [Header("References")]
+    public CGObstacleContainer obstacleContainer;
+    public CGFeedbackManager   feedbackManager;
+
     // ── État ──────────────────────────────────────────────────────────────────
 
+    private bool           collected;
     private SpriteRenderer glowSR;
     private LineRenderer[] bolts;
     private float          boltTimer;
@@ -32,31 +43,24 @@ public class CollectibleVisuals : MonoBehaviour
     private readonly Queue<Vector3>   posHistory = new Queue<Vector3>();
     private const int                 PosHistoryMax = TrailLength + 1;
 
-    // ── Awake ─────────────────────────────────────────────────────────────────
+    // ── Lifecycle ─────────────────────────────────────────────────────────────
 
     private void Awake()
     {
-        // Écrase le sprite sérialisé dans le prefab — toujours
         var sr          = GetComponent<SpriteRenderer>();
-        if (sr == null) sr = gameObject.AddComponent<SpriteRenderer>();
         sr.sprite       = SpriteGenerator.CreateCircle(128);
         sr.color        = CoreColor;
         sr.sortingOrder = 5;
-
-        // Remplace le BoxCollider2D par un CircleCollider2D si possible
-        // (garde le BoxCollider2D existant pour ne pas casser la physique, ajuste juste la taille)
-        var box = GetComponent<BoxCollider2D>();
-        if (box != null) box.size = Vector2.one;
-
-        // Taille du GameObject
         transform.localScale = Vector3.one * CoreDiameter;
+
+        var col       = GetComponent<CircleCollider2D>();
+        col.isTrigger = true;
+        col.radius    = 0.5f;
 
         BuildGlow();
         BuildBolts();
         BuildTrail();
     }
-
-    // ── Construction ──────────────────────────────────────────────────────────
 
     private void BuildGlow()
     {
@@ -104,7 +108,7 @@ public class CollectibleVisuals : MonoBehaviour
             var go     = new GameObject($"Trail_{i}");
             go.transform.position = transform.position;
 
-            float t     = (float)(i + 1) / TrailLength;
+            float t    = (float)(i + 1) / TrailLength;
             float scale = Mathf.Lerp(CoreDiameter * 0.55f, CoreDiameter * 0.12f, t);
             float alpha = Mathf.Lerp(0.60f, 0.04f, t);
             go.transform.localScale = Vector3.one * scale;
@@ -118,16 +122,20 @@ public class CollectibleVisuals : MonoBehaviour
         }
     }
 
-    // ── Update ────────────────────────────────────────────────────────────────
+    private void OnDisable()
+    {
+        foreach (var dot in trailDots)
+            if (dot != null) Destroy(dot);
+        trailDots.Clear();
+    }
 
     private void Update()
     {
         // Pulsation halo
         float a      = 0.20f + 0.10f * Mathf.Sin(Time.time * 4.5f);
-        if (glowSR != null)
-            glowSR.color = new Color(GlowColor.r, GlowColor.g, GlowColor.b, a);
+        glowSR.color = new Color(GlowColor.r, GlowColor.g, GlowColor.b, a);
 
-        // Historique position pour trainée
+        // Historique de position pour la trainée
         posHistory.Enqueue(transform.position);
         if (posHistory.Count > PosHistoryMax) posHistory.Dequeue();
         UpdateTrail();
@@ -148,8 +156,7 @@ public class CollectibleVisuals : MonoBehaviour
         for (int i = 0; i < trailDots.Count; i++)
         {
             int idx = count - 2 - i;
-            if (trailDots[i] != null)
-                trailDots[i].transform.position = idx >= 0 ? hist[idx] : transform.position;
+            trailDots[i].transform.position = idx >= 0 ? hist[idx] : transform.position;
         }
     }
 
@@ -161,13 +168,10 @@ public class CollectibleVisuals : MonoBehaviour
 
         for (int i = 0; i < BoltCount; i++)
         {
-            if (bolts[i] == null) continue;
-
             float   baseRad = (i * angle + Random.Range(-45f, 45f)) * Mathf.Deg2Rad;
             Vector3 start   = origin + new Vector3(Mathf.Cos(baseRad), Mathf.Sin(baseRad), 0f) * worldR * 0.7f;
             float   endA    = baseRad + Random.Range(-0.6f, 0.6f);
-            Vector3 end     = origin + new Vector3(Mathf.Cos(endA), Mathf.Sin(endA), 0f)
-                              * (worldR * 1.7f + Random.Range(0f, worldR * 0.5f));
+            Vector3 end     = origin + new Vector3(Mathf.Cos(endA), Mathf.Sin(endA), 0f) * (worldR * 1.7f + Random.Range(0f, worldR * 0.5f));
 
             bolts[i].SetPosition(0, start);
             for (int s = 1; s < 4; s++)
@@ -182,12 +186,30 @@ public class CollectibleVisuals : MonoBehaviour
         }
     }
 
-    // ── Cleanup ───────────────────────────────────────────────────────────────
-
-    private void OnDisable()
+    private void OnTriggerEnter2D(Collider2D other)
     {
-        foreach (var dot in trailDots)
-            if (dot != null) Destroy(dot);
-        trailDots.Clear();
+        if (collected) return;
+        if (!other.CompareTag("Player")) return;
+        Collect();
+    }
+
+    // ── Collecte ──────────────────────────────────────────────────────────────
+
+    private void Collect()
+    {
+        collected = true;
+
+        int bonus = settings != null ? settings.collectibleScoreBonus : 5;
+        CGGameManager.Instance?.AddScore(bonus);
+
+        feedbackManager?.TriggerCollectParticles(transform.position);
+
+        var player = GameObject.FindGameObjectWithTag("Player");
+        if (player != null)
+            player.GetComponent<PlayerVisuals>()?.OnCollect();
+
+        obstacleContainer?.SpawnFromCollectible();
+
+        Destroy(gameObject);
     }
 }

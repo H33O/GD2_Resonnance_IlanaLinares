@@ -6,27 +6,42 @@ public class PlayerController : MonoBehaviour
     [SerializeField] private int   numberOfPositions = 3;
     [SerializeField] private float positionSpacing   = 2f;
     [SerializeField] private float playerY           = -4f;
-    [SerializeField] private float moveDuration      = 0.15f;
+
+    [Tooltip("Durée de transition entre deux cases (secondes).")]
+    [SerializeField] private float moveDuration      = 0.08f;
 
     [Header("Swipe Settings")]
-    [Tooltip("Distance minimale en unités monde entre entry et exit pour valider un swipe.")]
-    [SerializeField] private float minSwipeDistance = 0.25f;
+    [Tooltip("Distance minimale en pixels écran pour valider un swipe.")]
+    [SerializeField] private float minSwipePixels    = 80f;
 
-    private int     currentPosition = 1;
+    // ── Colonnes ──────────────────────────────────────────────────────────────
+
+    private int     currentPosition;
     private float[] positions;
-    private bool    isMoving = false;
+
+    // ── Mouvement ─────────────────────────────────────────────────────────────
+
+    private bool    isMoving;
+    private Vector3 startPosition;
     private Vector3 targetPosition;
     private float   moveTimer;
 
-    private Camera    mainCamera;
-    private Transform swipeEntryPoint;
-    private Transform swipeExitPoint;
+    // ── Swipe ─────────────────────────────────────────────────────────────────
 
-    // Persistance gizmos
-    private Vector3 lastEntryWorld;
-    private Vector3 lastExitWorld;
+    private bool    isDragging;
+    private Vector2 dragStart;
+    private bool    swipeConsumed;   // un seul move par appui, quoi qu'il arrive
+
+    // ── Gizmos ────────────────────────────────────────────────────────────────
+
+    private Vector2 lastDragStart;
+    private Vector2 lastDragEnd;
+    private bool    hasLastSwipe;
     private float   lastDeltaX;
-    private bool    hasLastSwipe = false;
+
+    private Camera mainCamera;
+
+    // ── Init ──────────────────────────────────────────────────────────────────
 
     private void Awake()
     {
@@ -39,7 +54,7 @@ public class PlayerController : MonoBehaviour
         currentPosition    = numberOfPositions / 2;
         transform.position = new Vector3(positions[currentPosition], playerY, 0f);
         targetPosition     = transform.position;
-        Debug.Log("[PlayerController] Start — input souris uniquement.");
+        startPosition      = transform.position;
     }
 
     private void InitializePositions()
@@ -51,188 +66,168 @@ public class PlayerController : MonoBehaviour
             positions[i] = startX + i * positionSpacing;
     }
 
+    // ── Update ────────────────────────────────────────────────────────────────
+
     private void Update()
     {
-        if (GameManager.Instance == null || !GameManager.Instance.IsGameActive)
-            return;
+        if (GameManager.Instance == null || !GameManager.Instance.IsGameActive) return;
 
-        if (isMoving)
-        {
-            moveTimer += Time.deltaTime;
-            float t = Mathf.Clamp01(moveTimer / moveDuration);
-            transform.position = Vector3.Lerp(transform.position, targetPosition, t);
-            if (t >= 1f)
-            {
-                transform.position = targetPosition;
-                isMoving           = false;
-            }
-        }
-
+        HandleTouchInput();
         HandleMouseInput();
         HandleKeyboardInput();
+        AdvanceMovement();
     }
 
-    /// <summary>
-    /// Swipe souris : bouton gauche enfoncé = entry point, bouton gauche relâché = exit point.
-    /// Compare les X des deux transforms et se déplace gauche ou droite.
-    /// </summary>
+    // ── Mouvement smooth case par case ────────────────────────────────────────
+
+    private void AdvanceMovement()
+    {
+        if (!isMoving) return;
+
+        moveTimer += Time.deltaTime;
+        float t = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(moveTimer / moveDuration));
+        transform.position = Vector3.LerpUnclamped(startPosition, targetPosition, t);
+
+        if (moveTimer >= moveDuration)
+        {
+            transform.position = targetPosition;
+            isMoving           = false;
+        }
+    }
+
+    private void StartMove(int dir)
+    {
+        if (isMoving) return;
+
+        int next = currentPosition + dir;
+        if (next < 0 || next >= numberOfPositions) return;
+
+        currentPosition = next;
+        startPosition   = transform.position;
+        targetPosition  = new Vector3(positions[currentPosition], playerY, 0f);
+        isMoving        = true;
+        moveTimer       = 0f;
+    }
+
+    // ── Input souris ──────────────────────────────────────────────────────────
+
     private void HandleMouseInput()
     {
-        // ── Bouton enfoncé → point d'entrée ───────────────────────────────────
         if (Input.GetMouseButtonDown(0))
         {
-            ClearSwipePoints();
-
-            Vector3 entryWorld = ScreenToWorld(Input.mousePosition);
-            lastEntryWorld = entryWorld;
-            hasLastSwipe   = false;
-
-            var go = new GameObject("SwipeEntryPoint");
-            go.transform.position = entryWorld;
-            swipeEntryPoint       = go.transform;
-
-            Debug.Log($"[PlayerController] ▶ MOUSE DOWN | screen {(Vector2)Input.mousePosition} → world {entryWorld}");
+            isDragging    = true;
+            swipeConsumed = false;
+            dragStart     = Input.mousePosition;
+            lastDragStart = dragStart;
+            hasLastSwipe  = false;
         }
 
-        // ── Bouton relâché → point de sortie + évaluation ────────────────────
+        // Détection pendant le drag — un seul move par appui grâce à swipeConsumed
+        if (isDragging && !swipeConsumed && Input.GetMouseButton(0))
+        {
+            float deltaX = ((Vector2)Input.mousePosition).x - dragStart.x;
+
+            if (Mathf.Abs(deltaX) >= minSwipePixels)
+            {
+                lastDeltaX    = deltaX;
+                lastDragEnd   = Input.mousePosition;
+                hasLastSwipe  = true;
+                swipeConsumed = true;   // bloque tout autre move jusqu'au prochain appui
+
+                if (deltaX > 0) StartMove(+1);
+                else            StartMove(-1);
+            }
+        }
+
         if (Input.GetMouseButtonUp(0))
         {
-            if (swipeEntryPoint == null)
-            {
-                Debug.LogWarning("[PlayerController] MOUSE UP sans EntryPoint.");
-                return;
-            }
-
-            Vector3 exitWorld = ScreenToWorld(Input.mousePosition);
-            lastExitWorld = exitWorld;
-
-            var go = new GameObject("SwipeExitPoint");
-            go.transform.position = exitWorld;
-            swipeExitPoint        = go.transform;
-
-            Debug.Log($"[PlayerController] ■ MOUSE UP  | screen {(Vector2)Input.mousePosition} → world {exitWorld}");
-
-            EvaluateSwipe();
-            ClearSwipePoints();
+            isDragging    = false;
+            swipeConsumed = false;
         }
     }
+
+    // ── Input tactile ─────────────────────────────────────────────────────────
+
+    private void HandleTouchInput()
+    {
+        if (Input.touchCount == 0) return;
+        Touch touch = Input.GetTouch(0);
+
+        switch (touch.phase)
+        {
+            case TouchPhase.Began:
+                isDragging    = true;
+                swipeConsumed = false;
+                dragStart     = touch.position;
+                lastDragStart = dragStart;
+                hasLastSwipe  = false;
+                break;
+
+            case TouchPhase.Moved:
+                if (!isDragging || swipeConsumed) break;
+                float deltaX = touch.position.x - dragStart.x;
+
+                if (Mathf.Abs(deltaX) >= minSwipePixels)
+                {
+                    lastDeltaX    = deltaX;
+                    lastDragEnd   = touch.position;
+                    hasLastSwipe  = true;
+                    swipeConsumed = true;
+
+                    if (deltaX > 0) StartMove(+1);
+                    else            StartMove(-1);
+                }
+                break;
+
+            case TouchPhase.Ended:
+            case TouchPhase.Canceled:
+                isDragging    = false;
+                swipeConsumed = false;
+                break;
+        }
+    }
+
+    // ── Input clavier ─────────────────────────────────────────────────────────
 
     private void HandleKeyboardInput()
     {
-        if (Input.GetKeyDown(KeyCode.LeftArrow)  || Input.GetKeyDown(KeyCode.A)) MoveLeft();
-        else if (Input.GetKeyDown(KeyCode.RightArrow) || Input.GetKeyDown(KeyCode.D)) MoveRight();
+        if (Input.GetKeyDown(KeyCode.LeftArrow)  || Input.GetKeyDown(KeyCode.A)) StartMove(-1);
+        if (Input.GetKeyDown(KeyCode.RightArrow) || Input.GetKeyDown(KeyCode.D)) StartMove(+1);
     }
 
-    /// <summary>Compare les X des deux points et décide gauche / droite.</summary>
-    private void EvaluateSwipe()
-    {
-        if (swipeEntryPoint == null || swipeExitPoint == null) return;
+    // ── API publique ──────────────────────────────────────────────────────────
 
-        float deltaX = swipeExitPoint.position.x - swipeEntryPoint.position.x;
-        lastDeltaX   = deltaX;
-        hasLastSwipe = true;
+    /// <summary>Déplace le joueur d'une case vers la gauche.</summary>
+    public void MoveLeft()  => StartMove(-1);
 
-        Debug.Log($"[PlayerController] EvaluateSwipe | entry.x={swipeEntryPoint.position.x:F3}  " +
-                  $"exit.x={swipeExitPoint.position.x:F3}  deltaX={deltaX:F3}  seuil=±{minSwipeDistance}");
+    /// <summary>Déplace le joueur d'une case vers la droite.</summary>
+    public void MoveRight() => StartMove(+1);
 
-        if (deltaX > minSwipeDistance)
-        {
-            Debug.Log("[PlayerController] → SWIPE DROITE");
-            MoveRight();
-        }
-        else if (deltaX < -minSwipeDistance)
-        {
-            Debug.Log("[PlayerController] → SWIPE GAUCHE");
-            MoveLeft();
-        }
-        else
-        {
-            Debug.Log($"[PlayerController] → Ignoré : |deltaX|={Mathf.Abs(deltaX):F3} < {minSwipeDistance}");
-        }
-    }
-
-    private Vector3 ScreenToWorld(Vector3 screenPos)
-    {
-        Vector3 world = mainCamera.ScreenToWorldPoint(new Vector3(screenPos.x, screenPos.y, 10f));
-        return new Vector3(world.x, world.y, 0f);
-    }
-
-    private void ClearSwipePoints()
-    {
-        if (swipeEntryPoint != null) { Destroy(swipeEntryPoint.gameObject); swipeEntryPoint = null; }
-        if (swipeExitPoint  != null) { Destroy(swipeExitPoint.gameObject);  swipeExitPoint  = null; }
-    }
-
-    /// <summary>Déplace le joueur vers la gauche.</summary>
-    public void MoveLeft()
-    {
-        if (isMoving)             { Debug.Log("[PlayerController] MoveLeft bloqué — en mouvement"); return; }
-        if (currentPosition <= 0) { Debug.Log("[PlayerController] MoveLeft bloqué — bord gauche");  return; }
-        currentPosition--;
-        Debug.Log($"[PlayerController] MoveLeft ✓ → colonne {currentPosition}");
-        StartMove();
-    }
-
-    /// <summary>Déplace le joueur vers la droite.</summary>
-    public void MoveRight()
-    {
-        if (isMoving)                                 { Debug.Log("[PlayerController] MoveRight bloqué — en mouvement"); return; }
-        if (currentPosition >= numberOfPositions - 1) { Debug.Log("[PlayerController] MoveRight bloqué — bord droit");  return; }
-        currentPosition++;
-        Debug.Log($"[PlayerController] MoveRight ✓ → colonne {currentPosition}");
-        StartMove();
-    }
-
-    private void StartMove()
-    {
-        targetPosition = new Vector3(positions[currentPosition], playerY, 0f);
-        isMoving       = true;
-        moveTimer      = 0f;
-    }
+    // ── Gizmos ────────────────────────────────────────────────────────────────
 
     private void OnDrawGizmos()
     {
         if (positions == null || positions.Length == 0) InitializePositions();
 
-        // Colonnes de grille
         Gizmos.color = Color.green;
         foreach (float posX in positions)
             Gizmos.DrawWireCube(new Vector3(posX, playerY, 0f), new Vector3(0.8f, 0.8f, 0.1f));
 
-        // Colonne courante
         Gizmos.color = Color.yellow;
         if (Application.isPlaying && currentPosition >= 0 && currentPosition < positions.Length)
             Gizmos.DrawWireSphere(new Vector3(positions[currentPosition], playerY, 0f), 0.5f);
 
-        // Points live
-        if (swipeEntryPoint != null)
-        {
-            Gizmos.color = Color.cyan;
-            Gizmos.DrawSphere(swipeEntryPoint.position, 0.18f);
-        }
-        if (swipeExitPoint != null)
-        {
-            Gizmos.color = Color.red;
-            Gizmos.DrawSphere(swipeExitPoint.position, 0.18f);
-        }
-
-        // Dernier swipe persistant
         if (hasLastSwipe && Application.isPlaying)
         {
-            Gizmos.color = new Color(0f, 1f, 1f, 0.4f);
-            Gizmos.DrawSphere(lastEntryWorld, 0.22f);
+            if (mainCamera == null) mainCamera = Camera.main;
+            Vector3 s = mainCamera.ScreenToWorldPoint(new Vector3(lastDragStart.x, lastDragStart.y, 10f));
+            Vector3 e = mainCamera.ScreenToWorldPoint(new Vector3(lastDragEnd.x,   lastDragEnd.y,   10f));
+            s.z = e.z = 0f;
 
-            Gizmos.color = new Color(1f, 0.3f, 0.3f, 0.4f);
-            Gizmos.DrawSphere(lastExitWorld, 0.22f);
-
+            Gizmos.color = new Color(0f, 1f, 1f, 0.5f);
+            Gizmos.DrawSphere(s, 0.18f);
             Gizmos.color = lastDeltaX > 0 ? Color.green : Color.red;
-            Gizmos.DrawLine(lastEntryWorld, lastExitWorld);
-
-            // Seuil minimum autour du point d'entrée
-            Gizmos.color = new Color(1f, 1f, 0f, 0.3f);
-            Gizmos.DrawWireSphere(lastEntryWorld, minSwipeDistance);
+            Gizmos.DrawLine(s, e);
         }
     }
 }
-
-

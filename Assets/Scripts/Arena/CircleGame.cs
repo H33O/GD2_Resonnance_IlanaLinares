@@ -506,28 +506,29 @@ public class CircleGame : MonoBehaviour
         }
     }
 
-    private float FindSafeAngle()
+    private float FindSafeAngle(float safeZoneOverride = -1f)
     {
-        const int  attempts = 30;
+        const int attempts = 30;
         for (int i = 0; i < attempts; i++)
         {
             float candidate = Random.Range(0f, 360f);
-            if (IsAngleSafe(candidate))
+            if (IsAngleSafe(candidate, safeZoneOverride))
                 return candidate;
         }
         return Random.Range(0f, 360f); // fallback
     }
 
-    private bool IsAngleSafe(float candidate)
+    private bool IsAngleSafe(float candidate, float safeZoneOverride = -1f)
     {
-        if (Mathf.Abs(Mathf.DeltaAngle(candidate, angleDeg)) < minAngleGap)
+        float gap = safeZoneOverride >= 0f ? safeZoneOverride : minAngleGap;
+        if (Mathf.Abs(Mathf.DeltaAngle(candidate, angleDeg)) < gap)
             return false;
         foreach (var obs in obstacles)
         {
             if (obs == null) continue;
             float a = Mathf.Atan2(obs.transform.position.y,
                                   obs.transform.position.x) * Mathf.Rad2Deg;
-            if (Mathf.Abs(Mathf.DeltaAngle(candidate, a)) < minAngleGap * 0.5f)
+            if (Mathf.Abs(Mathf.DeltaAngle(candidate, a)) < gap * 0.5f)
                 return false;
         }
         return true;

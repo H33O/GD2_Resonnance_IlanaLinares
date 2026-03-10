@@ -116,6 +116,17 @@ public class ArenaObstacleSpawner : MonoBehaviour
             progress);
     }
 
+    /// <summary>
+    /// Spawns one or more obstacles immediately, called when a collectible is picked up.
+    /// The number of extra obstacles is controlled by <see cref="ArenaSettings.obstaclesPerCollectible"/>.
+    /// </summary>
+    public void SpawnObstacleFromCollectible()
+    {
+        int count = settings != null ? settings.obstaclesPerCollectible : 1;
+        for (int i = 0; i < count; i++)
+            SpawnObstacle();
+    }
+
     /// <summary>Removes and destroys all dynamically spawned obstacles.</summary>
     public void ClearSpawned()
     {

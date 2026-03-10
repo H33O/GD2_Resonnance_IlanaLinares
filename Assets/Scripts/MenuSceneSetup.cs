@@ -257,18 +257,18 @@ public class MenuSceneSetup : MonoBehaviour
         var zone = MakeZone("ButtonsZone", parent, new Vector2(0.5f, 0.10f), new Vector2(0.5f, 0.51f));
         zone.sizeDelta = new Vector2(640f, 0f);
 
-        // ARÈNE — bouton principal accent
-        var arena = BuildButton("ArenaButton",  "ARÈNE",   zone,
-                                new Vector2(0f, 0.74f), new Vector2(1f, 1f),
-                                ColBtnPlay, ColBtnPlayText, 64f, isAccent: true);
+        // SONANTIA — bouton principal accent → Game and Watch
+        var sonantia = BuildButton("SonantiaButton", "SONANTIA", zone,
+                                   new Vector2(0f, 0.74f), new Vector2(1f, 1f),
+                                   ColBtnPlay, ColBtnPlayText, 64f, isAccent: true);
 
         // ÉCHO — bouton secondaire
         var echo  = BuildButton("EchoButton",   "ÉCHO",    zone,
                                 new Vector2(0f, 0.50f), new Vector2(1f, 0.68f),
                                 ColBtnSecond, ColBtnText, 46f);
 
-        // RETOUR — bouton secondaire
-        var retour = BuildButton("RetourButton", "RETOUR",  zone,
+        // ARÈNE — bouton secondaire
+        var arena = BuildButton("ArenaButton",  "ARÈNE",   zone,
                                 new Vector2(0f, 0.26f), new Vector2(1f, 0.44f),
                                 ColBtnSecond, ColBtnText, 46f);
 
@@ -277,15 +277,15 @@ public class MenuSceneSetup : MonoBehaviour
                                 new Vector2(0f, 0f),    new Vector2(1f, 0.20f),
                                 ColBtnSecond, ColBtnText, 46f);
 
-        ball.RegisterButton(arena);
+        ball.RegisterButton(sonantia);
         ball.RegisterButton(echo);
-        ball.RegisterButton(retour);
+        ball.RegisterButton(arena);
         ball.RegisterButton(quit);
 
-        arena.OnClick  += OnArena;
-        echo.OnClick   += OnEcho;
-        retour.OnClick += OnRetour;
-        quit.OnClick   += OnQuit;
+        sonantia.OnClick += OnSonantia;
+        echo.OnClick     += OnEcho;
+        arena.OnClick    += OnArena;
+        quit.OnClick     += OnQuit;
     }
 
     private MenuCanvasButton BuildButton(string goName, string label, RectTransform parent,
@@ -333,6 +333,15 @@ public class MenuSceneSetup : MonoBehaviour
 
     // ── Actions ───────────────────────────────────────────────────────────────
 
+    /// <summary>Lance le premier jeu "Sonantia" (Game and Watch).</summary>
+    private void OnSonantia()
+    {
+        if (SceneTransition.Instance != null)
+            SceneTransition.Instance.LoadScene("GameAndWatch", "SONANTIA");
+        else
+            SceneManager.LoadScene("GameAndWatch");
+    }
+
     private void OnArena()
     {
         if (SceneTransition.Instance != null)
@@ -348,16 +357,6 @@ public class MenuSceneSetup : MonoBehaviour
         else
             SceneManager.LoadScene("Minijeu-Bulles");
     }
-
-    private void OnRetour()
-    {
-        if (SceneTransition.Instance != null)
-            SceneTransition.Instance.LoadScene("GameAndWatch", "RETOUR");
-        else
-            SceneManager.LoadScene("GameAndWatch");
-    }
-
-    private void OnOptions() => Debug.Log("[MenuSceneSetup] Options : à implémenter.");
 
     private void OnQuit()
     {

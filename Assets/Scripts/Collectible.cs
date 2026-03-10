@@ -74,6 +74,12 @@ public class Collectible : MonoBehaviour
     {
         wasCollected = true;
         GameManager.Instance?.AddScore(scoreValue);
+
+        // Notifie le PlayerVisuals pour déclencher la croissance des éclairs
+        var player = GameObject.FindGameObjectWithTag("Player");
+        if (player != null)
+            player.GetComponent<PlayerVisuals>()?.OnCollect();
+
         Destroy(gameObject);
     }
 

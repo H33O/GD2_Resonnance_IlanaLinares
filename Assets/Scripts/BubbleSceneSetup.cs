@@ -2,51 +2,93 @@ using UnityEngine;
 using UnityEngine.UI;
 
 /// <summary>
-/// Configures la scène Minijeu-Bulles : crée le fond en SpriteRenderer monde
-/// derrière tous les objets du jeu, de la même façon que UIManager dans GameAndWatch.
+/// Configure la scène Minijeu-Bulles avec la même direction artistique que le menu :
+/// fond quasi-noir, grille translucide, palette noir et blanc, formes rondes.
+/// S'attache à n'importe quel GameObject de la scène — aucun sprite externe requis.
 /// </summary>
-[RequireComponent(typeof(Canvas))]
 public class BubbleSceneSetup : MonoBehaviour
 {
-    [Header("Background")]
-    [SerializeField] private Sprite backgroundSprite;
+    // ── Palette (identique au menu) ───────────────────────────────────────────
+
+    private static readonly Color ColBg       = new Color(0.05f, 0.05f, 0.05f, 1f);
+    private static readonly Color ColGrid     = new Color(1f, 1f, 1f, 0.04f);
+    private static readonly Color ColSep      = new Color(1f, 1f, 1f, 0.18f);
 
     private void Start()
     {
-        // Background disabled — camera uses solid black.
+        // Caméra : fond uni noir profond
+        if (Camera.main != null)
+            Camera.main.backgroundColor = ColBg;
+
+        BuildWorldBackground();
+        BuildGrid();
     }
 
-    /// <summary>
-    /// Crée un SpriteRenderer dans l'espace monde centré sur la caméra,
-    /// derrière tous les objets du jeu (sortingOrder -10).
-    /// </summary>
-    private void BuildBackground()
-    {
-        if (backgroundSprite == null) return;
+    // ── Fond monde ────────────────────────────────────────────────────────────
 
+    /// <summary>SpriteRenderer noir pleine caméra, en arrière-plan.</summary>
+    private void BuildWorldBackground()
+    {
         Camera cam = Camera.main;
         if (cam == null) return;
 
-        var go = new GameObject("Background");
-        var sr = go.AddComponent<SpriteRenderer>();
-        sr.sprite       = backgroundSprite;
-        sr.sortingOrder = -10;
+        var go   = new GameObject("BubbleBG");
+        var sr   = go.AddComponent<SpriteRenderer>();
+        sr.sprite       = SpriteGenerator.CreateCircle(4);   // carré approximatif suffisant
+        sr.color        = ColBg;
+        sr.sortingOrder = -20;
 
-        Vector3 camPos = cam.transform.position;
-        go.transform.position = new Vector3(camPos.x, camPos.y, 0f);
+        float h = cam.orthographicSize * 2f;
+        float w = h * cam.aspect;
+        Vector3 cp = cam.transform.position;
+        go.transform.position   = new Vector3(cp.x, cp.y, 1f);
+        go.transform.localScale = new Vector3(w, h, 1f);
+    }
 
-        float camHeight    = 2f * cam.orthographicSize;
-        float camWidth     = camHeight * cam.aspect;
-        float spriteHeight = backgroundSprite.bounds.size.y;
-        float spriteWidth  = backgroundSprite.bounds.size.x;
+    // ── Grille monde ──────────────────────────────────────────────────────────
 
-        if (spriteHeight > 0f && spriteWidth > 0f)
+    /// <summary>Lignes fines translucides dans l'espace monde, comme la grille du menu.</summary>
+    private void BuildGrid()
+    {
+        Camera cam = Camera.main;
+        if (cam == null) return;
+
+        float h = cam.orthographicSize * 2f;
+        float w = h * cam.aspect;
+        Vector3 cp = cam.transform.position;
+
+        var root = new GameObject("BubbleGrid");
+
+        // 5 lignes verticales
+        for (int i = 1; i <= 5; i++)
         {
-            go.transform.localScale = new Vector3(
-                camWidth  / spriteWidth,
-                camHeight / spriteHeight,
-                1f
-            );
+            float xNorm = i / 6f;
+            float x     = cp.x - w * 0.5f + w * xNorm;
+            MakeWorldLine(root.transform, new Vector3(x, cp.y, 0f), true,  h);
         }
+
+        // 9 lignes horizontales
+        for (int i = 1; i <= 9; i++)
+        {
+            float yNorm = i / 10f;
+            float y     = cp.y - h * 0.5f + h * yNorm;
+            MakeWorldLine(root.transform, new Vector3(cp.x, y, 0f), false, w);
+        }
+    }
+
+    private static void MakeWorldLine(Transform parent, Vector3 pos, bool vertical, float length)
+    {
+        var go = new GameObject(vertical ? "VLine" : "HLine");
+        go.transform.SetParent(parent, false);
+        go.transform.position = pos;
+
+        var sr          = go.AddComponent<SpriteRenderer>();
+        sr.sprite       = SpriteGenerator.CreateCircle(4);
+        sr.color        = ColGrid;
+        sr.sortingOrder = -15;
+
+        go.transform.localScale = vertical
+            ? new Vector3(0.02f, length, 1f)
+            : new Vector3(length, 0.02f, 1f);
     }
 }

@@ -81,6 +81,25 @@ public class ArenaSettings : ScriptableObject
     [Tooltip("Half-angle of the obstacle's collision zone (degrees). Acts as the hit window.")]
     public float obstacleHalfAngle = 8f;
 
+    // ── Collectibles ──────────────────────────────────────────────────────────
+
+    [Header("Collectibles")]
+    [Tooltip("Seconds between each collectible spawn.")]
+    public float collectibleSpawnInterval = 4f;
+
+    [Tooltip("Angular offset ahead of the ball where collectibles spawn (degrees).")]
+    public float collectibleSpawnAngleAhead = 200f;
+
+    [Tooltip("Random angular jitter applied to each spawn position (±degrees).")]
+    public float collectibleSpawnJitter = 45f;
+
+    [Tooltip("Score bonus awarded when a collectible is picked up.")]
+    public int collectibleScoreBonus = 5;
+
+    [Tooltip("Number of extra obstacles spawned per collectible pickup.")]
+    [Range(1, 4)]
+    public int obstaclesPerCollectible = 1;
+
     // ── Near-miss & Dodge ─────────────────────────────────────────────────────
 
     [Header("Near Miss")]

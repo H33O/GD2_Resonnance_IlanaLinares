@@ -201,14 +201,14 @@ public class ArenaBall : MonoBehaviour
 
     // ── Sprite generation ─────────────────────────────────────────────────────
 
-    private static Material cachedUnlitMat;
+    private static Material cachedBallMat;
 
     private static Material GetUnlitMaterial()
     {
-        if (cachedUnlitMat == null)
-            cachedUnlitMat = new Material(
+        if (cachedBallMat == null)
+            cachedBallMat = new Material(
                 Shader.Find("Universal Render Pipeline/2D/Sprite-Unlit-Default"));
-        return cachedUnlitMat;
+        return cachedBallMat;
     }
 
     /// <summary>Generates a filled circle sprite at runtime (resolution×resolution px).</summary>
