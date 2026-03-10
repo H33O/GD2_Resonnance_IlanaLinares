@@ -73,9 +73,7 @@ public class CollectibleVisuals : MonoBehaviour
     private void BuildBolts()
     {
         bolts = new LineRenderer[BoltCount];
-        var mat = new Material(Shader.Find("Sprites/Default"));
-        mat.SetInt("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.SrcAlpha);
-        mat.SetInt("_DstBlend", (int)UnityEngine.Rendering.BlendMode.One);
+        var mat = SpriteGenerator.GetAdditiveMaterial();
 
         for (int i = 0; i < BoltCount; i++)
         {

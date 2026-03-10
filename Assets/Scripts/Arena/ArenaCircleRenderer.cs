@@ -17,7 +17,7 @@ public class ArenaCircleRenderer : MonoBehaviour
 
     [Tooltip("Number of line segments used to approximate the circle. Higher = smoother.")]
     [Range(16, 128)]
-    public int segments = 64;
+    public int segments = 48;
 
     [Header("Appearance")]
     [Tooltip("Width of the circle line (world units).")]
@@ -46,7 +46,10 @@ public class ArenaCircleRenderer : MonoBehaviour
     {
         if (lineRenderer == null)
             lineRenderer = GetComponent<LineRenderer>();
-        ApplySettings();
+        // Only rebuild in edit mode — avoid GPU re-upload every Play mode frame
+#if UNITY_EDITOR
+        if (!Application.isPlaying) ApplySettings();
+#endif
     }
 
     private void Update()

@@ -149,7 +149,10 @@ public class MenuBall : MonoBehaviour
     private void PulseGlow()
     {
         if (glowImage == null) return;
-        glowImage.color = new Color(1f, 1f, 1f, 0.10f + 0.08f * Mathf.Sin(Time.time * 3.5f));
+        // Reuse color struct — avoids per-frame heap allocation
+        Color c = glowImage.color;
+        c.a            = 0.10f + 0.08f * Mathf.Sin(Time.time * 3.5f);
+        glowImage.color = c;
     }
 
     /// <summary>Position canvas actuelle de la balle.</summary>

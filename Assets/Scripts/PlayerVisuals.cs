@@ -74,11 +74,12 @@ public class PlayerVisuals : MonoBehaviour
 
     private void Update()
     {
-        // Pulsation douce du glow
+        // Pulsation douce du glow — reuse color struct to avoid per-frame allocation
         if (glowRenderer != null)
         {
-            float alpha       = 0.18f + 0.10f * Mathf.Sin(Time.time * 2.8f);
-            glowRenderer.color = new Color(glowColor.r, glowColor.g, glowColor.b, alpha);
+            Color c = glowRenderer.color;
+            c.a                = 0.18f + 0.10f * Mathf.Sin(Time.time * 2.8f);
+            glowRenderer.color = c;
         }
     }
 

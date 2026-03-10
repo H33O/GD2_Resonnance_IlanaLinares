@@ -55,9 +55,10 @@ public class ArenaBallTrail : MonoBehaviour
         public int           index;    // 0 = freshest when spawned
     }
 
-    // ── Sprite shared across all dots ─────────────────────────────────────────
+    // ── Sprite & material shared across all instances ─────────────────────────
 
     private static Sprite dotSprite;
+    private static Material dotMaterial;
 
     // ── Timer ─────────────────────────────────────────────────────────────────
 
@@ -69,6 +70,10 @@ public class ArenaBallTrail : MonoBehaviour
     {
         if (dotSprite == null)
             dotSprite = CreateCircleSprite(32, Color.white);
+
+        if (dotMaterial == null)
+            dotMaterial = new Material(
+                Shader.Find("Universal Render Pipeline/2D/Sprite-Unlit-Default"));
 
         BuildPool();
     }
@@ -95,8 +100,6 @@ public class ArenaBallTrail : MonoBehaviour
 
     private void BuildPool()
     {
-        var mat = new Material(Shader.Find("Universal Render Pipeline/2D/Sprite-Unlit-Default"));
-
         pool = new TrailDot[poolSize];
         for (int i = 0; i < poolSize; i++)
         {
@@ -105,12 +108,14 @@ public class ArenaBallTrail : MonoBehaviour
 
             var sr            = go.AddComponent<SpriteRenderer>();
             sr.sprite         = dotSprite;
-            sr.sharedMaterial = mat;
+            sr.sharedMaterial = dotMaterial; // shared — single GPU object
             sr.color          = Color.clear;
             sr.sortingOrder   = 9;
+            sr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            sr.receiveShadows    = false;
 
+            // Stay active forever — visibility controlled by alpha only
             pool[i] = new TrailDot { go = go, sr = sr, active = false, index = i };
-            go.SetActive(false);
         }
     }
 
@@ -123,7 +128,7 @@ public class ArenaBallTrail : MonoBehaviour
         dot.spawnTime = Time.time;
         dot.worldPos  = worldPos;
         dot.go.transform.position = worldPos;
-        dot.go.SetActive(true);
+        // No SetActive call — color controls visibility, avoids costly hierarchy messages
 
         nextSlot = (nextSlot + 1) % poolSize;
     }
@@ -142,17 +147,20 @@ public class ArenaBallTrail : MonoBehaviour
 
             if (t >= 1f)
             {
-                dot.active = false;
+                dot.active   = false;
                 dot.sr.color = Color.clear;
-                dot.go.SetActive(false);
                 continue;
             }
 
             float size  = Mathf.Lerp(dotSizeStart, dotSizeEnd, t);
-            float alpha = Mathf.Lerp(dotAlphaStart, dotAlphaEnd, t * t);  // quadratic fade
+            float alpha = Mathf.Lerp(dotAlphaStart, dotAlphaEnd, t * t);
 
             dot.go.transform.localScale = Vector3.one * size;
-            dot.sr.color = new Color(1f, 1f, 1f, alpha);
+
+            // Reuse color struct — avoids per-frame allocation
+            Color c = dot.sr.color;
+            c.a          = alpha;
+            dot.sr.color = c;
         }
     }
 

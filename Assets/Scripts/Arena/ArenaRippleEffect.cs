@@ -47,6 +47,10 @@ public class ArenaRippleEffect : MonoBehaviour
 
     private void BuildPool()
     {
+        // One shared material for all ripple rings — avoids creating N GPU objects
+        var sharedMat = new Material(
+            Shader.Find("Universal Render Pipeline/2D/Sprite-Unlit-Default"));
+
         for (int i = 0; i < poolSize; i++)
         {
             var go = new GameObject($"Ripple_{i}");
@@ -59,11 +63,12 @@ public class ArenaRippleEffect : MonoBehaviour
             lr.positionCount    = ringSegments;
             lr.startWidth       = lineWidth;
             lr.endWidth         = lineWidth;
-            lr.sharedMaterial   = new Material(
-                Shader.Find("Universal Render Pipeline/2D/Sprite-Unlit-Default"));
+            lr.sharedMaterial   = sharedMat;
             lr.startColor       = Color.clear;
             lr.endColor         = Color.clear;
             lr.sortingOrder     = 5;
+            lr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            lr.receiveShadows    = false;
 
             pool.Enqueue(lr);
         }

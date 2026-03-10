@@ -65,11 +65,8 @@ public class PlayerLightningEffect : MonoBehaviour
             lr.receiveShadows         = false;
             lr.sortingOrder           = 20;
 
-            // Matériau simple : Sprites/Default (intégré dans URP)
-            var mat = new Material(Shader.Find("Sprites/Default"));
-            mat.SetInt("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.SrcAlpha);
-            mat.SetInt("_DstBlend", (int)UnityEngine.Rendering.BlendMode.One);
-            lr.material               = mat;
+            // Matériau additif partagé (cache global — un seul objet GPU)
+            lr.material               = SpriteGenerator.GetAdditiveMaterial();
             bolts.Add(lr);
         }
     }

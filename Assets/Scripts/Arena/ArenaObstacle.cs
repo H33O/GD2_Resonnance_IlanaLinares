@@ -108,14 +108,15 @@ public class ArenaObstacle : MonoBehaviour
 
     // ── Sprite generation ─────────────────────────────────────────────────────
 
-    /// <summary>Generates a filled rectangle sprite at runtime.</summary>
+    /// <summary>Generates a filled rectangle sprite at runtime with minimal GPU overhead.</summary>
     private static Sprite CreateRectSprite(int w, int h, Color color)
     {
-        var tex = new Texture2D(w, h, TextureFormat.RGBA32, false);
-        for (int y = 0; y < h; y++)
-        for (int x = 0; x < w; x++)
-            tex.SetPixel(x, y, color);
-        tex.Apply();
+        var tex    = new Texture2D(w, h, TextureFormat.RGBA32, false);
+        var pixels = new Color[w * h];
+        for (int i = 0; i < pixels.Length; i++)
+            pixels[i] = color;
+        tex.SetPixels(pixels);
+        tex.Apply(false, true); // makeNoLongerReadable → libère la RAM CPU
 
         return Sprite.Create(tex, new Rect(0, 0, w, h), new Vector2(0.5f, 0.5f), 100f);
     }

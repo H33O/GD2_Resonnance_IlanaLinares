@@ -94,11 +94,12 @@ public class CGPlayerBall : MonoBehaviour
         if (CGGameManager.Instance == null) return;
         if (CGGameManager.Instance.State != CGGameManager.GameState.Playing) return;
 
-        // Pulsation glow
+        // Pulsation glow — reuse cached color to avoid per-frame heap allocation
         if (glowSR != null)
         {
-            float a    = 0.15f + 0.08f * Mathf.Sin(Time.time * 3.0f);
-            glowSR.color = new Color(1f, 1f, 1f, a);
+            Color c = glowSR.color;
+            c.a          = 0.15f + 0.08f * Mathf.Sin(Time.time * 3.0f);
+            glowSR.color = c;
         }
 
         // Advance survival time and increase speed progressively

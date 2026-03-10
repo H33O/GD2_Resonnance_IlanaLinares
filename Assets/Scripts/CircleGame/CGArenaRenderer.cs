@@ -25,7 +25,7 @@ public class CGArenaRenderer : MonoBehaviour
 
     [Range(32, 128)]
     [Tooltip("Number of line segments — more = smoother.")]
-    public int segments = 80;
+    public int segments = 48;
 
     // ── Private ───────────────────────────────────────────────────────────────
 
@@ -36,7 +36,14 @@ public class CGArenaRenderer : MonoBehaviour
     // ── Lifecycle ─────────────────────────────────────────────────────────────
 
     private void Awake() => Rebuild();
-    private void OnValidate() => Rebuild();
+
+    private void OnValidate()
+    {
+        // Only rebuild in edit mode — avoid GPU re-upload every frame in Play mode
+#if UNITY_EDITOR
+        if (!Application.isPlaying) Rebuild();
+#endif
+    }
 
     // ── Build ─────────────────────────────────────────────────────────────────
 
