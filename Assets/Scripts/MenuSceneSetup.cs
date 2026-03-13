@@ -254,37 +254,44 @@ public class MenuSceneSetup : MonoBehaviour
 
     private void BuildButtons(RectTransform parent)
     {
-        var zone = MakeZone("ButtonsZone", parent, new Vector2(0.5f, 0.10f), new Vector2(0.5f, 0.51f));
+        var zone = MakeZone("ButtonsZone", parent, new Vector2(0.5f, 0.08f), new Vector2(0.5f, 0.51f));
         zone.sizeDelta = new Vector2(640f, 0f);
 
         // SONANTIA — bouton principal accent → Game and Watch
         var sonantia = BuildButton("SonantiaButton", "SONANTIA", zone,
-                                   new Vector2(0f, 0.74f), new Vector2(1f, 1f),
+                                   new Vector2(0f, 0.80f), new Vector2(1f, 1f),
                                    ColBtnPlay, ColBtnPlayText, 64f, isAccent: true);
 
         // ÉCHO — bouton secondaire
         var echo  = BuildButton("EchoButton",   "ÉCHO",    zone,
-                                new Vector2(0f, 0.50f), new Vector2(1f, 0.68f),
+                                new Vector2(0f, 0.59f), new Vector2(1f, 0.74f),
                                 ColBtnSecond, ColBtnText, 46f);
 
         // ARÈNE — bouton secondaire
         var arena = BuildButton("ArenaButton",  "ARÈNE",   zone,
-                                new Vector2(0f, 0.26f), new Vector2(1f, 0.44f),
+                                new Vector2(0f, 0.38f), new Vector2(1f, 0.53f),
+                                ColBtnSecond, ColBtnText, 46f);
+
+        // SLASH — bouton secondaire
+        var slash = BuildButton("SlashButton",  "SLASH",   zone,
+                                new Vector2(0f, 0.17f), new Vector2(1f, 0.32f),
                                 ColBtnSecond, ColBtnText, 46f);
 
         // QUIT — bouton secondaire
         var quit  = BuildButton("QuitButton",   "QUIT",    zone,
-                                new Vector2(0f, 0f),    new Vector2(1f, 0.20f),
+                                new Vector2(0f, 0f),    new Vector2(1f, 0.11f),
                                 ColBtnSecond, ColBtnText, 46f);
 
         ball.RegisterButton(sonantia);
         ball.RegisterButton(echo);
         ball.RegisterButton(arena);
+        ball.RegisterButton(slash);
         ball.RegisterButton(quit);
 
         sonantia.OnClick += OnSonantia;
         echo.OnClick     += OnEcho;
         arena.OnClick    += OnArena;
+        slash.OnClick    += OnSlash;
         quit.OnClick     += OnQuit;
     }
 
@@ -348,6 +355,14 @@ public class MenuSceneSetup : MonoBehaviour
             SceneTransition.Instance.LoadScene("CircleArena", "ARÈNE");
         else
             SceneManager.LoadScene("CircleArena");
+    }
+
+    private void OnSlash()
+    {
+        if (SceneTransition.Instance != null)
+            SceneTransition.Instance.LoadScene("SlashGame", "SLASH");
+        else
+            SceneManager.LoadScene("SlashGame");
     }
 
     private void OnEcho()
