@@ -116,7 +116,7 @@ public class SGSlashSpawner : MonoBehaviour
 
         var go    = new GameObject($"Slash_{angleDeg:F0}");
         var slash = go.AddComponent<SGSlash>();
-        slash.Init(pos, speed, settings, tutorial);
+        slash.Init(pos, speed, settings, tutorial, this);
 
         activeSlashes.Add(slash);
         return slash;

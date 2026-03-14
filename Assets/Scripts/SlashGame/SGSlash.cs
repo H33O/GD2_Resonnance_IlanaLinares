@@ -25,6 +25,7 @@ public class SGSlash : MonoBehaviour
     private float        speed;
     private bool         alive = true;
     private bool         parried;
+    private SGSlashSpawner spawner;
 
     // Tail glow LineRenderer (additive layer on top)
     private LineRenderer tailGlow;
@@ -71,11 +72,12 @@ public class SGSlash : MonoBehaviour
     /// Initialises the slash with spawn position and movement speed.
     /// Called by <see cref="SGSlashSpawner"/> immediately after instantiation.
     /// </summary>
-    public void Init(Vector3 spawnPos, float moveSpeed, SGSettings cfg, bool tutorial = false)
+    public void Init(Vector3 spawnPos, float moveSpeed, SGSettings cfg, bool tutorial = false, SGSlashSpawner ownerSpawner = null)
     {
         settings         = cfg;
         speed            = moveSpeed;
         isTutorialSlash  = tutorial;
+        spawner          = ownerSpawner;
         transform.position = spawnPos;
         direction          = -spawnPos.normalized; // always moves toward center (0,0)
 
@@ -132,6 +134,8 @@ public class SGSlash : MonoBehaviour
         if (!alive) return;
         alive = false;
 
+        NotifySpawnerDestroyed();
+
         if (!isTutorialSlash)
             SGGameManager.Instance?.NotifyHit();
 
@@ -143,6 +147,8 @@ public class SGSlash : MonoBehaviour
     private IEnumerator ParryDeathRoutine()
     {
         alive = false;
+
+        NotifySpawnerDestroyed();
 
         // Flash to full bright then fade out
         float elapsed  = 0f;
@@ -171,6 +177,12 @@ public class SGSlash : MonoBehaviour
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
+
+    /// <summary>Removes this slash from the spawner's active list immediately.</summary>
+    private void NotifySpawnerDestroyed()
+    {
+        spawner?.NotifySlashDestroyed(this);
+    }
 
     private static void ConfigureLineRenderer(LineRenderer lr, float width, Color color)
     {

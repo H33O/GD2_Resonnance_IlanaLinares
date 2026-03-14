@@ -18,12 +18,11 @@ public class SGSceneSetup : MonoBehaviour
 
     // ── Cached references (populated at build time) ───────────────────────────
 
-    private SGGameManager    gameManager;
-    private SGSlashSpawner   slashSpawner;
+    private SGGameManager      gameManager;
+    private SGSlashSpawner     slashSpawner;
     private SGPlayerController player;
     private SGFeedbackManager  feedback;
-    private SGConeGauge        coneGauge;
-    private SGSquadUI          squadUI;
+    private SGBetsHUD          betsHUD;
     private SGHUD              hud;
     private SGTutorial         tutorial;
     private Camera             gameCamera;
@@ -209,47 +208,81 @@ public class SGSceneSetup : MonoBehaviour
         hudGO.transform.SetParent(canvasParent, false);
         hud = hudGO.AddComponent<SGHUD>();
 
-        // Score
+        // ── Progress bar (square white bar at very top, fills with bets) ──────
+
+        // Background track
+        var progBgGO  = CreateUIImage("ProgressBarBg", hudGO.transform, new Color(0.15f, 0.15f, 0.15f));
+        var progBgRT  = progBgGO.GetComponent<RectTransform>();
+        progBgRT.anchorMin        = new Vector2(0f, 1f);
+        progBgRT.anchorMax        = new Vector2(1f, 1f);
+        progBgRT.pivot            = new Vector2(0.5f, 1f);
+        progBgRT.anchoredPosition = new Vector2(0f, -40f);
+        progBgRT.offsetMin        = new Vector2(60f, progBgRT.offsetMin.y);
+        progBgRT.offsetMax        = new Vector2(-60f, progBgRT.offsetMax.y);
+        progBgRT.sizeDelta        = new Vector2(progBgRT.sizeDelta.x, 55f);
+
+        // Fill
+        var progFillGO  = CreateUIImage("ProgressBarFill", progBgGO.transform, Color.white);
+        var progFillRT  = progFillGO.GetComponent<RectTransform>();
+        progFillRT.anchorMin = Vector2.zero;
+        progFillRT.anchorMax = Vector2.one;
+        progFillRT.offsetMin = new Vector2(4f, 4f);
+        progFillRT.offsetMax = new Vector2(-4f, -4f);
+        var progFillImg      = progFillGO.GetComponent<Image>();
+        progFillImg.type         = Image.Type.Filled;
+        progFillImg.fillMethod   = Image.FillMethod.Horizontal;
+        progFillImg.fillAmount   = 0f;
+        progFillImg.raycastTarget = false;
+
+        // Wire to SGBetsHUD (built later in BuildBottomUI) — stored temporarily
+        // We keep a reference here and pass it after BuildBottomUI is called.
+        // Store in a local field via a tag on the image for later wiring.
+        progFillGO.name = "ProgressBarFill_Ref";
+
+        // ── Score ─────────────────────────────────────────────────────────────
+
         var scoreGO  = CreateTMPText("ScoreText", hudGO.transform, "0", 72);
         var scoreRT  = scoreGO.GetComponent<RectTransform>();
         scoreRT.anchorMin        = new Vector2(0.5f, 1f);
         scoreRT.anchorMax        = new Vector2(0.5f, 1f);
         scoreRT.pivot            = new Vector2(0.5f, 1f);
-        scoreRT.anchoredPosition = new Vector2(0f, -60f);
+        scoreRT.anchoredPosition = new Vector2(0f, -130f);
         scoreRT.sizeDelta        = new Vector2(400f, 100f);
         hud.scoreText = scoreGO.GetComponent<TextMeshProUGUI>();
 
-        // Combo
+        // ── Combo ─────────────────────────────────────────────────────────────
+
         var comboGO = CreateTMPText("ComboText", hudGO.transform, "", 44);
         var comboRT = comboGO.GetComponent<RectTransform>();
         comboRT.anchorMin        = new Vector2(0.5f, 1f);
         comboRT.anchorMax        = new Vector2(0.5f, 1f);
         comboRT.pivot            = new Vector2(0.5f, 1f);
-        comboRT.anchoredPosition = new Vector2(0f, -170f);
+        comboRT.anchoredPosition = new Vector2(0f, -240f);
         comboRT.sizeDelta        = new Vector2(300f, 70f);
         hud.comboText = comboGO.GetComponent<TextMeshProUGUI>();
 
-        // Fury label
+        // ── Fury label ────────────────────────────────────────────────────────
+
         var furyGO = CreateTMPText("FuryLabel", hudGO.transform, "FURY!", 40);
         var furyRT = furyGO.GetComponent<RectTransform>();
         furyRT.anchorMin        = new Vector2(0.5f, 1f);
         furyRT.anchorMax        = new Vector2(0.5f, 1f);
         furyRT.pivot            = new Vector2(0.5f, 1f);
-        furyRT.anchoredPosition = new Vector2(0f, -230f);
+        furyRT.anchoredPosition = new Vector2(0f, -300f);
         furyRT.sizeDelta        = new Vector2(300f, 60f);
         hud.furyLabel = furyGO.GetComponent<TextMeshProUGUI>();
         furyGO.SetActive(false);
 
-        // XP bar background
+        // ── XP bar ────────────────────────────────────────────────────────────
+
         var xpBgGO  = CreateUIImage("XPBarBg", hudGO.transform, new Color(0.15f, 0.15f, 0.15f));
         var xpBgRT  = xpBgGO.GetComponent<RectTransform>();
         xpBgRT.anchorMin        = new Vector2(0.5f, 1f);
         xpBgRT.anchorMax        = new Vector2(0.5f, 1f);
         xpBgRT.pivot            = new Vector2(0.5f, 1f);
-        xpBgRT.anchoredPosition = new Vector2(0f, -300f);
+        xpBgRT.anchoredPosition = new Vector2(0f, -360f);
         xpBgRT.sizeDelta        = new Vector2(500f, 8f);
 
-        // XP bar fill
         var xpFillGO  = CreateUIImage("XPBarFill", xpBgGO.transform, Color.white);
         var xpFillRT  = xpFillGO.GetComponent<RectTransform>();
         xpFillRT.anchorMin = Vector2.zero;
@@ -267,95 +300,62 @@ public class SGSceneSetup : MonoBehaviour
         var bottomGO = new GameObject("BottomUI");
         bottomGO.transform.SetParent(canvasParent, false);
 
-        // ── Cone gauge ────────────────────────────────────────────────────────
+        // Root component for the bet bar
+        betsHUD = bottomGO.AddComponent<SGBetsHUD>();
 
-        var coneGO  = new GameObject("ConeGauge");
-        coneGO.transform.SetParent(bottomGO.transform, false);
-        coneGauge = coneGO.AddComponent<SGConeGauge>();
-        coneGauge.settings = settings;
+        // ── Three bet slots ───────────────────────────────────────────────────
 
-        // Cone outline image (white triangle / cone shape via 1×1 white sprite + mask trick)
-        var outlineGO = CreateUIImage("ConeOutline", coneGO.transform, new Color(1f, 1f, 1f, 0.7f));
-        var outlineRT = outlineGO.GetComponent<RectTransform>();
-        outlineRT.anchorMin        = new Vector2(0.5f, 0f);
-        outlineRT.anchorMax        = new Vector2(0.5f, 0f);
-        outlineRT.pivot            = new Vector2(0.5f, 0f);
-        outlineRT.anchoredPosition = new Vector2(0f, 30f);
-        outlineRT.sizeDelta        = new Vector2(140f, 200f);
-        coneGauge.coneOutline      = outlineGO.GetComponent<Image>();
+        const float SlotSize    = 180f;
+        const float SlotSpacing = 220f;
+        const float SlotY       = 100f;    // distance from screen bottom
+        const float StartX      = -SlotSpacing;  // centre the 3 slots
 
-        // Cone fill
-        var fillGO  = CreateUIImage("ConeFill", coneGO.transform, Color.white);
-        var fillRT  = fillGO.GetComponent<RectTransform>();
-        fillRT.anchorMin        = new Vector2(0.5f, 0f);
-        fillRT.anchorMax        = new Vector2(0.5f, 0f);
-        fillRT.pivot            = new Vector2(0.5f, 0f);
-        fillRT.anchoredPosition = new Vector2(0f, 30f);
-        fillRT.sizeDelta        = new Vector2(130f, 190f);
-        var fillImg             = fillGO.GetComponent<Image>();
-        fillImg.type            = Image.Type.Filled;
-        fillImg.fillMethod      = Image.FillMethod.Vertical;
-        fillImg.fillAmount      = 0f;
-        coneGauge.coneFill      = fillImg;
-
-        // Cone glow
-        var glowGO  = CreateUIImage("ConeGlow", coneGO.transform, Color.clear);
-        var glowRT  = glowGO.GetComponent<RectTransform>();
-        glowRT.anchorMin        = new Vector2(0.5f, 0f);
-        glowRT.anchorMax        = new Vector2(0.5f, 0f);
-        glowRT.pivot            = new Vector2(0.5f, 0f);
-        glowRT.anchoredPosition = new Vector2(0f, 30f);
-        glowRT.sizeDelta        = new Vector2(160f, 220f);
-        coneGauge.coneGlow      = glowGO.GetComponent<Image>();
-
-        // ── Squad icons ───────────────────────────────────────────────────────
-
-        var squadGO = new GameObject("SquadSlots");
-        squadGO.transform.SetParent(bottomGO.transform, false);
-        var squadComp = squadGO.AddComponent<SGSquadUI>();
-        squadComp.squadData = squadData;
-        squadUI = squadComp;
-
-        float slotSpacing = 160f;
-        float startX      = -slotSpacing * 1.5f;
-
-        for (int i = 0; i < 4; i++)
+        for (int i = 0; i < 3; i++)
         {
-            var slotGO = CreateUIImage($"Slot_{i}", squadGO.transform, new Color(0.2f, 0.2f, 0.2f));
-            var slotRT = slotGO.GetComponent<RectTransform>();
+            // Background square
+            var slotGO  = CreateUIImage($"BetSlot_{i}", bottomGO.transform, new Color(0.15f, 0.15f, 0.15f));
+            var slotRT  = slotGO.GetComponent<RectTransform>();
             slotRT.anchorMin        = new Vector2(0.5f, 0f);
             slotRT.anchorMax        = new Vector2(0.5f, 0f);
             slotRT.pivot            = new Vector2(0.5f, 0f);
-            slotRT.anchoredPosition = new Vector2(startX + i * slotSpacing, 260f);
-            slotRT.sizeDelta        = new Vector2(100f, 100f);
+            slotRT.anchoredPosition = new Vector2(StartX + i * SlotSpacing, SlotY);
+            slotRT.sizeDelta        = new Vector2(SlotSize, SlotSize);
+            slotGO.GetComponent<Image>().raycastTarget = false;
 
-            var slotImg = slotGO.GetComponent<Image>();
-            // Circle mask
-            slotImg.sprite = SpriteGenerator.CreateCircle(64);
-            slotImg.type   = Image.Type.Simple;
+            if (i < betsHUD.betBackgrounds.Length)
+                betsHUD.betBackgrounds[i] = slotGO.GetComponent<Image>();
 
-            if (i < squadComp.slotIcons.Length)
-                squadComp.slotIcons[i] = slotImg;
-
-            // Label
-            var labelGO = CreateTMPText($"Slot_{i}_Label", slotGO.transform, "?", 20);
+            // Label  "0/target"
+            var labelGO = CreateTMPText($"BetLabel_{i}", slotGO.transform, "0/10", 38);
             var labelRT = labelGO.GetComponent<RectTransform>();
             labelRT.anchorMin        = Vector2.zero;
             labelRT.anchorMax        = Vector2.one;
             labelRT.offsetMin        = Vector2.zero;
             labelRT.offsetMax        = Vector2.zero;
-            labelRT.anchoredPosition = new Vector2(0f, -55f);
-            labelRT.sizeDelta        = new Vector2(120f, 30f);
+            labelRT.anchoredPosition = Vector2.zero;
+            var labelTMP = labelGO.GetComponent<TextMeshProUGUI>();
+            labelTMP.fontStyle       = FontStyles.Bold;
 
-            if (i < squadComp.slotLabels.Length)
-                squadComp.slotLabels[i] = labelGO.GetComponent<TextMeshProUGUI>();
+            if (i < betsHUD.betLabels.Length)
+                betsHUD.betLabels[i] = labelTMP;
         }
 
-        // ── Level-up popup ────────────────────────────────────────────────────
+        // ── Wire progress bar fill reference ──────────────────────────────────
+        // Find the fill image created in BuildTopHUD by name
+        var fillRef = canvasParent.GetComponentsInChildren<Image>(true);
+        foreach (var img in fillRef)
+        {
+            if (img.gameObject.name == "ProgressBarFill_Ref")
+            {
+                betsHUD.progressBarFill = img;
+                break;
+            }
+        }
+
+        // ── Level-up popup (kept from original for squad progression) ──────────
         var popupGO = CreateUIImage("LevelUpPanel", canvasParent, new Color(0f, 0f, 0f, 0.9f));
         StretchFull(popupGO.GetComponent<RectTransform>());
         popupGO.SetActive(false);
-        squadComp.levelUpPanel = popupGO;
 
         var popupTitleGO = CreateTMPText("LevelUpText", popupGO.transform, "UPGRADE", 64);
         var popupTitleRT = popupTitleGO.GetComponent<RectTransform>();
@@ -364,7 +364,6 @@ public class SGSceneSetup : MonoBehaviour
         popupTitleRT.pivot            = new Vector2(0.5f, 0.5f);
         popupTitleRT.anchoredPosition = new Vector2(0f, 80f);
         popupTitleRT.sizeDelta        = new Vector2(600f, 200f);
-        squadComp.levelUpText = popupTitleGO.GetComponent<TextMeshProUGUI>();
 
         var confirmBtnGO  = CreateUIImage("ConfirmButton", popupGO.transform, Color.white);
         var confirmBtnRT  = confirmBtnGO.GetComponent<RectTransform>();
@@ -373,17 +372,15 @@ public class SGSceneSetup : MonoBehaviour
         confirmBtnRT.pivot            = new Vector2(0.5f, 0.5f);
         confirmBtnRT.anchoredPosition = new Vector2(0f, -80f);
         confirmBtnRT.sizeDelta        = new Vector2(300f, 80f);
-        var confirmBtn = confirmBtnGO.AddComponent<Button>();
-        squadComp.levelUpConfirmButton = confirmBtn;
+        confirmBtnGO.AddComponent<Button>();
 
-        var confirmLabelGO = CreateTMPText("ConfirmLabel", confirmBtnGO.transform, "CONFIRM", 36);
+        var confirmLabelGO = CreateTMPText("ConfirmLabel", confirmBtnGO.transform, "OK", 36);
         var confirmLabelRT = confirmLabelGO.GetComponent<RectTransform>();
         confirmLabelRT.anchorMin  = Vector2.zero;
         confirmLabelRT.anchorMax  = Vector2.one;
         confirmLabelRT.offsetMin  = Vector2.zero;
         confirmLabelRT.offsetMax  = Vector2.zero;
-        var confirmTMP            = confirmLabelGO.GetComponent<TextMeshProUGUI>();
-        confirmTMP.color          = Color.black;
+        confirmLabelGO.GetComponent<TextMeshProUGUI>().color = Color.black;
     }
 
     private void BuildGameOverPanel(Transform canvasParent)
