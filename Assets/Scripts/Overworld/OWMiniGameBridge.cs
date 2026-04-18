@@ -89,13 +89,16 @@ public class OWMiniGameBridge : MonoBehaviour
 
     // ── Retour ────────────────────────────────────────────────────────────────
 
-    /// <summary>Déclenche le retour vers l'overworld depuis ce mini-jeu.</summary>
+    /// <summary>
+    /// Déclenche le passage vers le Game &amp; Watch depuis ce mini-jeu,
+    /// puis retour à l'Overworld une fois la session G&amp;W terminée.
+    /// </summary>
     public void ReturnToOverworld()
     {
         if (OWGameManager.Instance != null)
-            OWGameManager.Instance.ReturnToOverworld(countAsCompletion);
+            OWGameManager.Instance.GoToGameAndWatch(countAsCompletion);
         else
-            UnityEngine.SceneManagement.SceneManager.LoadScene(OWGameManager.SceneOverworld);
+            UnityEngine.SceneManagement.SceneManager.LoadScene(OWGameManager.SceneGameAndWatch);
     }
 
     // ── Helper ────────────────────────────────────────────────────────────────

@@ -2,34 +2,46 @@ using UnityEngine;
 using UnityEngine.Events;
 
 /// <summary>
-/// Singleton gérant l'état global de l'overworld : clé collectée, mini-jeux complétés, porte déverrouillée.
+/// Singleton gérant l'état global de l'overworld : clé collectée, mini-jeux complétés,
+/// porte déverrouillée et <b>score total accumulé via les Game &amp; Watch</b>.
 /// Persiste entre les scènes via DontDestroyOnLoad.
 /// </summary>
 public class OWGameManager : MonoBehaviour
 {
     public static OWGameManager Instance { get; private set; }
 
-    // ── Noms des scènes mini-jeux (doit correspondre aux Build Settings) ──────
+    // ── Noms des scènes (doit correspondre aux Build Settings) ───────────────
 
-    public const string SceneOverworld  = "Overworld";
-    public const string SceneMinijeu1   = "GameAndWatch";
-    public const string SceneMinijeu2   = "Minijeu-Bulles";
-    public const string SceneMinijeu3   = "SlashGame";
-    public const string SceneMinijeu4   = "CircleArena";
+    public const string SceneOverworld    = "Overworld";
+    public const string SceneGameAndWatch = "GameAndWatch";
+    public const string SceneMinijeu1     = "GameAndWatch";
+    public const string SceneMinijeu2     = "Minijeu-Bulles";
+    public const string SceneMinijeu3     = "SlashGame";
+    public const string SceneMinijeu4     = "CircleArena";
 
     // ── État persistant ───────────────────────────────────────────────────────
 
     private bool hasKey = false;
     private int  completedMiniGames = 0;
 
-    public bool HasKey           => hasKey;
-    public int  CompletedCount   => completedMiniGames;
+    /// <summary>Score total cumulé depuis les parties Game &amp; Watch.</summary>
+    private int totalScore = 0;
+
+    /// <summary>Scène d'origine qui a déclenché le Game &amp; Watch (pour y retourner après).</summary>
+    private string pendingReturnScene = SceneOverworld;
+
+    public bool HasKey         => hasKey;
+    public int  CompletedCount => completedMiniGames;
+    public int  TotalScore     => totalScore;
 
     // ── Événements ────────────────────────────────────────────────────────────
 
     public UnityEvent OnKeyCollected;
     public UnityEvent OnDoorUnlocked;
     public UnityEvent<int> OnMiniGameCompleted;
+
+    /// <summary>Déclenché à chaque fois que le score total change (arg : nouveau score total).</summary>
+    public UnityEvent<int> OnTotalScoreChanged;
 
     // ── Position du joueur à sa réapparition dans l'overworld ─────────────────
 
@@ -66,7 +78,44 @@ public class OWGameManager : MonoBehaviour
             UnityEngine.SceneManagement.SceneManager.LoadScene(sceneName);
     }
 
-    /// <summary>Appeler depuis un mini-jeu quand il est terminé pour revenir dans l'overworld.</summary>
+    /// <summary>
+    /// Appeler depuis un mini-jeu terminé : passe d'abord par le Game &amp; Watch
+    /// pour permettre au joueur de récupérer des points bonus, puis revient à l'overworld.
+    /// </summary>
+    public void GoToGameAndWatch(bool miniGameCompleted = true)
+    {
+        if (miniGameCompleted)
+        {
+            completedMiniGames++;
+            OnMiniGameCompleted?.Invoke(completedMiniGames);
+        }
+
+        pendingReturnScene = SceneOverworld;
+
+        if (SceneTransition.Instance != null)
+            SceneTransition.Instance.LoadScene(SceneGameAndWatch, SceneGameAndWatch);
+        else
+            UnityEngine.SceneManagement.SceneManager.LoadScene(SceneGameAndWatch);
+    }
+
+    /// <summary>
+    /// Appeler depuis le Game &amp; Watch une fois terminé.
+    /// Ajoute les points collectés au total et retourne à la scène d'origine.
+    /// </summary>
+    public void FinishGameAndWatch(int earnedScore)
+    {
+        AddTotalScore(earnedScore);
+
+        string returnScene = pendingReturnScene;
+        pendingReturnScene = SceneOverworld;
+
+        if (SceneTransition.Instance != null)
+            SceneTransition.Instance.LoadScene(returnScene, returnScene);
+        else
+            UnityEngine.SceneManagement.SceneManager.LoadScene(returnScene);
+    }
+
+    /// <summary>Retour direct à l'overworld sans passer par le Game &amp; Watch.</summary>
     public void ReturnToOverworld(bool miniGameCompleted = true)
     {
         if (miniGameCompleted)
@@ -79,6 +128,14 @@ public class OWGameManager : MonoBehaviour
             SceneTransition.Instance.LoadScene(SceneOverworld, SceneOverworld);
         else
             UnityEngine.SceneManagement.SceneManager.LoadScene(SceneOverworld);
+    }
+
+    /// <summary>Ajoute des points au score total persistant et notifie les abonnés.</summary>
+    public void AddTotalScore(int points)
+    {
+        if (points <= 0) return;
+        totalScore += points;
+        OnTotalScoreChanged?.Invoke(totalScore);
     }
 
     /// <summary>Collecte la clé dans l'overworld.</summary>

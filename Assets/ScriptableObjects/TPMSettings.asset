@@ -1,0 +1,27 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e5e5e91e7d5c839458c5dd7a01332f71, type: 3}
+  m_Name: TPMSettings
+  m_EditorClassIdentifier: 
+  gridWidth: 9
+  gridHeight: 15
+  cellSize: 1.18
+  playerSpeed: 6
+  startingMoves: 20
+  movesRestoredSingle: 1
+  movesRestoredChainBonus: 1
+  pointsSingle: 10
+  chainScoreMultiplier: 1.5
+  blockAnimDuration: 0.18
+  monsterStepDelay: 0.7
+  monsterStartDelay: 2
+  exitPulseSpeed: 2.5

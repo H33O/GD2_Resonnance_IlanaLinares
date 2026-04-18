@@ -17,6 +17,7 @@ public class OWSceneSetup : MonoBehaviour
 
     [Header("Joueur")]
     [SerializeField] private GameObject playerPrefab;
+    [SerializeField] private Sprite     playerSprite;
 
     [Header("Plateformes")]
     [SerializeField] private float platformWidth       = 3f;
@@ -61,6 +62,16 @@ public class OWSceneSetup : MonoBehaviour
         PlacePortals();
         PlaceLockedDoor();
         SpawnPlayer();
+
+        // Afficheur de score G&W en haut à gauche
+        SpawnScoreDisplay();
+    }
+
+    /// <summary>Instancie le widget de score Game &amp; Watch en haut à gauche.</summary>
+    private void SpawnScoreDisplay()
+    {
+        var go = new GameObject("OWScoreDisplay");
+        go.AddComponent<OWScoreDisplay>();
     }
 
     // ── Construction ──────────────────────────────────────────────────────────
@@ -263,6 +274,14 @@ public class OWSceneSetup : MonoBehaviour
         if (playerPrefab != null)
         {
             player = Instantiate(playerPrefab, spawnPos, Quaternion.identity);
+
+            // Assigne le sprite si le prefab n'en a pas
+            if (playerSprite != null)
+            {
+                var sr = player.GetComponent<SpriteRenderer>();
+                if (sr != null && sr.sprite == null)
+                    sr.sprite = playerSprite;
+            }
         }
         else
         {
@@ -282,24 +301,37 @@ public class OWSceneSetup : MonoBehaviour
 
     private GameObject BuildDefaultPlayer(Vector3 position)
     {
-        var go           = new GameObject("OWPlayer");
-        go.transform.position = position;
+        var go                  = new GameObject("OWPlayer");
+        go.transform.position   = position;
+        go.transform.localScale = new Vector3(0.55f, 0.75f, 1f);
 
-        var sr           = go.AddComponent<SpriteRenderer>();
-        sr.sprite        = CreateRect(1f, 1f);
-        sr.color         = new Color(1f, 0.85f, 0.2f);
-        sr.sortingOrder  = 5;
-        go.transform.localScale = new Vector3(0.6f, 0.8f, 1f);
+        var sr          = go.AddComponent<SpriteRenderer>();
+        sr.sortingOrder = 5;
 
-        var col          = go.AddComponent<CapsuleCollider2D>();
-        col.size         = new Vector2(0.85f, 0.95f);
-        col.offset       = new Vector2(0f, 0f);
+        if (playerSprite != null)
+        {
+            sr.sprite = playerSprite;
+            sr.color  = Color.white;
+        }
+        else
+        {
+            sr.sprite = CreateRect(1f, 1f);
+            sr.color  = new Color(1f, 0.85f, 0.2f);
+        }
 
-        var rb           = go.AddComponent<Rigidbody2D>();
-        rb.gravityScale  = 3f;
-        rb.freezeRotation = true;
+        var col   = go.AddComponent<CapsuleCollider2D>();
+        col.size  = new Vector2(0.8f, 0.95f);
+        col.offset = Vector2.zero;
 
-        go.AddComponent<OWPlayerController>();
+        var rb             = go.AddComponent<Rigidbody2D>();
+        rb.gravityScale    = 3f;
+        rb.freezeRotation  = true;
+        rb.collisionDetectionMode = CollisionDetectionMode2D.Continuous;
+        rb.interpolation   = RigidbodyInterpolation2D.Interpolate;
+
+        var ctrl             = go.AddComponent<OWPlayerController>();
+        // groundLayer = Default (layer 0)
+        SetPrivateField(ctrl, "groundLayer", LayerMask.GetMask("Default"));
 
         return go;
     }

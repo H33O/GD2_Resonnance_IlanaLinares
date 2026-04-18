@@ -254,45 +254,24 @@ public class MenuSceneSetup : MonoBehaviour
 
     private void BuildButtons(RectTransform parent)
     {
-        var zone = MakeZone("ButtonsZone", parent, new Vector2(0.5f, 0.08f), new Vector2(0.5f, 0.51f));
+        var zone = MakeZone("ButtonsZone", parent, new Vector2(0.5f, 0.16f), new Vector2(0.5f, 0.51f));
         zone.sizeDelta = new Vector2(640f, 0f);
 
-        // SONANTIA — bouton principal accent → Game and Watch
-        var sonantia = BuildButton("SonantiaButton", "SONANTIA", zone,
-                                   new Vector2(0f, 0.80f), new Vector2(1f, 1f),
-                                   ColBtnPlay, ColBtnPlayText, 64f, isAccent: true);
-
-        // ÉCHO — bouton secondaire
-        var echo  = BuildButton("EchoButton",   "ÉCHO",    zone,
-                                new Vector2(0f, 0.59f), new Vector2(1f, 0.74f),
-                                ColBtnSecond, ColBtnText, 46f);
-
-        // ARÈNE — bouton secondaire
-        var arena = BuildButton("ArenaButton",  "ARÈNE",   zone,
-                                new Vector2(0f, 0.38f), new Vector2(1f, 0.53f),
-                                ColBtnSecond, ColBtnText, 46f);
-
-        // SLASH — bouton secondaire
-        var slash = BuildButton("SlashButton",  "SLASH",   zone,
-                                new Vector2(0f, 0.17f), new Vector2(1f, 0.32f),
-                                ColBtnSecond, ColBtnText, 46f);
+        // JOUER — bouton principal unique → Overworld
+        var play = BuildButton("PlayButton", "JOUER", zone,
+                               new Vector2(0f, 0.55f), new Vector2(1f, 1f),
+                               ColBtnPlay, ColBtnPlayText, 72f, isAccent: true);
 
         // QUIT — bouton secondaire
-        var quit  = BuildButton("QuitButton",   "QUIT",    zone,
-                                new Vector2(0f, 0f),    new Vector2(1f, 0.11f),
-                                ColBtnSecond, ColBtnText, 46f);
+        var quit = BuildButton("QuitButton", "QUIT", zone,
+                               new Vector2(0f, 0f), new Vector2(1f, 0.40f),
+                               ColBtnSecond, ColBtnText, 46f);
 
-        ball.RegisterButton(sonantia);
-        ball.RegisterButton(echo);
-        ball.RegisterButton(arena);
-        ball.RegisterButton(slash);
+        ball.RegisterButton(play);
         ball.RegisterButton(quit);
 
-        sonantia.OnClick += OnSonantia;
-        echo.OnClick     += OnEcho;
-        arena.OnClick    += OnArena;
-        slash.OnClick    += OnSlash;
-        quit.OnClick     += OnQuit;
+        play.OnClick += OnPlay;
+        quit.OnClick += OnQuit;
     }
 
     private MenuCanvasButton BuildButton(string goName, string label, RectTransform parent,
@@ -340,37 +319,13 @@ public class MenuSceneSetup : MonoBehaviour
 
     // ── Actions ───────────────────────────────────────────────────────────────
 
-    /// <summary>Lance le premier jeu "Sonantia" (Game and Watch).</summary>
-    private void OnSonantia()
+    /// <summary>Lance l'overworld principal.</summary>
+    private void OnPlay()
     {
         if (SceneTransition.Instance != null)
-            SceneTransition.Instance.LoadScene("GameAndWatch", "SONANTIA");
+            SceneTransition.Instance.LoadScene("Overworld", "JOUER");
         else
-            SceneManager.LoadScene("GameAndWatch");
-    }
-
-    private void OnArena()
-    {
-        if (SceneTransition.Instance != null)
-            SceneTransition.Instance.LoadScene("CircleArena", "ARÈNE");
-        else
-            SceneManager.LoadScene("CircleArena");
-    }
-
-    private void OnSlash()
-    {
-        if (SceneTransition.Instance != null)
-            SceneTransition.Instance.LoadScene("SlashGame", "SLASH");
-        else
-            SceneManager.LoadScene("SlashGame");
-    }
-
-    private void OnEcho()
-    {
-        if (SceneTransition.Instance != null)
-            SceneTransition.Instance.LoadScene("Minijeu-Bulles", "ÉCHO");
-        else
-            SceneManager.LoadScene("Minijeu-Bulles");
+            SceneManager.LoadScene("Overworld");
     }
 
     private void OnQuit()
