@@ -12,6 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 40c6ebdf2c255c04e933631617115a02, type: 3}
   m_Name: TBLevelPrefabsData
   m_EditorClassIdentifier: 
+  playerPrefab: {fileID: 6761633254898037764, guid: f91c782f4594cbe4cb01d88002f15667, type: 3}
   playerSprite: {fileID: 0}
   playerColor: {r: 1, g: 1, b: 1, a: 1}
   enemySprite: {fileID: 0}

@@ -126,6 +126,35 @@ public class TBSceneSetup : MonoBehaviour
         BuildPlayer(d);
         BuildEnemies(levelIndex, enemyCount, d);
         if (requireKey) BuildKey(levelIndex, d);
+
+        // Améliorations achetées — appliquées dès le niveau suivant l'achat
+        SpawnUpgrades();
+    }
+
+    // ── Spawn des améliorations ───────────────────────────────────────────────
+
+    private static void SpawnUpgrades()
+    {
+        var upgrades = TBGameManager.Instance?.Upgrades;
+        if (upgrades == null) return;
+
+        // Alliés
+        var allyPositions = new Vector2[]
+        {
+            new Vector2(-1.5f, 7.0f),
+            new Vector2( 1.5f, 7.0f),
+            new Vector2( 0.0f, 6.2f),
+        };
+        for (int i = 0; i < upgrades.AllyCount; i++)
+            TBAlly.Spawn(allyPositions[i], new Color(0.20f, 0.80f, 1.00f, 1f));
+
+        // Arme
+        if (upgrades.HasWeapon)
+            TBWeapon.Spawn();
+
+        // Barrières
+        if (upgrades.BarrierCount > 0)
+            TBBarrier.SpawnAll(upgrades.BarrierCount);
     }
 
     // ── Caméra ────────────────────────────────────────────────────────────────
@@ -227,25 +256,43 @@ public class TBSceneSetup : MonoBehaviour
 
     private static void BuildPlayer(TBLevelPrefabsData d)
     {
-        var go = new GameObject("Player");
-        go.tag = "Player";
+        GameObject go;
 
-        var sr = go.AddComponent<SpriteRenderer>();
-        sr.sprite       = d?.playerSprite != null ? d.playerSprite : SpriteGenerator.CreateCircle(128);
-        sr.color        = d != null ? d.playerColor : ColPlayer;
-        sr.sortingOrder = 3;
+        if (d?.playerPrefab != null)
+        {
+            go      = Object.Instantiate(d.playerPrefab, new Vector3(0f, 7.8f, 0f), Quaternion.identity);
+            go.name = "Player";
+            go.tag  = "Player";
 
-        // Spawn en haut de la zone jouable
-        go.transform.position   = new Vector3(0f, 7.8f, 0f);
-        go.transform.localScale = new Vector3(0.85f, 0.85f, 1f);
+            // Applique la couleur sur le SpriteRenderer si présent
+            var sr = go.GetComponent<SpriteRenderer>();
+            if (sr != null) sr.color = d.playerColor;
 
-        var rb = go.AddComponent<Rigidbody2D>();
-        rb.gravityScale = 0f;
+            // S'assure que TBPlayerController est bien présent
+            if (go.GetComponent<TBPlayerController>() == null)
+                go.AddComponent<TBPlayerController>();
+        }
+        else
+        {
+            go     = new GameObject("Player");
+            go.tag = "Player";
 
-        var col    = go.AddComponent<CircleCollider2D>();
-        col.radius = 0.42f;
+            var sr = go.AddComponent<SpriteRenderer>();
+            sr.sprite       = d?.playerSprite != null ? d.playerSprite : SpriteGenerator.CreateCircle(128);
+            sr.color        = d != null ? d.playerColor : ColPlayer;
+            sr.sortingOrder = 3;
 
-        go.AddComponent<TBPlayerController>();
+            go.transform.position   = new Vector3(0f, 7.8f, 0f);
+            go.transform.localScale = new Vector3(0.85f, 0.85f, 1f);
+
+            var rb = go.AddComponent<Rigidbody2D>();
+            rb.gravityScale = 0f;
+
+            var col    = go.AddComponent<CircleCollider2D>();
+            col.radius = 0.42f;
+
+            go.AddComponent<TBPlayerController>();
+        }
     }
 
     // ── Ennemis ───────────────────────────────────────────────────────────────

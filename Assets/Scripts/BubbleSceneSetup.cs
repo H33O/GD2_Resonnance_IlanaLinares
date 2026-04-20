@@ -10,15 +10,28 @@ public class BubbleSceneSetup : MonoBehaviour
 {
     // ── Palette (identique au menu) ───────────────────────────────────────────
 
-    private static readonly Color ColBg       = new Color(0.05f, 0.05f, 0.05f, 1f);
-    private static readonly Color ColGrid     = new Color(1f, 1f, 1f, 0.04f);
-    private static readonly Color ColSep      = new Color(1f, 1f, 1f, 0.18f);
+    private static readonly Color ColBg   = new Color(0.05f, 0.05f, 0.05f, 1f);
+    private static readonly Color ColGrid = new Color(1f, 1f, 1f, 0.04f);
+
+    // ── Configuration du fond ─────────────────────────────────────────────────
+
+    [Header("Fond")]
+    [Tooltip("Sprite de fond affiché derrière la grille. Laisse vide pour utiliser la couleur unie.")]
+    [SerializeField] private Sprite backgroundSprite;
+
+    [Tooltip("Couleur appliquée sur le sprite de fond (teinte) ou couleur unie si aucun sprite.")]
+    [SerializeField] private Color backgroundColor = new Color(0.05f, 0.05f, 0.05f, 1f);
+
+    [Tooltip("Mode de remplissage du sprite de fond.")]
+    [SerializeField] private BackgroundFit backgroundFit = BackgroundFit.Fill;
+
+    public enum BackgroundFit { Fill, Contain }
 
     private void Start()
     {
-        // Caméra : fond uni noir profond
+        // Caméra : fond correspondant à la couleur choisie
         if (Camera.main != null)
-            Camera.main.backgroundColor = ColBg;
+            Camera.main.backgroundColor = backgroundColor;
 
         BuildWorldBackground();
         BuildGrid();
@@ -26,23 +39,46 @@ public class BubbleSceneSetup : MonoBehaviour
 
     // ── Fond monde ────────────────────────────────────────────────────────────
 
-    /// <summary>SpriteRenderer noir pleine caméra, en arrière-plan.</summary>
+    /// <summary>SpriteRenderer plein écran en arrière-plan, avec sprite ou couleur unie.</summary>
     private void BuildWorldBackground()
     {
         Camera cam = Camera.main;
         if (cam == null) return;
 
-        var go   = new GameObject("BubbleBG");
-        var sr   = go.AddComponent<SpriteRenderer>();
-        sr.sprite       = SpriteGenerator.CreateCircle(4);   // carré approximatif suffisant
-        sr.color        = ColBg;
-        sr.sortingOrder = -20;
-
-        float h = cam.orthographicSize * 2f;
-        float w = h * cam.aspect;
+        float h  = cam.orthographicSize * 2f;
+        float w  = h * cam.aspect;
         Vector3 cp = cam.transform.position;
+
+        var go = new GameObject("BubbleBG");
+        var sr = go.AddComponent<SpriteRenderer>();
+
+        if (backgroundSprite != null)
+        {
+            sr.sprite      = backgroundSprite;
+            sr.color       = backgroundColor;
+            sr.drawMode    = SpriteDrawMode.Simple;
+
+            // Calcule l'échelle pour couvrir l'écran (Fill) ou s'inscrire dedans (Contain)
+            float spriteW = backgroundSprite.bounds.size.x;
+            float spriteH = backgroundSprite.bounds.size.y;
+            float scaleX  = w / spriteW;
+            float scaleY  = h / spriteH;
+            float scale   = backgroundFit == BackgroundFit.Fill
+                ? Mathf.Max(scaleX, scaleY)
+                : Mathf.Min(scaleX, scaleY);
+
+            go.transform.localScale = new Vector3(scale, scale, 1f);
+        }
+        else
+        {
+            // Aucun sprite : rectangle uni plein écran
+            sr.sprite       = SpriteGenerator.CreateCircle(4);
+            sr.color        = backgroundColor;
+            go.transform.localScale = new Vector3(w, h, 1f);
+        }
+
+        sr.sortingOrder         = -20;
         go.transform.position   = new Vector3(cp.x, cp.y, 1f);
-        go.transform.localScale = new Vector3(w, h, 1f);
     }
 
     // ── Grille monde ──────────────────────────────────────────────────────────
@@ -53,8 +89,8 @@ public class BubbleSceneSetup : MonoBehaviour
         Camera cam = Camera.main;
         if (cam == null) return;
 
-        float h = cam.orthographicSize * 2f;
-        float w = h * cam.aspect;
+        float h  = cam.orthographicSize * 2f;
+        float w  = h * cam.aspect;
         Vector3 cp = cam.transform.position;
 
         var root = new GameObject("BubbleGrid");
@@ -64,7 +100,7 @@ public class BubbleSceneSetup : MonoBehaviour
         {
             float xNorm = i / 6f;
             float x     = cp.x - w * 0.5f + w * xNorm;
-            MakeWorldLine(root.transform, new Vector3(x, cp.y, 0f), true,  h);
+            MakeWorldLine(root.transform, new Vector3(x, cp.y, 0f), true, h);
         }
 
         // 9 lignes horizontales

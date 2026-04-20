@@ -9,7 +9,7 @@ using UnityEngine.SceneManagement;
 /// Persiste via DontDestroyOnLoad.
 ///
 /// Flux de jeu (8 niveaux, index 0 → 7) :
-///   Le joueur entre dans le trou → niveau suivant généré dans la même scène.
+///   Le joueur entre dans le trou → boutique d'améliorations → niveau suivant.
 ///   Niveaux impairs : clé requise avant le trou.
 ///   Après le niveau 7 : widget de victoire finale → retour au menu.
 /// </summary>
@@ -28,6 +28,9 @@ public class TBGameManager : MonoBehaviour
     public bool  HasKey      { get; private set; }
     public int   Score       { get; private set; }
     public float ElapsedTime { get; private set; }
+
+    /// <summary>Données persistantes des améliorations achetées par le joueur.</summary>
+    public TBUpgradeData Upgrades { get; private set; } = new TBUpgradeData();
 
     /// <summary>Vrai si le niveau courant requiert la clé pour ouvrir le trou.</summary>
     public bool RequireKey => (LevelIndex % 2 == 1);
@@ -91,16 +94,20 @@ public class TBGameManager : MonoBehaviour
 
         if (nextLevel >= TotalLevels)
         {
-            // Victoire finale
+            // Victoire finale — pas de boutique
             HasKey = false;
             TBWinWidget.Show(ElapsedTime, Score, GoToMenuDirect);
         }
         else
         {
-            // Passage au niveau suivant dans la même scène
-            StartCoroutine(AdvanceLevelRoutine(nextLevel));
+            // Boutique d'améliorations avant le niveau suivant
+            HasKey = false;
+            TBUpgradeShopWidget.Show(Upgrades, () => StartCoroutine(AdvanceLevelRoutine(nextLevel)));
         }
     }
+
+    /// <summary>Modifie le score (utilisé par TBUpgradeShopWidget après un achat).</summary>
+    public void SetScore(int newScore) => Score = Mathf.Max(0, newScore);
 
     /// <summary>Relance le niveau courant après la mort du joueur.</summary>
     public void RestartLevel()
@@ -117,6 +124,7 @@ public class TBGameManager : MonoBehaviour
         isRunning = false;
         Score     = 0;
         LevelIndex = 0;
+        Upgrades.Reset();
 
         if (SceneTransition.Instance != null)
             SceneTransition.Instance.LoadScene(SceneMenu, SceneMenu);
@@ -140,6 +148,7 @@ public class TBGameManager : MonoBehaviour
     {
         Score      = 0;
         LevelIndex = 0;
+        Upgrades.Reset();
 
         if (SceneTransition.Instance != null)
             SceneTransition.Instance.LoadScene(SceneMenu, SceneMenu);

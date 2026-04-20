@@ -3,7 +3,7 @@ using UnityEngine;
 using UnityEngine.InputSystem;
 
 /// <summary>
-/// Déplacement continu du joueur piloté par le joystick virtuel (TBJoystick)
+/// Déplacement continu du joueur piloté par le swipe (TBSwipeInput)
 /// ou le clavier WASD / flèches en éditeur.
 ///
 /// Le joueur est stoppé par les murs via le moteur physique (Rigidbody2D Dynamic).
@@ -75,9 +75,9 @@ public class TBPlayerController : MonoBehaviour
     // ── Input ─────────────────────────────────────────────────────────────────
 
     /// <summary>
-    /// Lit la direction depuis le joystick virtuel (device)
+    /// Lit la direction depuis le swipe (TBSwipeInput)
     /// ou le clavier WASD / flèches (éditeur).
-    /// Retourne un vecteur normalisé ou réduit selon l'intensité du joystick.
+    /// Retourne un vecteur normalisé ou réduit selon l'intensité du swipe.
     /// </summary>
     private static Vector2 ReadInput()
     {
@@ -93,8 +93,8 @@ public class TBPlayerController : MonoBehaviour
 
         return raw.magnitude > 0f ? raw.normalized : Vector2.zero;
 #else
-        if (TBJoystick.Instance != null)
-            return TBJoystick.Instance.Direction;
+        if (TBSwipeInput.Instance != null)
+            return TBSwipeInput.Instance.Direction;
 
         return Vector2.zero;
 #endif

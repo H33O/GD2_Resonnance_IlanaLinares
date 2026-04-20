@@ -1,10 +1,10 @@
 fileFormatVersion: 2
-guid: a797a4c0652a4e8439a7344f9bea0876
+guid: fab5fb204c1ee7b4595bffe1842cf863
 TextureImporter:
   internalIDToNameTable:
   - first:
-      213: 1255910617094449277
-    second: boules_mortels_0
+      213: -3065215583491967353
+    second: premierplanparalaxe_0
   externalObjects: {}
   serializedVersion: 13
   mipmaps:
@@ -46,7 +46,7 @@ TextureImporter:
   nPOTScale: 0
   lightmap: 0
   compressionQuality: 50
-  spriteMode: 1
+  spriteMode: 2
   spriteExtrude: 1
   spriteMeshType: 1
   alignment: 0
@@ -113,13 +113,13 @@ TextureImporter:
     serializedVersion: 2
     sprites:
     - serializedVersion: 2
-      name: boules_mortels_0
+      name: premierplanparalaxe_0
       rect:
         serializedVersion: 2
-        x: 0
-        y: 0
-        width: 1024
-        height: 1024
+        x: 45
+        y: 648
+        width: 936
+        height: 873
       alignment: 0
       pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -128,8 +128,8 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: -1
       bones: []
-      spriteID: d786e895d04ed6110800000000000000
-      internalID: 1255910617094449277
+      spriteID: 78638f1caaa2675d0800000000000000
+      internalID: -3065215583491967353
       vertices: []
       indices: 
       edges: []
@@ -138,7 +138,7 @@ TextureImporter:
     customData: 
     physicsShape: []
     bones: []
-    spriteID: 5e97eb03825dee720800000000000000
+    spriteID: 
     internalID: 0
     vertices: []
     indices: 
@@ -148,7 +148,7 @@ TextureImporter:
     spriteCustomMetadata:
       entries: []
     nameFileIdTable:
-      boules_mortels_0: 1255910617094449277
+      premierplanparalaxe_0: -3065215583491967353
   mipmapLimitGroupName: 
   pSDRemoveMatte: 0
   userData: 

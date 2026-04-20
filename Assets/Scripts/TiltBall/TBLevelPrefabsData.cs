@@ -13,7 +13,11 @@ using UnityEngine;
 public class TBLevelPrefabsData : ScriptableObject
 {
     [Header("Joueur")]
-    [Tooltip("Sprite du joueur. Null → cercle blanc généré.")]
+    [Tooltip("Prefab du joueur. Si assigné, il est instancié à la place du joueur procédural. " +
+             "Le prefab doit contenir un SpriteRenderer, un CircleCollider2D, un Rigidbody2D et un TBPlayerController.")]
+    public GameObject playerPrefab;
+
+    [Tooltip("Sprite du joueur. Utilisé uniquement si playerPrefab est null.")]
     public Sprite playerSprite;
 
     [Tooltip("Couleur teintée sur le sprite du joueur.")]

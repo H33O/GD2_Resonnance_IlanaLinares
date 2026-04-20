@@ -1,10 +1,13 @@
 fileFormatVersion: 2
-guid: a797a4c0652a4e8439a7344f9bea0876
+guid: d9894d0563a3b2f478ed842ecf8cc2f7
 TextureImporter:
   internalIDToNameTable:
   - first:
-      213: 1255910617094449277
-    second: boules_mortels_0
+      213: -6274527530554176301
+    second: premierplanfeuille_0
+  - first:
+      213: 1089816799878245980
+    second: premierplanfeuille_1
   externalObjects: {}
   serializedVersion: 13
   mipmaps:
@@ -46,7 +49,7 @@ TextureImporter:
   nPOTScale: 0
   lightmap: 0
   compressionQuality: 50
-  spriteMode: 1
+  spriteMode: 2
   spriteExtrude: 1
   spriteMeshType: 1
   alignment: 0
@@ -113,13 +116,13 @@ TextureImporter:
     serializedVersion: 2
     sprites:
     - serializedVersion: 2
-      name: boules_mortels_0
+      name: premierplanfeuille_0
       rect:
         serializedVersion: 2
-        x: 0
-        y: 0
-        width: 1024
-        height: 1024
+        x: 18
+        y: 135
+        width: 462
+        height: 496
       alignment: 0
       pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -128,8 +131,30 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: -1
       bones: []
-      spriteID: d786e895d04ed6110800000000000000
-      internalID: 1255910617094449277
+      spriteID: 3dcc8ef64766ce8a0800000000000000
+      internalID: -6274527530554176301
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: premierplanfeuille_1
+      rect:
+        serializedVersion: 2
+        x: 605
+        y: 144
+        width: 400
+        height: 407
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: c5eeefafa9ecf1f00800000000000000
+      internalID: 1089816799878245980
       vertices: []
       indices: 
       edges: []
@@ -138,7 +163,7 @@ TextureImporter:
     customData: 
     physicsShape: []
     bones: []
-    spriteID: 5e97eb03825dee720800000000000000
+    spriteID: 
     internalID: 0
     vertices: []
     indices: 
@@ -148,7 +173,8 @@ TextureImporter:
     spriteCustomMetadata:
       entries: []
     nameFileIdTable:
-      boules_mortels_0: 1255910617094449277
+      premierplanfeuille_0: -6274527530554176301
+      premierplanfeuille_1: 1089816799878245980
   mipmapLimitGroupName: 
   pSDRemoveMatte: 0
   userData: 
