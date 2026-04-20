@@ -1,0 +1,29 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 40c6ebdf2c255c04e933631617115a02, type: 3}
+  m_Name: TBLevelPrefabsData
+  m_EditorClassIdentifier: 
+  playerSprite: {fileID: 0}
+  playerColor: {r: 1, g: 1, b: 1, a: 1}
+  enemySprite: {fileID: 0}
+  enemyColor: {r: 0.9, g: 0.14, b: 0.14, a: 1}
+  holePrefab: {fileID: 6280074557072659162, guid: e974ccb1d5700164595f01f885db155b, type: 3}
+  holeSprite: {fileID: 0}
+  holeOpenColor: {r: 0.04, g: 0.04, b: 0.06, a: 1}
+  holeLockedColor: {r: 0.45, g: 0.22, b: 0.02, a: 1}
+  keySprite: {fileID: 0}
+  keyColor: {r: 1, g: 0.85, b: 0, a: 1}
+  obstaclePrefab: {fileID: 4419499073688142954, guid: 799ce0c2769d96146827569908c6cbdf, type: 3}
+  obstacleSprite: {fileID: 0}
+  obstacleColor: {r: 0.2, g: 0.2, b: 0.3, a: 1}
+  wallColor: {r: 0.88, g: 0.88, b: 0.92, a: 1}
+  backgroundColor: {r: 0.06, g: 0.06, b: 0.1, a: 1}
