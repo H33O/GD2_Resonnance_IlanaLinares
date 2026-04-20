@@ -1,7 +1,7 @@
 using UnityEngine;
 
 /// <summary>
-/// Affiche la grille de jeu (lignes de séparation de cellules, murs fixes, sortie).
+/// Affiche la grille de jeu (lignes de séparation de cellules, murs fixes, sortie EXIT).
 /// Construit les visuels au démarrage de façon procédurale.
 /// </summary>
 public class TPMGridRenderer : MonoBehaviour
@@ -16,12 +16,8 @@ public class TPMGridRenderer : MonoBehaviour
     private static readonly Color GridLineColor = new Color(1f, 1f, 1f, 0.06f);
     private static readonly Color WallColor     = new Color(0.50f, 0.52f, 0.60f, 1.00f);
     private static readonly Color WallEdgeColor = new Color(0.35f, 0.37f, 0.45f, 1.00f);
-    private static readonly Color ExitColor     = new Color(1.00f, 0.85f, 0.10f, 1.00f);
-    private static readonly Color ExitGlowColor = new Color(1.00f, 0.85f, 0.10f, 0.20f);
-
-    // ── Sortie animée ─────────────────────────────────────────────────────────
-
-    private SpriteRenderer exitGlowSR;
+    private static readonly Color ExitColor     = new Color(0.10f, 0.90f, 0.20f, 1.00f);
+    private static readonly Color ExitEdgeColor = new Color(0.05f, 0.60f, 0.10f, 1.00f);
 
     // ── Lifecycle ─────────────────────────────────────────────────────────────
 
@@ -39,15 +35,9 @@ public class TPMGridRenderer : MonoBehaviour
         if (TPMGrid.Instance == null) return;
         DrawGridLines();
         DrawWalls();
-        DrawExit();
     }
 
-    private void Update()
-    {
-        if (exitGlowSR == null) return;
-        float a = 0.15f + 0.12f * Mathf.Sin(Time.time * settings.exitPulseSpeed);
-        exitGlowSR.color = new Color(ExitGlowColor.r, ExitGlowColor.g, ExitGlowColor.b, a);
-    }
+    private void Update() { }
 
     // ── Construction ──────────────────────────────────────────────────────────
 
@@ -118,7 +108,15 @@ public class TPMGridRenderer : MonoBehaviour
         for (int x = 0; x < w; x++)
         for (int y = 0; y < h; y++)
         {
-            if (TPMGrid.Instance.GetCell(x, y) != TPMGrid.CellType.Wall) continue;
+            var cellType = TPMGrid.Instance.GetCell(x, y);
+
+            if (cellType == TPMGrid.CellType.Exit)
+            {
+                DrawExit(x, y, cs);
+                continue;
+            }
+
+            if (cellType != TPMGrid.CellType.Wall) continue;
 
             Vector3 pos = TPMGrid.Instance.CellToWorld(x, y);
 
@@ -142,44 +140,45 @@ public class TPMGridRenderer : MonoBehaviour
         }
     }
 
-    private void DrawExit()
+    private void DrawExit(int x, int y, float cs)
     {
-        Vector2Int ec  = TPMGrid.Instance.ExitCell;
-        Vector3    pos = TPMGrid.Instance.CellToWorld(ec.x, ec.y);
-        float      cs  = settings.cellSize * 0.82f;
+        Vector3 pos = TPMGrid.Instance.CellToWorld(x, y);
 
-        // Corps de la sortie
-        var exitGO  = new GameObject("Exit");
+        // Fond sombre de la sortie
+        var bgGO  = new GameObject($"ExitBG_{x}_{y}");
+        bgGO.transform.SetParent(transform, false);
+        bgGO.transform.position   = pos;
+        bgGO.transform.localScale = Vector3.one * (cs * 1.06f);
+        var bgSR  = bgGO.AddComponent<SpriteRenderer>();
+        bgSR.sprite = SpriteGenerator.CreateColoredSquare(ExitEdgeColor);
+        bgSR.sortingOrder = 0;
+
+        // Corps vert vif
+        var exitGO  = new GameObject($"Exit_{x}_{y}");
         exitGO.transform.SetParent(transform, false);
         exitGO.transform.position   = pos;
         exitGO.transform.localScale = Vector3.one * cs;
         var exitSR  = exitGO.AddComponent<SpriteRenderer>();
-        exitSR.sprite = SpriteGenerator.CreatePolygon(8, 64);
-        exitSR.color  = ExitColor;
-        exitSR.sortingOrder = 2;
+        exitSR.sprite = SpriteGenerator.CreateColoredSquare(ExitColor);
+        exitSR.sortingOrder = 1;
 
-        // Halo pulsant
-        var glowGO  = new GameObject("ExitGlow");
-        glowGO.transform.SetParent(transform, false);
-        glowGO.transform.position   = pos;
-        glowGO.transform.localScale = Vector3.one * (cs * 1.5f);
-        exitGlowSR  = glowGO.AddComponent<SpriteRenderer>();
-        exitGlowSR.sprite = SpriteGenerator.CreateCircle(64);
-        exitGlowSR.color  = ExitGlowColor;
-        exitGlowSR.sortingOrder = 1;
+        // Pulsation verte via composant dédié
+        exitGO.AddComponent<TPMExitPulse>().sr = exitSR;
+    }
+}
 
-        // Label "EXIT"
-        var labelGO  = new GameObject("ExitLabel");
-        labelGO.transform.SetParent(exitGO.transform, false);
-        labelGO.transform.localScale    = Vector3.one * (1f / cs) * 0.35f;
-        labelGO.transform.localPosition = Vector3.zero;
-        var tmp      = labelGO.AddComponent<TextMesh>();
-        tmp.text     = "EXIT";
-        tmp.fontSize = 22;
-        tmp.color    = Color.black;
-        tmp.anchor   = TextAnchor.MiddleCenter;
-        tmp.alignment = TextAlignment.Center;
-        var mf       = labelGO.GetComponent<MeshRenderer>();
-        if (mf != null) mf.sortingOrder = 3;
+/// <summary>Pulsation lumineuse de la cellule EXIT.</summary>
+public class TPMExitPulse : MonoBehaviour
+{
+    public SpriteRenderer sr;
+
+    private static readonly Color ExitBase = new Color(0.10f, 0.90f, 0.20f, 1.00f);
+    private static readonly Color ExitBright = new Color(0.30f, 1.00f, 0.40f, 1.00f);
+
+    private void Update()
+    {
+        if (sr == null) return;
+        float t = (Mathf.Sin(Time.time * 3f) + 1f) * 0.5f;
+        sr.color = Color.Lerp(ExitBase, ExitBright, t);
     }
 }

@@ -2,8 +2,8 @@ using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
-/// Gère la grille logique du jeu : obstacles fixes, blocs posés par le joueur,
-/// cellule de départ/sortie et conversion coordonnées monde ↔ cellule.
+/// Grille logique 12×18 du mini-jeu Tetris×Pac-Man.
+/// Gère les types de cellules, le BFS pathfinding et les conversions monde ↔ grille.
 /// </summary>
 public class TPMGrid : MonoBehaviour
 {
@@ -13,7 +13,7 @@ public class TPMGrid : MonoBehaviour
 
     // ── Types ─────────────────────────────────────────────────────────────────
 
-    public enum CellType { Empty, Wall, PlayerBlock, Exit }
+    public enum CellType { Empty, Wall, PlayerBlock, TetrisBlock, Exit, Cage }
 
     // ── Inspector ─────────────────────────────────────────────────────────────
 
@@ -24,11 +24,9 @@ public class TPMGrid : MonoBehaviour
 
     private CellType[,] cells;
 
-    /// <summary>Position de départ du joueur (coordonnées grille).</summary>
-    public Vector2Int PlayerStart { get; private set; }
-
-    /// <summary>Position de la sortie (coordonnées grille).</summary>
-    public Vector2Int ExitCell { get; private set; }
+    public Vector2Int PlayerStart  { get; private set; }
+    public Vector2Int MonsterStart { get; private set; }
+    public Vector2Int ExitCell     { get; private set; }
 
     // ── Lifecycle ─────────────────────────────────────────────────────────────
 
@@ -40,26 +38,15 @@ public class TPMGrid : MonoBehaviour
 
     private void Start()
     {
-        // settings est assigné par TPMSceneSetup juste après AddComponent,
-        // donc disponible dès Start (après la fin du premier Awake frame).
-        if (settings == null)
-        {
-            Debug.LogError("[TPMGrid] settings non assigné !");
-            return;
-        }
-        cells = new CellType[settings.gridWidth, settings.gridHeight];
-        BuildLevel();
+        if (settings == null) { Debug.LogError("[TPMGrid] settings manquant !"); return; }
+        Init();
     }
 
-    /// <summary>
-    /// Initialisation explicite appelée par TPMSceneSetup pour garantir
-    /// que settings est disponible avant le premier accès à la grille.
-    /// </summary>
     public void Init()
     {
-        if (cells != null) return; // déjà initialisé
+        if (cells != null) return;
         cells = new CellType[settings.gridWidth, settings.gridHeight];
-        BuildLevel();
+        BuildLevel1();
     }
 
     private void OnDestroy()
@@ -67,87 +54,117 @@ public class TPMGrid : MonoBehaviour
         if (Instance == this) Instance = null;
     }
 
-    // ── Construction du niveau ────────────────────────────────────────────────
+    // ── Level 1 : labyrinthe 10×20 ────────────────────────────────────────────
 
     /// <summary>
-    /// Construit la carte du niveau 1 calibrée pour une grille 9×15 (1080×1920 portrait) :
-    /// murs de bordure, obstacles fixes intérieurs, départ et sortie.
+    /// Layout labyrinthe inspiré Pac-Man : couloirs + zones ouvertes + chemins alternatifs.
+    /// Grille 10×20 (portrait Tetris standard). Murs de bordure + obstacles intérieurs.
+    /// Sortie (EXIT) en haut au centre. Joueur en bas-gauche. Cage ennemi en bas-droite.
     /// </summary>
-    private void BuildLevel()
+    private void BuildLevel1()
     {
-        int w = settings.gridWidth;   // 9
-        int h = settings.gridHeight;  // 15
+        int w = settings.gridWidth;  // 10
+        int h = settings.gridHeight; // 20
 
-        // Murs de bordure
-        for (int x = 0; x < w; x++)
-        {
-            cells[x, 0]     = CellType.Wall;
-            cells[x, h - 1] = CellType.Wall;
-        }
-        for (int y = 0; y < h; y++)
-        {
-            cells[0, y]     = CellType.Wall;
-            cells[w - 1, y] = CellType.Wall;
-        }
+        // ── Murs de bordure ───────────────────────────────────────────────────
+        for (int x = 0; x < w; x++) { W(x, 0); W(x, h - 1); }
+        for (int y = 0; y < h; y++) { W(0, y); W(w - 1, y); }
 
-        // ── Obstacles intérieurs — level design 9×15 ──────────────────────────
-        // Couloir gauche bloquant
-        SetWall(2, 3); SetWall(2, 4); SetWall(2, 5);
+        // ── Zone haute — entonnoir sortie ─────────────────────────────────────
+        W(1, 17); W(2, 17);
+        W(7, 17); W(8, 17);
 
-        // Îlot central haut
-        SetWall(4, 4); SetWall(5, 4);
-        SetWall(4, 5);
+        W(1, 16); W(2, 16); W(3, 16);
+        W(6, 16); W(7, 16); W(8, 16);
 
-        // Mur diagonal milieu-droite
-        SetWall(6, 6); SetWall(6, 7); SetWall(6, 8);
+        // ── Zone médiane haute (rangées 13-15) ────────────────────────────────
+        W(1, 15); W(2, 15);
+        W(7, 15); W(8, 15);
 
-        // Îlot bas-gauche
-        SetWall(2, 8); SetWall(3, 8);
+        W(3, 14); W(4, 14);
+        W(5, 14); W(6, 14);
 
-        // Couloir central bas
-        SetWall(4, 10); SetWall(5, 10); SetWall(4, 11);
+        W(2, 13); W(3, 13);
+        W(6, 13); W(7, 13);
 
-        // Mur droit milieu
-        SetWall(6, 3); SetWall(7, 3);
+        // ── Zone médiane (rangées 10-12) ──────────────────────────────────────
+        W(1, 12); W(2, 12);
+        W(7, 12); W(8, 12);
 
-        // Bloc isolé
-        SetWall(3, 6);
+        W(3, 11); W(4, 11);
+        W(5, 11); W(6, 11);
 
-        // ── Départ et sortie ─────────────────────────────────────────────────
-        // Départ joueur : coin bas-gauche dégagé
-        PlayerStart = new Vector2Int(1, 1);
+        W(2, 10); W(3, 10);
+        W(6, 10); W(7, 10);
 
-        // Sortie : coin haut-droit (max tension avec le monstre qui part du même côté)
-        ExitCell = new Vector2Int(w - 2, h - 2);
+        // ── Zone médiane basse (rangées 7-9) ──────────────────────────────────
+        W(1, 9); W(2, 9);
+        W(7, 9); W(8, 9);
+
+        W(3, 8); W(4, 8);
+        W(5, 8); W(6, 8);
+
+        W(2, 7); W(3, 7);
+        W(6, 7); W(7, 7);
+
+        // ── Zone basse (rangées 4-6) ──────────────────────────────────────────
+        W(1, 6); W(2, 6);
+        W(7, 6); W(8, 6);
+
+        W(3, 5); W(4, 5);
+        W(5, 5); W(6, 5);
+
+        W(2, 4); W(3, 4);
+        W(6, 4); W(7, 4);
+
+        // ── Zone basse (rangées 2-3) — labyrinthe bas ────────────────────────
+        W(3, 3); W(4, 3);
+        W(5, 3); W(6, 3);
+
+        // ── Cage de l'ennemi (bas-droite) ─────────────────────────────────────
+        // Cage 3×2 : murs haut + droit, ouverture à gauche (7,2)
+        W(7, 1); W(8, 1);
+        W(8, 2);
+        // (7,2) reste vide — sortie du monstre
+
+        // ── Sortie EXIT ───────────────────────────────────────────────────────
+        ExitCell = new Vector2Int(w / 2, h - 2); // (5, 18)
         cells[ExitCell.x, ExitCell.y] = CellType.Exit;
+
+        // ── Spawns ────────────────────────────────────────────────────────────
+        PlayerStart  = new Vector2Int(2, 2);
+        MonsterStart = new Vector2Int(8, 2); // intérieur de la cage
     }
 
-    private void SetWall(int x, int y) => cells[x, y] = CellType.Wall;
+    private void W(int x, int y)
+    {
+        if (x >= 0 && x < settings.gridWidth && y >= 0 && y < settings.gridHeight)
+            cells[x, y] = CellType.Wall;
+    }
+
+    // ── Cage ──────────────────────────────────────────────────────────────────
+
+    /// <summary>Ouvre la cage de l'ennemi (transforme les Cage en Empty).</summary>
+    public void OpenCage()
+    {
+        int w = settings.gridWidth;
+        int h = settings.gridHeight;
+        for (int x = 0; x < w; x++)
+            for (int y = 0; y < h; y++)
+                if (cells[x, y] == CellType.Cage)
+                    cells[x, y] = CellType.Empty;
+    }
 
     // ── API publique ──────────────────────────────────────────────────────────
 
-    /// <summary>Retourne vrai si la cellule est dans les limites de la grille.</summary>
-    public bool InBounds(int x, int y) =>
-        x >= 0 && x < settings.gridWidth && y >= 0 && y < settings.gridHeight;
+    public bool      InBounds(int x, int y)    => x >= 0 && x < settings.gridWidth && y >= 0 && y < settings.gridHeight;
+    public CellType  GetCell(int x, int y)     => InBounds(x, y) ? cells[x, y] : CellType.Wall;
+    public bool      IsEmpty(int x, int y)     => GetCell(x, y) == CellType.Empty;
+    public bool      IsWalkable(int x, int y)  => GetCell(x, y) == CellType.Empty || GetCell(x, y) == CellType.Exit;
+    public bool      IsFreeFalling(int x, int y) => GetCell(x, y) == CellType.Empty;
+    public bool      IsPlayerBlock(int x, int y) => GetCell(x, y) == CellType.PlayerBlock;
+    public bool      IsTetrisBlock(int x, int y) => GetCell(x, y) == CellType.TetrisBlock;
 
-    /// <summary>Retourne le type de la cellule.</summary>
-    public CellType GetCell(int x, int y) =>
-        InBounds(x, y) ? cells[x, y] : CellType.Wall;
-
-    /// <summary>Retourne vrai si la cellule est traversable (vide ou sortie).</summary>
-    public bool IsWalkable(int x, int y)
-    {
-        CellType t = GetCell(x, y);
-        return t == CellType.Empty || t == CellType.Exit;
-    }
-
-    /// <summary>Retourne vrai si la cellule est vide (peut recevoir un bloc).</summary>
-    public bool IsEmpty(int x, int y) => GetCell(x, y) == CellType.Empty;
-
-    /// <summary>Retourne vrai si la cellule contient un bloc posé par le joueur.</summary>
-    public bool IsPlayerBlock(int x, int y) => GetCell(x, y) == CellType.PlayerBlock;
-
-    /// <summary>Place un bloc du joueur sur une cellule vide.</summary>
     public bool TryPlaceBlock(int x, int y)
     {
         if (!IsEmpty(x, y)) return false;
@@ -155,7 +172,6 @@ public class TPMGrid : MonoBehaviour
         return true;
     }
 
-    /// <summary>Détruit un bloc posé par le joueur. Retourne vrai si réussi.</summary>
     public bool TryDestroyBlock(int x, int y)
     {
         if (!IsPlayerBlock(x, y)) return false;
@@ -163,82 +179,101 @@ public class TPMGrid : MonoBehaviour
         return true;
     }
 
-    /// <summary>
-    /// Convertit des coordonnées grille en position monde (centre de la cellule).
-    /// </summary>
+    public void LockTetrisBlock(int x, int y)
+    {
+        if (InBounds(x, y)) cells[x, y] = CellType.TetrisBlock;
+    }
+
+    public void UnlockCell(int x, int y)
+    {
+        if (InBounds(x, y) && cells[x, y] == CellType.TetrisBlock)
+            cells[x, y] = CellType.Empty;
+    }
+
+    /// <summary>Cherche les lignes complètes, les efface et décale les blocs. Retourne le nombre de lignes.</summary>
+    public int ClearFullLines()
+    {
+        int w = settings.gridWidth;
+        int h = settings.gridHeight;
+        int cleared = 0;
+
+        for (int y = h - 2; y >= 1; y--)
+        {
+            if (!IsLineFull(y)) continue;
+            for (int x = 1; x < w - 1; x++) cells[x, y] = CellType.Empty;
+            for (int row = y; row < h - 2; row++)
+                for (int x = 1; x < w - 1; x++)
+                    cells[x, row] = cells[x, row + 1];
+            for (int x = 1; x < w - 1; x++) cells[x, h - 2] = CellType.Empty;
+            cleared++;
+            y++;
+        }
+        return cleared;
+    }
+
+    private bool IsLineFull(int y)
+    {
+        for (int x = 1; x < settings.gridWidth - 1; x++)
+            if (cells[x, y] == CellType.Empty) return false;
+        return true;
+    }
+
+    // ── Conversions ───────────────────────────────────────────────────────────
+
     public Vector3 CellToWorld(int x, int y)
     {
-        float cs      = settings.cellSize;
-        float offsetX = -(settings.gridWidth  - 1) * cs * 0.5f;
-        float offsetY = -(settings.gridHeight - 1) * cs * 0.5f;
-        return new Vector3(offsetX + x * cs, offsetY + y * cs, 0f);
+        float cs = settings.cellSize;
+        float ox = -(settings.gridWidth  - 1) * cs * 0.5f;
+        float oy = -(settings.gridHeight - 1) * cs * 0.5f;
+        return new Vector3(ox + x * cs, oy + y * cs, 0f);
     }
 
-    /// <summary>
-    /// Convertit une position monde en coordonnées grille (arrondi au plus proche).
-    /// </summary>
-    public Vector2Int WorldToCell(Vector3 worldPos)
+    public Vector2Int WorldToCell(Vector3 world)
     {
-        float cs      = settings.cellSize;
-        float offsetX = -(settings.gridWidth  - 1) * cs * 0.5f;
-        float offsetY = -(settings.gridHeight - 1) * cs * 0.5f;
-        int x = Mathf.RoundToInt((worldPos.x - offsetX) / cs);
-        int y = Mathf.RoundToInt((worldPos.y - offsetY) / cs);
-        return new Vector2Int(x, y);
+        float cs = settings.cellSize;
+        float ox = -(settings.gridWidth  - 1) * cs * 0.5f;
+        float oy = -(settings.gridHeight - 1) * cs * 0.5f;
+        return new Vector2Int(
+            Mathf.RoundToInt((world.x - ox) / cs),
+            Mathf.RoundToInt((world.y - oy) / cs));
     }
 
-    // ── BFS pathfinding (utilisé par le monstre) ──────────────────────────────
+    // ── BFS pathfinding ───────────────────────────────────────────────────────
 
-    private static readonly Vector2Int[] Directions =
-    {
-        Vector2Int.up, Vector2Int.down, Vector2Int.left, Vector2Int.right
-    };
+    private static readonly Vector2Int[] Dirs = { Vector2Int.up, Vector2Int.down, Vector2Int.left, Vector2Int.right };
 
-    /// <summary>
-    /// Retourne le premier pas du chemin BFS du monstre vers la cible,
-    /// en contournant les murs et les blocs. Retourne null si aucun chemin.
-    /// </summary>
+    /// <summary>Premier pas du chemin BFS entre from et to, en contournant les obstacles.</summary>
     public Vector2Int? FindNextStep(Vector2Int from, Vector2Int to)
     {
         if (from == to) return null;
 
         var visited = new Dictionary<Vector2Int, Vector2Int>();
         var queue   = new Queue<Vector2Int>();
-
         visited[from] = from;
         queue.Enqueue(from);
 
         while (queue.Count > 0)
         {
-            Vector2Int current = queue.Dequeue();
-
-            foreach (Vector2Int dir in Directions)
+            var cur = queue.Dequeue();
+            foreach (var d in Dirs)
             {
-                Vector2Int next = current + dir;
+                var next = cur + d;
                 if (visited.ContainsKey(next)) continue;
                 if (!InBounds(next.x, next.y))  continue;
-
-                CellType ct = GetCell(next.x, next.y);
-                // Le monstre ne traverse pas les murs ni les blocs du joueur
-                if (ct == CellType.Wall || ct == CellType.PlayerBlock) continue;
-
-                visited[next] = current;
-                if (next == to)
-                    return ReconstructFirst(visited, from, to);
-
+                var ct = GetCell(next.x, next.y);
+                if (ct == CellType.Wall || ct == CellType.PlayerBlock || ct == CellType.TetrisBlock || ct == CellType.Cage) continue;
+                visited[next] = cur;
+                if (next == to) return Reconstruct(visited, from, to);
                 queue.Enqueue(next);
             }
         }
-
-        return null; // Chemin bloqué
+        return null;
     }
 
-    private static Vector2Int ReconstructFirst(
-        Dictionary<Vector2Int, Vector2Int> visited, Vector2Int from, Vector2Int to)
+    private static Vector2Int Reconstruct(Dictionary<Vector2Int, Vector2Int> visited, Vector2Int from, Vector2Int to)
     {
-        Vector2Int current = to;
-        while (visited[current] != from)
-            current = visited[current];
-        return current;
+        var cur = to;
+        while (visited[cur] != from) cur = visited[cur];
+        return cur;
     }
 }

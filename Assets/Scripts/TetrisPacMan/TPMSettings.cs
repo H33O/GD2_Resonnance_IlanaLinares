@@ -2,7 +2,7 @@ using UnityEngine;
 
 /// <summary>
 /// Tous les paramètres de design du jeu Tetris×Pac-Man.
-/// Créer via  Assets ▸ Create ▸ TetrisPacMan ▸ Settings.
+/// Créer via Assets ▸ Create ▸ TetrisPacMan ▸ Settings.
 /// </summary>
 [CreateAssetMenu(fileName = "TPMSettings", menuName = "TetrisPacMan/Settings")]
 public class TPMSettings : ScriptableObject
@@ -11,53 +11,65 @@ public class TPMSettings : ScriptableObject
 
     [Header("Grid")]
     [Tooltip("Nombre de colonnes de la grille.")]
-    public int gridWidth  = 9;
+    public int gridWidth = 12;
 
     [Tooltip("Nombre de lignes de la grille.")]
-    public int gridHeight = 15;
+    public int gridHeight = 18;
 
-    [Tooltip("Taille d'une cellule en unités monde. Calibré pour 1080×1920 portrait.")]
-    public float cellSize = 1.18f;
+    [Tooltip("Taille d'une cellule en unités monde.")]
+    public float cellSize = 0.95f;
 
     // ── Joueur ────────────────────────────────────────────────────────────────
 
     [Header("Player")]
-    [Tooltip("Vitesse de déplacement du joueur (cellules/seconde).")]
-    public float playerSpeed = 6f;
+    [Tooltip("Vitesse de glissement entre deux cellules (unités/s).")]
+    public float playerSpeed = 8f;
 
-    [Tooltip("Nombre initial de coups disponibles.")]
-    public int startingMoves = 20;
+    [Tooltip("Nombre de coups de bloc disponibles au départ.")]
+    public int startingMoves = 30;
 
-    // ── Blocs ─────────────────────────────────────────────────────────────────
+    // ── Blocs posés ───────────────────────────────────────────────────────────
 
     [Header("Blocks")]
-    [Tooltip("Coups redonnés lors de la destruction d'un bloc seul.")]
-    public int movesRestoredSingle = 1;
-
-    [Tooltip("Coups bonus pour chaque bloc supplémentaire détruit en chaîne.")]
-    public int movesRestoredChainBonus = 1;
-
-    [Tooltip("Points de score pour un bloc seul détruit.")]
-    public int pointsSingle = 10;
-
-    [Tooltip("Multiplicateur de score par bloc supplémentaire dans la chaîne.")]
-    public float chainScoreMultiplier = 1.5f;
-
     [Tooltip("Durée de l'animation de pose/destruction (secondes).")]
-    public float blockAnimDuration = 0.18f;
+    public float blockAnimDuration = 0.14f;
 
-    // ── Monstre ───────────────────────────────────────────────────────────────
+    [Tooltip("Points de score par bloc détruit.")]
+    public int pointsPerBlock = 10;
 
-    [Header("Monster")]
-    [Tooltip("Délai entre chaque pas du monstre (secondes). Plus élevé = plus lent.")]
-    public float monsterStepDelay = 0.7f;
+    [Tooltip("Coups récupérés lors de la destruction d'un bloc.")]
+    public int movesRestoredOnDestroy = 1;
 
-    [Tooltip("Délai initial avant que le monstre commence à bouger.")]
-    public float monsterStartDelay = 2.0f;
+    // ── Tetris ────────────────────────────────────────────────────────────────
 
-    // ── Sortie ────────────────────────────────────────────────────────────────
+    [Header("Tetris")]
+    [Tooltip("Intervalle de chute automatique (secondes).")]
+    public float tetrisFallInterval = 1.4f;
 
-    [Header("Exit")]
-    [Tooltip("Pulsation de l'indicateur de sortie.")]
-    public float exitPulseSpeed = 2.5f;
+    [Tooltip("Intervalle soft drop (flèche bas maintenu).")]
+    public float tetrisSoftDropInterval = 0.07f;
+
+    [Tooltip("Coups bonus gagnés par ligne effacée.")]
+    public int movesPerLineClear = 2;
+
+    [Tooltip("Points par ligne effacée.")]
+    public int scorePerLineClear = 100;
+
+    // ── Ennemi ────────────────────────────────────────────────────────────────
+
+    [Header("Enemy")]
+    [Tooltip("Délai entre chaque pas de l'ennemi (secondes).")]
+    public float monsterStepDelay = 0.85f;
+
+    [Tooltip("Délai après sa libération avant le premier pas.")]
+    public float monsterReleaseDelay = 1.5f;
+
+    // ── Rétrocompatibilité (alias utilisés par l'ancien code) ─────────────────
+
+    [HideInInspector] public float chainScoreMultiplier = 1.5f;
+    [HideInInspector] public int   movesGoal            = 999;
+    [HideInInspector] public int   movesRestoredSingle       => movesRestoredOnDestroy;
+    [HideInInspector] public int   movesRestoredChainBonus   = 1;
+    [HideInInspector] public int   pointsSingle               => pointsPerBlock;
+    [HideInInspector] public float monsterStartDelay          => monsterReleaseDelay;
 }

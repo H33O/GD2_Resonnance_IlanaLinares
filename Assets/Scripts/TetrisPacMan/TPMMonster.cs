@@ -2,8 +2,9 @@ using System.Collections;
 using UnityEngine;
 
 /// <summary>
-/// Monstre du niveau 1 : suit le joueur via BFS, ne traverse pas les blocs,
-/// se déplace case par case à intervalle régulier.
+/// Ennemi — enfermé dans une cage au démarrage.
+/// Libéré uniquement quand le joueur pose son premier bloc.
+/// Suit le joueur via BFS case par case.
 /// </summary>
 public class TPMMonster : MonoBehaviour
 {
@@ -18,15 +19,15 @@ public class TPMMonster : MonoBehaviour
     // ── État ──────────────────────────────────────────────────────────────────
 
     private Vector2Int cellPos;
+    private bool       released;
     private bool       isMoving;
-    private bool       started;
 
     // Visuels
     private SpriteRenderer bodySR;
     private SpriteRenderer glowSR;
 
-    private static readonly Color MonsterCore  = new Color(1.00f, 0.22f, 0.12f, 1.00f);
-    private static readonly Color MonsterGlow  = new Color(1.00f, 0.10f, 0.05f, 0.25f);
+    private static readonly Color CoreColor = new Color(1.00f, 0.18f, 0.10f, 1.00f);
+    private static readonly Color GlowColor = new Color(1.00f, 0.08f, 0.05f, 0.28f);
 
     // ── Lifecycle ─────────────────────────────────────────────────────────────
 
@@ -37,22 +38,37 @@ public class TPMMonster : MonoBehaviour
 
     private void Start()
     {
-        if (TPMGrid.Instance == null) return;
+        if (player == null) player = FindFirstObjectByType<TPMPlayerController>();
 
-        // Départ du monstre : coin bas-droit (diagonalement opposé au joueur en bas-gauche,
-        // et loin de la sortie qui est en haut-droit)
-        cellPos = new Vector2Int(settings.gridWidth - 2, 1);
-        transform.position = TPMGrid.Instance.CellToWorld(cellPos.x, cellPos.y);
+        if (TPMGrid.Instance != null)
+        {
+            cellPos = TPMGrid.Instance.MonsterStart;
+            transform.position = TPMGrid.Instance.CellToWorld(cellPos.x, cellPos.y);
+        }
 
-        StartCoroutine(DelayedStart());
+        // Écoute le premier bloc posé
+        TPMGameManager.OnFirstBlockPlaced += OnReleased;
     }
 
-    private IEnumerator DelayedStart()
+    private void OnDestroy()
     {
-        yield return new WaitForSeconds(settings.monsterStartDelay);
-        started = true;
+        TPMGameManager.OnFirstBlockPlaced -= OnReleased;
+    }
+
+    private void OnReleased()
+    {
+        if (released) return;
+        released = true;
+        StartCoroutine(StartAfterDelay());
+    }
+
+    private IEnumerator StartAfterDelay()
+    {
+        yield return new WaitForSeconds(settings.monsterReleaseDelay);
         StartCoroutine(StepRoutine());
     }
+
+    // ── IA : BFS case par case ────────────────────────────────────────────────
 
     private IEnumerator StepRoutine()
     {
@@ -61,45 +77,34 @@ public class TPMMonster : MonoBehaviour
             yield return new WaitForSeconds(settings.monsterStepDelay);
 
             if (TPMGameManager.Instance?.State != TPMGameManager.GameState.Playing) yield break;
-            if (player == null) continue;
+            if (player == null || isMoving) continue;
 
-            Vector2Int playerCell = player.CellPosition;
-            Vector2Int? nextStep  = TPMGrid.Instance.FindNextStep(cellPos, playerCell);
-
-            if (nextStep.HasValue)
-                yield return StartCoroutine(SlideToCell(nextStep.Value));
+            Vector2Int? next = TPMGrid.Instance.FindNextStep(cellPos, player.CellPosition);
+            if (next.HasValue)
+                yield return StartCoroutine(SlideToCell(next.Value));
         }
     }
 
     private IEnumerator SlideToCell(Vector2Int target)
     {
         isMoving = true;
+        Vector3 start = transform.position;
+        Vector3 end   = TPMGrid.Instance.CellToWorld(target.x, target.y);
+        float   dur   = settings.monsterStepDelay * 0.55f;
+        float   t     = 0f;
 
-        Vector3 startPos = transform.position;
-        Vector3 endPos   = TPMGrid.Instance.CellToWorld(target.x, target.y);
-
-        float duration = settings.monsterStepDelay * 0.6f;
-        float elapsed  = 0f;
-
-        while (elapsed < duration)
+        while (t < dur)
         {
-            elapsed += Time.deltaTime;
-            float t  = Mathf.SmoothStep(0f, 1f, elapsed / duration);
-            transform.position = Vector3.Lerp(startPos, endPos, t);
+            t += Time.deltaTime;
+            transform.position = Vector3.Lerp(start, end, Mathf.SmoothStep(0f, 1f, t / dur));
             yield return null;
         }
 
-        transform.position = endPos;
+        transform.position = end;
         cellPos = target;
         isMoving = false;
 
-        CheckCatch();
-    }
-
-    private void CheckCatch()
-    {
-        if (player == null) return;
-        if (cellPos == player.CellPosition)
+        if (player != null && cellPos == player.CellPosition)
             TPMGameManager.Instance?.NotifyCaught();
     }
 
@@ -112,39 +117,35 @@ public class TPMMonster : MonoBehaviour
 
     private void BuildVisuals()
     {
-        // Corps rouge menaçant
-        bodySR           = gameObject.AddComponent<SpriteRenderer>();
-        bodySR.sprite    = SpriteGenerator.CreatePolygon(6, 64); // hexagone
-        bodySR.color     = MonsterCore;
-        bodySR.sortingOrder = 10;
-        transform.localScale = Vector3.one * 0.72f;
+        // Corps rouge fantôme (hexagone)
+        bodySR              = gameObject.AddComponent<SpriteRenderer>();
+        bodySR.sprite       = SpriteGenerator.CreatePolygon(6, 64);
+        bodySR.color        = CoreColor;
+        bodySR.sortingOrder = 12;
+        transform.localScale = Vector3.one * 0.70f;
 
-        // Halo de danger
-        var glowGO       = new GameObject("Glow");
+        var glowGO    = new GameObject("Glow");
         glowGO.transform.SetParent(transform, false);
         glowGO.transform.localScale = Vector3.one * 1.7f;
-        glowSR           = glowGO.AddComponent<SpriteRenderer>();
-        glowSR.sprite    = SpriteGenerator.CreateCircle(64);
-        glowSR.color     = MonsterGlow;
-        glowSR.sortingOrder = 9;
+        glowSR        = glowGO.AddComponent<SpriteRenderer>();
+        glowSR.sprite = SpriteGenerator.CreateCircle(64);
+        glowSR.color  = GlowColor;
+        glowSR.sortingOrder = 11;
 
-        // Rotation permanente (élan menaçant)
-        StartCoroutine(RotateBody());
+        StartCoroutine(SpinBody());
     }
 
-    private IEnumerator RotateBody()
+    private IEnumerator SpinBody()
     {
-        while (true)
-        {
-            transform.Rotate(0f, 0f, 40f * Time.deltaTime);
-            yield return null;
-        }
+        while (true) { transform.Rotate(0f, 0f, 38f * Time.deltaTime); yield return null; }
     }
 
     private void AnimateGlow()
     {
         if (glowSR == null) return;
-        float a      = 0.20f + 0.15f * Mathf.Sin(Time.time * 6f);
-        glowSR.color = new Color(MonsterGlow.r, MonsterGlow.g, MonsterGlow.b, a);
+        float a = released
+            ? 0.20f + 0.18f * Mathf.Sin(Time.time * 7f)
+            : 0.08f + 0.06f * Mathf.Sin(Time.time * 2f);
+        glowSR.color = new Color(GlowColor.r, GlowColor.g, GlowColor.b, a);
     }
 }

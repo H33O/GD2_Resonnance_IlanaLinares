@@ -3,32 +3,26 @@ using UnityEngine.UI;
 using TMPro;
 
 /// <summary>
-/// Construit la scène du mini-jeu Tetris×Pac-Man au démarrage :
-/// caméra, fond, grille, managers, joueur, monstre, HUD et écran de fin.
-/// Attacher à un GameObject "SceneSetup" vide.
+/// Construit la scène du mini-jeu Tetris×Pac-Man (prototype PC) :
+/// caméra, fond, grille 12×18, managers, joueur, monstre en cage, HUD, écran de fin.
 /// </summary>
 [DefaultExecutionOrder(-100)]
 public class TPMSceneSetup : MonoBehaviour
 {
-    // ── Inspector ─────────────────────────────────────────────────────────────
-
     [Header("Assets (assign in Inspector)")]
     public TPMSettings settings;
 
-    // ── Références internes ───────────────────────────────────────────────────
-
-    private Camera                gameCamera;
-    private TPMGrid               grid;
-    private TPMGameManager        gameManager;
-    private TPMBlockManager       blockManager;
-    private TPMFeedbackManager    feedback;
-    private TPMGridRenderer       gridRenderer;
-    private TPMPlayerController   player;
-    private TPMMonster            monster;
-    private TPMHUD                hud;
-    private TPMGameOverUI         gameOverUI;
-
-    // ── Entry point ───────────────────────────────────────────────────────────
+    private Camera             gameCamera;
+    private TPMGrid            grid;
+    private TPMGameManager     gameManager;
+    private TPMBlockManager    blockManager;
+    private TPMFeedbackManager feedback;
+    private TPMGridRenderer    gridRenderer;
+    private TPMTetrisSpawner   tetrisSpawner;
+    private TPMPlayerController player;
+    private TPMMonster          monster;
+    private TPMHUD              hud;
+    private TPMGameOverUI       gameOverUI;
 
     private void Awake()
     {
@@ -36,25 +30,29 @@ public class TPMSceneSetup : MonoBehaviour
         BuildBackground();
         BuildManagers();
         BuildGrid();
+        BuildTetrisSpawner();
         BuildPlayer();
         BuildMonster();
         BuildHUD();
         BuildGameOverUI();
-        WireReferences();
     }
 
     // ── Caméra ────────────────────────────────────────────────────────────────
 
     private void BuildCamera()
     {
-        var camGO              = new GameObject("Camera");
-        gameCamera             = camGO.AddComponent<Camera>();
+        var camGO = new GameObject("Camera");
+        gameCamera = camGO.AddComponent<Camera>();
         gameCamera.orthographic     = true;
-        // 1080×1920 portrait : demi-hauteur = 1920 / (2 × 100 ppu) = 9.6 unités monde
-        gameCamera.orthographicSize = 9.6f;
-        gameCamera.clearFlags        = CameraClearFlags.SolidColor;
-        gameCamera.backgroundColor   = new Color(0.04f, 0.04f, 0.08f, 1f);
-        gameCamera.transform.position = new Vector3(0f, 0f, -10f);
+        // orthographicSize = demi-hauteur en unités monde.
+        // Grille 10×20 avec cellSize=1.0 → hauteur monde = 20u.
+        // On ajoute 0.5u de marge en haut/bas → taille totale 21u → orthographicSize = 10.5.
+        // La caméra est légèrement décalée vers le haut pour laisser de la place au HUD.
+        gameCamera.orthographicSize   = 11.5f;
+        gameCamera.clearFlags         = CameraClearFlags.SolidColor;
+        gameCamera.backgroundColor    = new Color(0.05f, 0.05f, 0.10f, 1f);
+        // Décalage vertical : centre la grille avec une légère remontée pour le HUD bas
+        gameCamera.transform.position = new Vector3(0f, 0.5f, -10f);
         camGO.AddComponent<AudioListener>();
     }
 
@@ -62,85 +60,81 @@ public class TPMSceneSetup : MonoBehaviour
 
     private void BuildBackground()
     {
-        // Vignette sombre sur les bords
-        var mat = new Material(Shader.Find("Universal Render Pipeline/2D/Sprite-Unlit-Default"));
-
-        var vignette            = new GameObject("Vignette");
-        var sr                  = vignette.AddComponent<SpriteRenderer>();
-        sr.sprite               = SpriteGenerator.CreateCircle(256);
-        sr.color                = new Color(0f, 0f, 0f, 0f);
-        sr.sortingOrder         = -10;
-        vignette.transform.localScale = Vector3.one * 25f;
+        var bgGO  = new GameObject("Background");
+        var bgSR  = bgGO.AddComponent<SpriteRenderer>();
+        bgSR.sprite = SpriteGenerator.CreateColoredSquare(new Color(0.05f, 0.05f, 0.10f, 1f));
+        bgSR.sortingOrder = -20;
+        bgGO.transform.localScale = Vector3.one * 30f;
     }
 
     // ── Managers ──────────────────────────────────────────────────────────────
 
     private void BuildManagers()
     {
-        // GameManager
-        var gmGO       = new GameObject("GameManager");
-        gameManager    = gmGO.AddComponent<TPMGameManager>();
+        var gmGO    = new GameObject("GameManager");
+        gameManager = gmGO.AddComponent<TPMGameManager>();
         gameManager.settings = settings;
 
-        // BlockManager
-        var bmGO       = new GameObject("BlockManager");
-        blockManager   = bmGO.AddComponent<TPMBlockManager>();
+        var bmGO    = new GameObject("BlockManager");
+        blockManager = bmGO.AddComponent<TPMBlockManager>();
         blockManager.settings = settings;
 
-        // FeedbackManager (a besoin d'un Canvas monde pour le score flottant)
-        var fbGO       = new GameObject("FeedbackManager");
-        feedback       = fbGO.AddComponent<TPMFeedbackManager>();
+        var fbGO    = new GameObject("FeedbackManager");
+        feedback    = fbGO.AddComponent<TPMFeedbackManager>();
 
-        // Canvas monde pour le score flottant
-        var canvasGO   = new GameObject("WorldCanvas");
-        var canvas     = canvasGO.AddComponent<Canvas>();
-        canvas.renderMode        = RenderMode.WorldSpace;
-        canvas.worldCamera       = gameCamera;
-        canvas.sortingOrder      = 30;
-        canvasGO.AddComponent<CanvasScaler>();
-        canvasGO.AddComponent<GraphicRaycaster>();
-        var canvasRT             = canvasGO.GetComponent<RectTransform>();
-        canvasRT.localScale      = Vector3.one * 0.01f;
-        // Ratio 1080×1920 → canvas monde proportionnel en portrait
-        canvasRT.sizeDelta       = new Vector2(1080f, 1920f);
-
-        feedback.worldCanvas     = canvas;
+        var wCanvasGO = new GameObject("WorldCanvas");
+        var wCanvas   = wCanvasGO.AddComponent<Canvas>();
+        wCanvas.renderMode   = RenderMode.WorldSpace;
+        wCanvas.worldCamera  = gameCamera;
+        wCanvas.sortingOrder = 30;
+        wCanvasGO.AddComponent<CanvasScaler>();
+        wCanvasGO.AddComponent<GraphicRaycaster>();
+        wCanvasGO.GetComponent<RectTransform>().localScale = Vector3.one * 0.01f;
+        wCanvasGO.GetComponent<RectTransform>().sizeDelta  = new Vector2(1080f, 1920f);
+        feedback.worldCanvas = wCanvas;
     }
 
     // ── Grille ────────────────────────────────────────────────────────────────
 
     private void BuildGrid()
     {
-        // TPMGrid (logique)
         var gridGO    = new GameObject("Grid");
         grid          = gridGO.AddComponent<TPMGrid>();
         grid.settings = settings;
-        grid.Init();   // initialise cells[] immédiatement — settings est déjà assigné
+        grid.Init();
 
-        // TPMGridRenderer (visuel)
         var rendererGO  = new GameObject("GridRenderer");
         gridRenderer    = rendererGO.AddComponent<TPMGridRenderer>();
         gridRenderer.settings = settings;
-        gridRenderer.Init(); // dessine la grille maintenant que TPMGrid.Instance est prêt
+        gridRenderer.Init();
+    }
+
+    // ── Tetris Spawner ────────────────────────────────────────────────────────
+
+    private void BuildTetrisSpawner()
+    {
+        var spawnGO    = new GameObject("TetrisSpawner");
+        tetrisSpawner  = spawnGO.AddComponent<TPMTetrisSpawner>();
+        tetrisSpawner.settings = settings;
     }
 
     // ── Joueur ────────────────────────────────────────────────────────────────
 
     private void BuildPlayer()
     {
-        var playerGO = new GameObject("Player");
-        playerGO.AddComponent<SpriteRenderer>(); // requis par TPMPlayerController
-        player       = playerGO.AddComponent<TPMPlayerController>();
-        player.settings    = settings;
-        player.gameCamera  = gameCamera;
+        var pGO    = new GameObject("Player");
+        pGO.tag    = "Player";
+        pGO.AddComponent<SpriteRenderer>();
+        player     = pGO.AddComponent<TPMPlayerController>();
+        player.settings = settings;
     }
 
     // ── Monstre ───────────────────────────────────────────────────────────────
 
     private void BuildMonster()
     {
-        var monsterGO = new GameObject("Monster");
-        monster       = monsterGO.AddComponent<TPMMonster>();
+        var mGO      = new GameObject("Monster");
+        monster      = mGO.AddComponent<TPMMonster>();
         monster.settings = settings;
         monster.player   = player;
     }
@@ -149,186 +143,187 @@ public class TPMSceneSetup : MonoBehaviour
 
     private void BuildHUD()
     {
-        var hudCanvas   = BuildUICanvas("HUDCanvas", 100);
-        var hudGO       = new GameObject("HUD");
+        var hudCanvas = BuildUICanvas("HUDCanvas", 100);
+
+        // ── EventSystem ───────────────────────────────────────────────────────
+        if (FindFirstObjectByType<UnityEngine.EventSystems.EventSystem>() == null)
+        {
+            var esGO = new GameObject("EventSystem");
+            esGO.AddComponent<UnityEngine.EventSystems.EventSystem>();
+            esGO.AddComponent<UnityEngine.EventSystems.StandaloneInputModule>();
+        }
+
+        var hudGO = new GameObject("HUD");
         hudGO.transform.SetParent(hudCanvas.transform, false);
-        hud             = hudGO.AddComponent<TPMHUD>();
+        hud = hudGO.AddComponent<TPMHUD>();
 
-        // Barre du haut (fond semi-transparent)
-        var topBar      = MakePanel(hudCanvas.transform, "TopBar",
-            new Vector2(0f, 1f), new Vector2(1f, 1f),
-            new Vector2(0f, -50f), new Vector2(0f, 0f),
-            new Color(0f, 0f, 0f, 0.65f), 0);
-        topBar.GetComponent<RectTransform>().sizeDelta = new Vector2(0f, 50f);
+        // ── Bandeau supérieur ─────────────────────────────────────────────────
+        var topBar    = MakePanel(hudCanvas.transform, "TopBar",
+            new Vector2(0f, 1f), new Vector2(1f, 1f), Vector2.zero, Vector2.zero,
+            new Color(0f, 0f, 0f, 0.80f), 0);
+        topBar.GetComponent<RectTransform>().sizeDelta = new Vector2(0f, 90f);
 
-        // Score (haut gauche)
-        var scoreTMP    = MakeLabel(topBar.transform, "ScoreLabel",
-            new Vector2(0.02f, 0.5f), "SCORE  000000",
-            22f, new Color(0.9f, 0.9f, 1f, 1f), TextAlignmentOptions.MidlineLeft);
-        scoreTMP.GetComponent<RectTransform>().sizeDelta = new Vector2(300f, 50f);
+        // SCORE (gauche)
+        var scoreLabel  = MakeLabel(topBar.transform, "ScoreLabel", "SCORE: 0",
+            28f, Color.white, TextAlignmentOptions.Left);
+        var slRT        = scoreLabel.GetComponent<RectTransform>();
+        slRT.anchorMin  = new Vector2(0f, 0f); slRT.anchorMax = new Vector2(0.38f, 1f);
+        slRT.pivot      = new Vector2(0f, 0.5f);
+        slRT.offsetMin  = new Vector2(18f, 0f); slRT.offsetMax = Vector2.zero;
 
-        // Coups (haut droit)
-        var movesTMP    = MakeLabel(topBar.transform, "MovesLabel",
-            new Vector2(0.98f, 0.5f), $"COUPS  {settings.startingMoves}",
-            22f, new Color(0.2f, 1f, 0.5f, 1f), TextAlignmentOptions.MidlineRight);
-        movesTMP.GetComponent<RectTransform>().sizeDelta = new Vector2(250f, 50f);
+        // COUPS (centre-droite)
+        var movesLabel  = MakeLabel(topBar.transform, "MovesLabel", $"COUPS: {settings.startingMoves}",
+            28f, Color.white, TextAlignmentOptions.Right);
+        var mlRT        = movesLabel.GetComponent<RectTransform>();
+        mlRT.anchorMin  = new Vector2(0.38f, 0f); mlRT.anchorMax = new Vector2(0.72f, 1f);
+        mlRT.pivot      = new Vector2(1f, 0.5f);
+        mlRT.offsetMin  = Vector2.zero; mlRT.offsetMax = new Vector2(-4f, 0f);
 
-        // Barre de coups (dessous du bandeau)
-        var barBG       = MakePanel(hudCanvas.transform, "MovesBarBG",
-            new Vector2(0f, 1f), new Vector2(1f, 1f),
-            new Vector2(0f, -56f), new Vector2(0f, -50f),
-            new Color(0.15f, 0.15f, 0.15f, 0.9f), 0);
-        barBG.GetComponent<RectTransform>().sizeDelta = new Vector2(0f, 6f);
+        // Icône dorée
+        var iconGO      = new GameObject("CoinIcon");
+        iconGO.transform.SetParent(topBar.transform, false);
+        var iconRT      = iconGO.AddComponent<RectTransform>();
+        iconRT.anchorMin = iconRT.anchorMax = new Vector2(0.72f, 0.5f);
+        iconRT.pivot     = new Vector2(0f, 0.5f);
+        iconRT.sizeDelta = new Vector2(30f, 30f);
+        var iconImg     = iconGO.AddComponent<Image>();
+        iconImg.sprite  = SpriteGenerator.CreateCircle(32);
+        iconImg.color   = new Color(1f, 0.82f, 0.05f, 1f);
 
-        var barFill     = MakePanel(barBG.transform, "MovesBarFill",
-            new Vector2(0f, 0f), new Vector2(1f, 1f),
-            Vector2.zero, Vector2.zero,
-            new Color(0.15f, 0.85f, 0.25f, 1f), 1);
-        var fillImg     = barFill.GetComponent<Image>();
-        fillImg.type    = Image.Type.Filled;
-        fillImg.fillMethod = Image.FillMethod.Horizontal;
-        fillImg.fillOrigin = (int)Image.OriginHorizontal.Left;
-        fillImg.fillAmount = 1f;
+        // ── Zone NEXT BLOC (droite du bandeau) ────────────────────────────────
+        var nextContainer = new GameObject("NextContainer");
+        nextContainer.transform.SetParent(topBar.transform, false);
+        var ncRT          = nextContainer.AddComponent<RectTransform>();
+        ncRT.anchorMin    = new Vector2(0.75f, 0f);
+        ncRT.anchorMax    = new Vector2(1f, 1f);
+        ncRT.offsetMin    = Vector2.zero;
+        ncRT.offsetMax    = new Vector2(-8f, 0f);
 
-        // Légende contrôles (bas)
-        var hint     = MakeLabel(hudCanvas.transform, "HintLabel",
-            new Vector2(0.5f, 0f), "WASD/Flèches : Déplacer   |   Espace : Poser bloc   |   E : Détruire bloc   |   Clic D : Poser/Détruire",
-            14f, new Color(0.7f, 0.7f, 0.7f, 0.75f), TextAlignmentOptions.Bottom);
-        var hintRT = hint.GetComponent<RectTransform>();
-        hintRT.anchorMin  = new Vector2(0f, 0f);
-        hintRT.anchorMax  = new Vector2(1f, 0f);
-        hintRT.pivot      = new Vector2(0.5f, 0f);
-        hintRT.anchoredPosition = new Vector2(0f, 8f);
-        hintRT.sizeDelta  = new Vector2(0f, 30f);
+        // Label "NEXT"
+        var nextLabelGO   = new GameObject("NextLabel");
+        nextLabelGO.transform.SetParent(nextContainer.transform, false);
+        var nlRT          = nextLabelGO.AddComponent<RectTransform>();
+        nlRT.anchorMin    = new Vector2(0f, 0.6f); nlRT.anchorMax = new Vector2(1f, 1f);
+        nlRT.offsetMin    = nlRT.offsetMax = Vector2.zero;
+        var nextTMP       = nextLabelGO.AddComponent<TextMeshProUGUI>();
+        nextTMP.text      = "NEXT";
+        nextTMP.fontSize  = 16f;
+        nextTMP.color     = new Color(0.7f, 0.7f, 0.8f, 1f);
+        nextTMP.alignment = TextAlignmentOptions.Center;
+        nextTMP.fontStyle = FontStyles.Bold;
 
-        hud.Init(scoreTMP, movesTMP, fillImg, settings.startingMoves);
+        // Grille 4×2 pour la pièce suivante
+        var nextGridGO    = new GameObject("NextPieceGrid");
+        nextGridGO.transform.SetParent(nextContainer.transform, false);
+        var nextGridRT    = nextGridGO.AddComponent<RectTransform>();
+        nextGridRT.anchorMin    = new Vector2(0f, 0f);
+        nextGridRT.anchorMax    = new Vector2(1f, 0.58f);
+        nextGridRT.offsetMin    = nextGridRT.offsetMax = Vector2.zero;
+
+        // ── Contrôles (bas d'écran) ───────────────────────────────────────────
+        var ctrlLabel   = MakeLabel(hudCanvas.transform, "Controls",
+            "ZQSD: déplacer   Espace: détruire bloc\n← →: bloc Tetris   ↑: rotation   ↓: soft drop",
+            14f, new Color(0.55f, 0.55f, 0.60f, 0.85f), TextAlignmentOptions.Center);
+        var ctrlRT      = ctrlLabel.GetComponent<RectTransform>();
+        ctrlRT.anchorMin = new Vector2(0f, 0f); ctrlRT.anchorMax = new Vector2(1f, 0f);
+        ctrlRT.pivot     = new Vector2(0.5f, 0f);
+        ctrlRT.sizeDelta = new Vector2(0f, 44f);
+        ctrlRT.anchoredPosition = new Vector2(0f, 6f);
+        ctrlLabel.enableWordWrapping = true;
+
+        hud.Init(scoreLabel, movesLabel, settings.startingMoves, nextGridRT, settings);
     }
 
     // ── Game over UI ──────────────────────────────────────────────────────────
 
     private void BuildGameOverUI()
     {
-        var goCanvas   = BuildUICanvas("GameOverCanvas", 200);
-        var goUIGO     = new GameObject("GameOverUI");
+        var goCanvas  = BuildUICanvas("GameOverCanvas", 200);
+        var goUIGO    = new GameObject("GameOverUI");
         goUIGO.transform.SetParent(goCanvas.transform, false);
-        gameOverUI     = goUIGO.AddComponent<TPMGameOverUI>();
+        gameOverUI    = goUIGO.AddComponent<TPMGameOverUI>();
 
-        // Fond semi-transparent plein écran
-        var bgPanel    = MakePanel(goCanvas.transform, "Background",
+        var bgPanel   = MakePanel(goCanvas.transform, "Background",
             Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero,
             new Color(0.1f, 0.55f, 0.2f, 0f), 0);
-        var bgImg      = bgPanel.GetComponent<Image>();
+        var bgImg     = bgPanel.GetComponent<Image>();
 
-        // Titre
-        var title      = MakeLabel(goCanvas.transform, "Title",
-            new Vector2(0.5f, 0.6f), "TITRE",
+        var title     = MakeLabel(goCanvas.transform, "Title", "TITRE",
             52f, Color.white, TextAlignmentOptions.Center);
-        var titleRT    = title.GetComponent<RectTransform>();
-        titleRT.anchorMin = titleRT.anchorMax = new Vector2(0.5f, 0.6f);
-        titleRT.pivot     = new Vector2(0.5f, 0.5f);
-        titleRT.sizeDelta = new Vector2(600f, 80f);
-        titleRT.anchoredPosition = Vector2.zero;
+        var tRT       = title.GetComponent<RectTransform>();
+        tRT.anchorMin = tRT.anchorMax = new Vector2(0.5f, 0.6f);
+        tRT.pivot     = new Vector2(0.5f, 0.5f);
+        tRT.sizeDelta = new Vector2(600f, 80f);
 
-        // Score final
-        var scoreFinal = MakeLabel(goCanvas.transform, "FinalScore",
-            new Vector2(0.5f, 0.45f), "SCORE  000000",
+        var scoreF    = MakeLabel(goCanvas.transform, "FinalScore", "SCORE  000000",
             30f, new Color(0.9f, 0.9f, 1f, 1f), TextAlignmentOptions.Center);
-        var scoreRT    = scoreFinal.GetComponent<RectTransform>();
-        scoreRT.anchorMin = scoreRT.anchorMax = new Vector2(0.5f, 0.45f);
-        scoreRT.pivot     = new Vector2(0.5f, 0.5f);
-        scoreRT.sizeDelta = new Vector2(400f, 50f);
-        scoreRT.anchoredPosition = Vector2.zero;
+        var sRT       = scoreF.GetComponent<RectTransform>();
+        sRT.anchorMin = sRT.anchorMax = new Vector2(0.5f, 0.45f);
+        sRT.pivot     = new Vector2(0.5f, 0.5f);
+        sRT.sizeDelta = new Vector2(400f, 50f);
 
-        // Bouton Rejouer
-        var btnGO      = new GameObject("RestartButton");
+        var btnGO     = new GameObject("RestartButton");
         btnGO.transform.SetParent(goCanvas.transform, false);
-        var btnRT      = btnGO.AddComponent<RectTransform>();
+        var btnRT     = btnGO.AddComponent<RectTransform>();
         btnRT.anchorMin = btnRT.anchorMax = new Vector2(0.5f, 0.3f);
         btnRT.pivot     = new Vector2(0.5f, 0.5f);
         btnRT.sizeDelta = new Vector2(220f, 55f);
-        btnRT.anchoredPosition = Vector2.zero;
+        btnGO.AddComponent<Image>().color = new Color(1f, 1f, 1f, 0.18f);
+        var btn       = btnGO.AddComponent<Button>();
 
-        var btnImg     = btnGO.AddComponent<Image>();
-        btnImg.color   = new Color(1f, 1f, 1f, 0.18f);
-        var btn        = btnGO.AddComponent<Button>();
+        var lblGO     = new GameObject("Label");
+        lblGO.transform.SetParent(btnGO.transform, false);
+        var lblRT     = lblGO.AddComponent<RectTransform>();
+        lblRT.anchorMin = Vector2.zero; lblRT.anchorMax = Vector2.one;
+        lblRT.offsetMin = lblRT.offsetMax = Vector2.zero;
+        var lblTMP    = lblGO.AddComponent<TextMeshProUGUI>();
+        lblTMP.text   = "REJOUER"; lblTMP.fontSize = 24f;
+        lblTMP.color  = Color.white; lblTMP.alignment = TextAlignmentOptions.Center;
 
-        var btnLabelGO = new GameObject("Label");
-        btnLabelGO.transform.SetParent(btnGO.transform, false);
-        var btnLabelRT = btnLabelGO.AddComponent<RectTransform>();
-        btnLabelRT.anchorMin = Vector2.zero;
-        btnLabelRT.anchorMax = Vector2.one;
-        btnLabelRT.offsetMin = btnLabelRT.offsetMax = Vector2.zero;
-        var btnTMP     = btnLabelGO.AddComponent<TextMeshProUGUI>();
-        btnTMP.text    = "REJOUER";
-        btnTMP.fontSize = 24f;
-        btnTMP.color   = Color.white;
-        btnTMP.alignment = TextAlignmentOptions.Center;
-
-        gameOverUI.Init(goCanvas, bgImg, title, scoreFinal, btn);
-    }
-
-    // ── Câblage ───────────────────────────────────────────────────────────────
-
-    private void WireReferences()
-    {
-        // Tous les composants se trouvent via les singletons ou les champs publics.
-        // Les événements statiques de TPMGameManager font le reste.
+        gameOverUI.Init(goCanvas, bgImg, title, scoreF, btn);
     }
 
     // ── Helpers UI ────────────────────────────────────────────────────────────
 
     private Canvas BuildUICanvas(string name, int sortingOrder)
     {
-        var go      = new GameObject(name);
-        var canvas  = go.AddComponent<Canvas>();
+        var go     = new GameObject(name);
+        var canvas = go.AddComponent<Canvas>();
         canvas.renderMode   = RenderMode.ScreenSpaceOverlay;
         canvas.sortingOrder = sortingOrder;
-
-        var scaler                 = go.AddComponent<CanvasScaler>();
+        var scaler = go.AddComponent<CanvasScaler>();
         scaler.uiScaleMode         = CanvasScaler.ScaleMode.ScaleWithScreenSize;
         scaler.referenceResolution = new Vector2(1080f, 1920f);
-        // Portrait : on match sur la hauteur pour que tout tienne verticalement
-        scaler.matchWidthOrHeight  = 1f;
-
+        scaler.matchWidthOrHeight  = 0.5f;
         go.AddComponent<GraphicRaycaster>();
         return canvas;
     }
 
     private GameObject MakePanel(Transform parent, string name,
         Vector2 anchorMin, Vector2 anchorMax,
-        Vector2 offsetMin, Vector2 offsetMax,
-        Color color, int sortingOrder)
-    {
-        var go    = new GameObject(name);
-        go.transform.SetParent(parent, false);
-        var rt    = go.AddComponent<RectTransform>();
-        rt.anchorMin    = anchorMin;
-        rt.anchorMax    = anchorMax;
-        rt.offsetMin    = offsetMin;
-        rt.offsetMax    = offsetMax;
-        var img   = go.AddComponent<Image>();
-        img.color = color;
-        return go;
-    }
-
-    private TextMeshProUGUI MakeLabel(Transform parent, string name,
-        Vector2 anchorPos, string text, float fontSize,
-        Color color, TextAlignmentOptions alignment)
+        Vector2 offsetMin, Vector2 offsetMax, Color color, int _)
     {
         var go  = new GameObject(name);
         go.transform.SetParent(parent, false);
         var rt  = go.AddComponent<RectTransform>();
-        rt.anchorMin = rt.anchorMax = anchorPos;
+        rt.anchorMin = anchorMin; rt.anchorMax = anchorMax;
+        rt.offsetMin = offsetMin; rt.offsetMax = offsetMax;
+        go.AddComponent<Image>().color = color;
+        return go;
+    }
+
+    private TextMeshProUGUI MakeLabel(Transform parent, string name,
+        string text, float fontSize, Color color, TextAlignmentOptions alignment)
+    {
+        var go  = new GameObject(name);
+        go.transform.SetParent(parent, false);
+        var rt  = go.AddComponent<RectTransform>();
+        rt.anchorMin = rt.anchorMax = new Vector2(0.5f, 0.5f);
         rt.pivot     = new Vector2(0.5f, 0.5f);
         rt.sizeDelta = new Vector2(300f, 40f);
-        rt.anchoredPosition = Vector2.zero;
-
-        var tmp         = go.AddComponent<TextMeshProUGUI>();
-        tmp.text        = text;
-        tmp.fontSize    = fontSize;
-        tmp.color       = color;
-        tmp.alignment   = alignment;
-        tmp.fontStyle   = FontStyles.Bold;
+        var tmp      = go.AddComponent<TextMeshProUGUI>();
+        tmp.text     = text; tmp.fontSize  = fontSize;
+        tmp.color    = color; tmp.alignment = alignment; tmp.fontStyle = FontStyles.Bold;
         return tmp;
     }
 }

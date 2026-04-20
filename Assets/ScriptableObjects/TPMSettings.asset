@@ -12,16 +12,20 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: e5e5e91e7d5c839458c5dd7a01332f71, type: 3}
   m_Name: TPMSettings
   m_EditorClassIdentifier: 
-  gridWidth: 9
-  gridHeight: 15
-  cellSize: 1.18
+  gridWidth: 10
+  gridHeight: 20
+  cellSize: 1
   playerSpeed: 6
-  startingMoves: 20
-  movesRestoredSingle: 1
-  movesRestoredChainBonus: 1
-  pointsSingle: 10
-  chainScoreMultiplier: 1.5
+  startingMoves: 15
   blockAnimDuration: 0.18
+  pointsPerBlock: 10
+  movesRestoredOnDestroy: 1
+  tetrisFallInterval: 1.2
+  tetrisSoftDropInterval: 0.08
+  movesPerLineClear: 3
+  scorePerLineClear: 100
   monsterStepDelay: 0.7
-  monsterStartDelay: 2
-  exitPulseSpeed: 2.5
+  monsterReleaseDelay: 1.5
+  chainScoreMultiplier: 1.5
+  movesGoal: 50
+  movesRestoredChainBonus: 1

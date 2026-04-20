@@ -4,7 +4,7 @@ using UnityEngine;
 
 /// <summary>
 /// Gère le pool visuel des blocs posés par le joueur.
-/// Chaque cellule <see cref="TPMGrid.CellType.PlayerBlock"/> a un GameObject associé.
+/// Chaque cellule PlayerBlock a un GameObject associé avec la couleur choisie dans la palette.
 /// </summary>
 public class TPMBlockManager : MonoBehaviour
 {
@@ -20,10 +20,7 @@ public class TPMBlockManager : MonoBehaviour
     // ── État ──────────────────────────────────────────────────────────────────
 
     private readonly Dictionary<Vector2Int, GameObject> blockObjects = new();
-
-    private static readonly Color BlockColor     = new Color(0.20f, 0.80f, 0.30f, 1.00f);
-    private static readonly Color BlockEdge      = new Color(0.10f, 0.55f, 0.20f, 1.00f);
-    private static readonly Color BlockGlowColor = new Color(0.10f, 0.90f, 0.25f, 0.15f);
+    private readonly Dictionary<Vector2Int, Color>      blockColors  = new();
 
     // ── Lifecycle ─────────────────────────────────────────────────────────────
 
@@ -40,17 +37,29 @@ public class TPMBlockManager : MonoBehaviour
 
     // ── API publique ──────────────────────────────────────────────────────────
 
-    /// <summary>Crée et anime un bloc à la position de grille donnée.</summary>
-    public void SpawnBlock(int x, int y)
+    /// <summary>
+    /// Crée et anime un bloc coloré à la position de grille donnée.
+    /// </summary>
+    public void SpawnBlock(int x, int y, Color color)
     {
         var key = new Vector2Int(x, y);
         if (blockObjects.ContainsKey(key)) return;
 
-        Vector3 worldPos = TPMGrid.Instance.CellToWorld(x, y);
-        var     go       = BuildBlockVisual(worldPos);
+        Vector3 worldPos  = TPMGrid.Instance.CellToWorld(x, y);
+        var     go        = BuildBlockVisual(worldPos, color);
         blockObjects[key] = go;
+        blockColors[key]  = color;
 
         StartCoroutine(ScaleIn(go.transform, settings.blockAnimDuration));
+    }
+
+    /// <summary>Surcharge sans couleur — utilise la couleur active de la palette.</summary>
+    public void SpawnBlock(int x, int y)
+    {
+        Color c = TPMBlockPalette.Instance != null
+            ? TPMBlockPalette.Instance.SelectedColor
+            : TPMBlockPalette.BlockColors[0];
+        SpawnBlock(x, y, c);
     }
 
     /// <summary>Détruit et anime la suppression du bloc à la position donnée.</summary>
@@ -60,12 +69,20 @@ public class TPMBlockManager : MonoBehaviour
         if (!blockObjects.TryGetValue(key, out var go)) return;
 
         blockObjects.Remove(key);
+        blockColors.Remove(key);
         StartCoroutine(ScaleOutAndDestroy(go, settings.blockAnimDuration));
+    }
+
+    /// <summary>Retourne la couleur du bloc posé à cette position, ou blanc si absent.</summary>
+    public Color GetBlockColor(int x, int y)
+    {
+        var key = new Vector2Int(x, y);
+        return blockColors.TryGetValue(key, out var c) ? c : Color.white;
     }
 
     // ── Création visuelle ─────────────────────────────────────────────────────
 
-    private GameObject BuildBlockVisual(Vector3 worldPos)
+    private GameObject BuildBlockVisual(Vector3 worldPos, Color color)
     {
         var root = new GameObject("Block");
         root.transform.position   = worldPos;
@@ -73,35 +90,46 @@ public class TPMBlockManager : MonoBehaviour
 
         float cs = settings.cellSize * 0.88f;
 
-        // Corps du bloc (carré arrondi simulé = carré + glow circulaire)
-        var bodyGO  = new GameObject("Body");
-        bodyGO.transform.SetParent(root.transform, false);
-        bodyGO.transform.localScale = Vector3.one * cs;
-        var bodySR  = bodyGO.AddComponent<SpriteRenderer>();
-        bodySR.sprite = SpriteGenerator.CreateColoredSquare(BlockColor);
-        bodySR.color  = BlockColor;
-        bodySR.sortingOrder = 5;
-
-        // Bord légèrement plus foncé
-        var edgeGO  = new GameObject("Edge");
+        // Bord plus foncé
+        var edgeColor = new Color(color.r * 0.62f, color.g * 0.62f, color.b * 0.62f, 1f);
+        var edgeGO    = new GameObject("Edge");
         edgeGO.transform.SetParent(root.transform, false);
-        edgeGO.transform.localScale = Vector3.one * (cs * 1.06f);
-        var edgeSR  = edgeGO.AddComponent<SpriteRenderer>();
-        edgeSR.sprite = SpriteGenerator.CreateColoredSquare(BlockEdge);
-        edgeSR.color  = BlockEdge;
+        edgeGO.transform.localScale = Vector3.one * (cs * 1.07f);
+        var edgeSR    = edgeGO.AddComponent<SpriteRenderer>();
+        edgeSR.sprite = SpriteGenerator.CreateColoredSquare(edgeColor);
         edgeSR.sortingOrder = 4;
 
-        // Halo doux
-        var glowGO  = new GameObject("Glow");
+        // Corps coloré
+        var bodyGO    = new GameObject("Body");
+        bodyGO.transform.SetParent(root.transform, false);
+        bodyGO.transform.localScale = Vector3.one * cs;
+        var bodySR    = bodyGO.AddComponent<SpriteRenderer>();
+        bodySR.sprite = SpriteGenerator.CreateColoredSquare(color);
+        bodySR.sortingOrder = 5;
+
+        // Reflet blanc haut-gauche
+        var shineGO   = new GameObject("Shine");
+        shineGO.transform.SetParent(root.transform, false);
+        shineGO.transform.localScale    = Vector3.one * (cs * 0.35f);
+        shineGO.transform.localPosition = new Vector3(-cs * 0.22f, cs * 0.22f, 0f);
+        var shineSR   = shineGO.AddComponent<SpriteRenderer>();
+        shineSR.sprite = SpriteGenerator.CreateColoredSquare(Color.white);
+        shineSR.color  = new Color(1f, 1f, 1f, 0.22f);
+        shineSR.sortingOrder = 6;
+
+        // Halo coloré
+        var glowGO    = new GameObject("Glow");
         glowGO.transform.SetParent(root.transform, false);
-        glowGO.transform.localScale = Vector3.one * (cs * 1.3f);
-        var glowSR  = glowGO.AddComponent<SpriteRenderer>();
+        glowGO.transform.localScale = Vector3.one * (cs * 1.4f);
+        var glowSR    = glowGO.AddComponent<SpriteRenderer>();
         glowSR.sprite = SpriteGenerator.CreateCircle(64);
-        glowSR.color  = BlockGlowColor;
+        glowSR.color  = new Color(color.r, color.g, color.b, 0.18f);
         glowSR.sortingOrder = 3;
 
-        // Pulsation permanente du halo
-        root.AddComponent<TPMBlockGlow>().glowSR = glowSR;
+        // Pulsation du halo
+        var pulse = root.AddComponent<TPMBlockGlow>();
+        pulse.glowSR    = glowSR;
+        pulse.baseColor = color;
 
         return root;
     }
@@ -114,7 +142,7 @@ public class TPMBlockManager : MonoBehaviour
         while (elapsed < duration)
         {
             elapsed += Time.deltaTime;
-            float s  = Mathf.SmoothStep(0f, 1f, elapsed / duration);
+            float s = Mathf.SmoothStep(0f, 1f, elapsed / duration);
             t.localScale = Vector3.one * s;
             yield return null;
         }
@@ -124,33 +152,29 @@ public class TPMBlockManager : MonoBehaviour
     private static IEnumerator ScaleOutAndDestroy(GameObject go, float duration)
     {
         if (go == null) yield break;
-
-        float elapsed = 0f;
+        float elapsed    = 0f;
         Vector3 startScale = go.transform.localScale;
-
         while (elapsed < duration)
         {
             elapsed += Time.deltaTime;
-            float s  = 1f - Mathf.SmoothStep(0f, 1f, elapsed / duration);
+            float s = 1f - Mathf.SmoothStep(0f, 1f, elapsed / duration);
             if (go != null) go.transform.localScale = startScale * s;
             yield return null;
         }
-
         if (go != null) Destroy(go);
     }
 }
 
-/// <summary>Pulsation du halo de chaque bloc.</summary>
+/// <summary>Pulsation du halo coloré de chaque bloc.</summary>
 public class TPMBlockGlow : MonoBehaviour
 {
     public SpriteRenderer glowSR;
-
-    private static readonly Color GlowBase = new Color(0.10f, 0.90f, 0.25f, 0.12f);
+    public Color          baseColor;
 
     private void Update()
     {
         if (glowSR == null) return;
-        float a    = 0.10f + 0.08f * Mathf.Sin(Time.time * 3f + transform.position.x);
-        glowSR.color = new Color(GlowBase.r, GlowBase.g, GlowBase.b, a);
+        float a = 0.12f + 0.10f * Mathf.Sin(Time.time * 2.5f + transform.position.x);
+        glowSR.color = new Color(baseColor.r, baseColor.g, baseColor.b, a);
     }
 }

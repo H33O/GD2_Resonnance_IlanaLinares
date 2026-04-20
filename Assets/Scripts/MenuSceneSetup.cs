@@ -254,24 +254,32 @@ public class MenuSceneSetup : MonoBehaviour
 
     private void BuildButtons(RectTransform parent)
     {
-        var zone = MakeZone("ButtonsZone", parent, new Vector2(0.5f, 0.16f), new Vector2(0.5f, 0.51f));
+        // Zone boutons centrée : occupe 60 % de la largeur, entre 10 % et 52 % de la hauteur
+        var zone = MakeZone("ButtonsZone", parent, new Vector2(0.5f, 0.10f), new Vector2(0.5f, 0.52f));
         zone.sizeDelta = new Vector2(640f, 0f);
 
-        // JOUER — bouton principal unique → Overworld
-        var play = BuildButton("PlayButton", "JOUER", zone,
-                               new Vector2(0f, 0.55f), new Vector2(1f, 1f),
-                               ColBtnPlay, ColBtnPlayText, 72f, isAccent: true);
+        // GAME & WATCH — bouton principal accentué (haut)
+        var gaw = BuildButton("GawButton", "GAME & WATCH", zone,
+                              new Vector2(0f, 0.68f), new Vector2(1f, 1f),
+                              ColBtnPlay, ColBtnPlayText, 58f, isAccent: true);
 
-        // QUIT — bouton secondaire
+        // BUBBLE — bouton secondaire (milieu)
+        var bubble = BuildButton("BubbleButton", "BUBBLE", zone,
+                                 new Vector2(0f, 0.35f), new Vector2(1f, 0.63f),
+                                 ColBtnSecond, ColBtnText, 58f);
+
+        // QUIT — bouton tertiaire (bas)
         var quit = BuildButton("QuitButton", "QUIT", zone,
-                               new Vector2(0f, 0f), new Vector2(1f, 0.40f),
+                               new Vector2(0f, 0f), new Vector2(1f, 0.30f),
                                ColBtnSecond, ColBtnText, 46f);
 
-        ball.RegisterButton(play);
+        ball.RegisterButton(gaw);
+        ball.RegisterButton(bubble);
         ball.RegisterButton(quit);
 
-        play.OnClick += OnPlay;
-        quit.OnClick += OnQuit;
+        gaw.OnClick    += OnGameAndWatch;
+        bubble.OnClick += OnBubble;
+        quit.OnClick   += OnQuit;
     }
 
     private MenuCanvasButton BuildButton(string goName, string label, RectTransform parent,
@@ -319,13 +327,22 @@ public class MenuSceneSetup : MonoBehaviour
 
     // ── Actions ───────────────────────────────────────────────────────────────
 
-    /// <summary>Lance l'overworld principal.</summary>
-    private void OnPlay()
+    /// <summary>Lance directement le jeu Game &amp; Watch.</summary>
+    private void OnGameAndWatch()
     {
         if (SceneTransition.Instance != null)
-            SceneTransition.Instance.LoadScene("Overworld", "JOUER");
+            SceneTransition.Instance.LoadScene(OWGameManager.SceneGameAndWatch, "GAME & WATCH");
         else
-            SceneManager.LoadScene("Overworld");
+            SceneManager.LoadScene(OWGameManager.SceneGameAndWatch);
+    }
+
+    /// <summary>Lance directement le mini-jeu Bubble.</summary>
+    private void OnBubble()
+    {
+        if (SceneTransition.Instance != null)
+            SceneTransition.Instance.LoadScene(OWGameManager.SceneMinijeu2, "BUBBLE");
+        else
+            SceneManager.LoadScene(OWGameManager.SceneMinijeu2);
     }
 
     private void OnQuit()
