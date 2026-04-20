@@ -81,70 +81,74 @@ public class TBUpgradeShopWidget : MonoBehaviour
 
     private void Build(RectTransform root)
     {
+        int levelIndex = TBGameManager.Instance?.LevelIndex ?? 0;
+
         // Fond semi-transparent
         MakeBg("Overlay", root, Vector2.zero, Vector2.one, ColOverlay);
 
         // Panneau principal centré
         var panel = MakePanel("Panel", root,
-            new Vector2(0.05f, 0.15f), new Vector2(0.95f, 0.88f), ColPanel);
+            new Vector2(0.04f, 0.12f), new Vector2(0.96f, 0.95f), ColPanel);
 
         // Titre
-        MakeLabel("Title", panel, "AMÉLIORATIONS", 58f, ColTitle, FontStyles.Bold,
-            new Vector2(0f, 0.86f), new Vector2(1f, 0.99f));
+        MakeLabel("Title", panel, "AMÉLIORATIONS", 56f, ColTitle, FontStyles.Bold,
+            new Vector2(0f, 0.90f), new Vector2(1f, 0.99f));
 
         // Score actuel
         scoreLabel = MakeTmp("ScoreLabel", panel,
-            ScoreText(), 38f, ColScore, FontStyles.Normal,
-            new Vector2(0f, 0.78f), new Vector2(1f, 0.88f));
+            ScoreText(), 36f, ColScore, FontStyles.Normal,
+            new Vector2(0f, 0.83f), new Vector2(1f, 0.92f));
         scoreLabel.alignment = TextAlignmentOptions.Center;
 
         // Séparateur
-        MakeSep("Sep1", panel, new Vector2(0.06f, 0.76f), new Vector2(0.94f, 0.77f));
+        MakeSep("Sep0", panel, new Vector2(0.05f, 0.81f), new Vector2(0.95f, 0.82f));
 
-        // Trois cartes d'amélioration (distribuées verticalement)
-        BuildUpgradeCard(panel,
-            "ALLIÉ",
-            "Suit le joueur · détruit les ennemis",
+        // Trois cartes d'amélioration
+        bool allyLocked    = !TBUpgradeData.IsAllyUnlocked(levelIndex);
+        bool barrierLocked = !TBUpgradeData.IsBarrierUnlocked(levelIndex);
+        bool weaponLocked  = !TBUpgradeData.IsWeaponUnlocked(levelIndex);
+
+        string allyDesc    = allyLocked
+            ? $"Débloqué au niveau {TBUpgradeData.UnlockLevelAlly + 1}"
+            : "Suit le joueur · détruit les ennemis au contact";
+        string barrierDesc = barrierLocked
+            ? $"Débloqué au niveau {TBUpgradeData.UnlockLevelBarrier + 1}"
+            : "Murs défensifs qui bloquent les ennemis";
+        string weaponDesc  = weaponLocked
+            ? $"Débloqué au niveau {TBUpgradeData.UnlockLevelWeapon + 1}"
+            : "Tir automatique vers l'ennemi le plus proche";
+
+        BuildUpgradeCard(panel, "ALLIÉ", allyDesc,
             $"{TBUpgradeData.CostAlly} pts  ({upgrades.AllyCount}/{TBUpgradeData.MaxAllies})",
-            new Vector2(0.05f, 0.52f), new Vector2(0.95f, 0.74f),
-            out btnAlly, out btnAllyLabel,
-            OnBuyAlly);
+            new Vector2(0.03f, 0.56f), new Vector2(0.97f, 0.80f),
+            out btnAlly, out btnAllyLabel, OnBuyAlly, allyLocked);
 
-        MakeSep("Sep2", panel, new Vector2(0.06f, 0.50f), new Vector2(0.94f, 0.51f));
+        MakeSep("Sep1", panel, new Vector2(0.05f, 0.54f), new Vector2(0.95f, 0.55f));
 
-        BuildUpgradeCard(panel,
-            "ARME",
-            "Tire sur l'ennemi le plus proche",
-            $"{TBUpgradeData.CostWeapon} pts",
-            new Vector2(0.05f, 0.27f), new Vector2(0.95f, 0.49f),
-            out btnWeapon, out btnWeaponLabel,
-            OnBuyWeapon);
-
-        MakeSep("Sep3", panel, new Vector2(0.06f, 0.25f), new Vector2(0.94f, 0.26f));
-
-        BuildUpgradeCard(panel,
-            "BARRIÈRE",
-            "Place des murs défensifs dans le niveau",
+        BuildUpgradeCard(panel, "BARRIÈRE", barrierDesc,
             $"{TBUpgradeData.CostBarrier} pts  ({upgrades.BarrierCount}/{TBUpgradeData.MaxBarriers})",
-            new Vector2(0.05f, 0.02f), new Vector2(0.95f, 0.24f),
-            out btnBarrier, out btnBarrierLabel,
-            OnBuyBarrier);
+            new Vector2(0.03f, 0.30f), new Vector2(0.97f, 0.53f),
+            out btnBarrier, out btnBarrierLabel, OnBuyBarrier, barrierLocked);
 
-        // Bouton Continuer
-        MakeButton("BtnContinue", panel, "CONTINUER →",
-            new Vector2(0.10f, 0.01f), new Vector2(0.90f, 0.12f),
-            ColBtnCont, ColBtnContTxt, 48f, OnContinue);
+        MakeSep("Sep2", panel, new Vector2(0.05f, 0.28f), new Vector2(0.95f, 0.29f));
 
-        // Repositionne le bouton Continuer sous le panneau
-        var btnContGO = new GameObject("BtnContinueBottom");
+        BuildUpgradeCard(panel, "ARME", weaponDesc,
+            $"{TBUpgradeData.CostWeapon} pts",
+            new Vector2(0.03f, 0.06f), new Vector2(0.97f, 0.27f),
+            out btnWeapon, out btnWeaponLabel, OnBuyWeapon, weaponLocked);
+
+        // Un seul bouton Continuer — sous le panneau
+        var btnContGO = new GameObject("BtnContinue");
         btnContGO.transform.SetParent(root, false);
-        var btnContRT     = btnContGO.AddComponent<RectTransform>();
-        btnContRT.anchorMin = new Vector2(0.10f, 0.05f);
-        btnContRT.anchorMax = new Vector2(0.90f, 0.14f);
+        var btnContRT       = btnContGO.AddComponent<RectTransform>();
+        btnContRT.anchorMin = new Vector2(0.08f, 0.02f);
+        btnContRT.anchorMax = new Vector2(0.92f, 0.11f);
         btnContRT.offsetMin = btnContRT.offsetMax = Vector2.zero;
 
         var btnContImg   = btnContGO.AddComponent<Image>();
-        btnContImg.color = ColBtnCont;
+        btnContImg.color  = ColBtnCont;
+        btnContImg.sprite = SpriteGenerator.CreateWhiteSquare();
+
         var btnContBtn   = btnContGO.AddComponent<Button>();
         btnContBtn.targetGraphic = btnContImg;
         btnContBtn.onClick.AddListener(OnContinue);
@@ -162,25 +166,33 @@ public class TBUpgradeShopWidget : MonoBehaviour
         string title, string description, string costLabel,
         Vector2 anchorMin, Vector2 anchorMax,
         out Button outBtn, out TextMeshProUGUI outBtnLabel,
-        Action onClick)
+        Action onClick, bool levelLocked = false)
     {
         var zone = MakeZone($"Card_{title}", parent, anchorMin, anchorMax);
 
         // Nom de l'amélioration
-        MakeLabel($"Title_{title}", zone, title, 44f, Color.white, FontStyles.Bold,
-            new Vector2(0f, 0.60f), new Vector2(0.65f, 1f));
+        MakeLabel($"Title_{title}", zone, title, 42f,
+            levelLocked ? ColBtnOwnedTxt : Color.white,
+            FontStyles.Bold,
+            new Vector2(0f, 0.60f), new Vector2(0.62f, 1f));
 
-        // Description courte
-        MakeTmp($"Desc_{title}", zone, description, 28f, ColDesc, FontStyles.Normal,
-            new Vector2(0f, 0.20f), new Vector2(0.65f, 0.62f)).alignment = TextAlignmentOptions.TopLeft;
+        // Description / info de déblocage
+        MakeTmp($"Desc_{title}", zone, description, 26f, ColDesc, FontStyles.Normal,
+            new Vector2(0f, 0.10f), new Vector2(0.62f, 0.62f)).alignment = TextAlignmentOptions.TopLeft;
 
         // Bouton Acheter (côté droit)
-        var btn = MakeButton($"Btn_{title}", zone, costLabel,
-            new Vector2(0.67f, 0.10f), new Vector2(1.00f, 0.90f),
-            ColBtnBuy, ColBtnBuyTxt, 28f, onClick);
+        var btnLabel = MakeButton($"Btn_{title}", zone,
+            levelLocked ? "🔒" : costLabel,
+            new Vector2(0.64f, 0.08f), new Vector2(1.00f, 0.92f),
+            levelLocked ? ColBtnOwned : ColBtnBuy,
+            levelLocked ? ColBtnOwnedTxt : ColBtnBuyTxt,
+            26f, levelLocked ? (Action)null : onClick);
 
         outBtn      = zone.GetComponentInChildren<Button>();
-        outBtnLabel = btn;
+        outBtnLabel = btnLabel;
+
+        if (levelLocked && outBtn != null)
+            outBtn.interactable = false;
     }
 
     // ── Achats ────────────────────────────────────────────────────────────────
@@ -221,22 +233,27 @@ public class TBUpgradeShopWidget : MonoBehaviour
     {
         if (scoreLabel != null) scoreLabel.text = ScoreText();
 
-        int score = TBGameManager.Instance?.Score ?? 0;
+        int  score      = TBGameManager.Instance?.Score ?? 0;
+        int  levelIndex = TBGameManager.Instance?.LevelIndex ?? 0;
+
+        bool allyLocked    = !TBUpgradeData.IsAllyUnlocked(levelIndex);
+        bool barrierLocked = !TBUpgradeData.IsBarrierUnlocked(levelIndex);
+        bool weaponLocked  = !TBUpgradeData.IsWeaponUnlocked(levelIndex);
 
         RefreshBtn(btnAlly,    btnAllyLabel,
-            upgrades.AllyCount >= TBUpgradeData.MaxAllies,
-            score < TBUpgradeData.CostAlly,
-            $"{TBUpgradeData.CostAlly} pts\n({upgrades.AllyCount}/{TBUpgradeData.MaxAllies})");
-
-        RefreshBtn(btnWeapon,  btnWeaponLabel,
-            upgrades.HasWeapon,
-            score < TBUpgradeData.CostWeapon,
-            upgrades.HasWeapon ? "ACQUIS" : $"{TBUpgradeData.CostWeapon} pts");
+            allyLocked || upgrades.AllyCount >= TBUpgradeData.MaxAllies,
+            !allyLocked && score < TBUpgradeData.CostAlly,
+            allyLocked ? "🔒" : $"{TBUpgradeData.CostAlly} pts\n({upgrades.AllyCount}/{TBUpgradeData.MaxAllies})");
 
         RefreshBtn(btnBarrier, btnBarrierLabel,
-            upgrades.BarrierCount >= TBUpgradeData.MaxBarriers,
-            score < TBUpgradeData.CostBarrier,
-            $"{TBUpgradeData.CostBarrier} pts\n({upgrades.BarrierCount}/{TBUpgradeData.MaxBarriers})");
+            barrierLocked || upgrades.BarrierCount >= TBUpgradeData.MaxBarriers,
+            !barrierLocked && score < TBUpgradeData.CostBarrier,
+            barrierLocked ? "🔒" : $"{TBUpgradeData.CostBarrier} pts\n({upgrades.BarrierCount}/{TBUpgradeData.MaxBarriers})");
+
+        RefreshBtn(btnWeapon,  btnWeaponLabel,
+            weaponLocked || upgrades.HasWeapon,
+            !weaponLocked && score < TBUpgradeData.CostWeapon,
+            weaponLocked ? "🔒" : upgrades.HasWeapon ? "ACQUIS" : $"{TBUpgradeData.CostWeapon} pts");
     }
 
     private static void RefreshBtn(Button btn, TextMeshProUGUI label, bool owned, bool tooExpensive, string text)

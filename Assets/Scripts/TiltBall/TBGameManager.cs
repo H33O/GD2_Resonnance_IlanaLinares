@@ -19,7 +19,7 @@ public class TBGameManager : MonoBehaviour
 
     // ── Constantes ────────────────────────────────────────────────────────────
 
-    public const int   TotalLevels = 8;
+    public const int   TotalLevels = 12;
     public const string SceneMenu  = "Menu";
 
     // ── État ──────────────────────────────────────────────────────────────────

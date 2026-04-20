@@ -3,10 +3,20 @@ using UnityEngine;
 /// <summary>
 /// Données persistantes des améliorations achetées par le joueur durant la session TiltBall.
 /// Portées par TBGameManager et appliquées à chaque niveau suivant l'achat.
+///
+/// Coûts élevés pour rendre les achats rares et significatifs :
+///   Allié    : 200 pts par unité (max 3)
+///   Arme     : 350 pts (unique)
+///   Barrière : 150 pts par unité (max 4)
+///
+/// Déblocage progressif par niveau :
+///   Allié    → disponible dès le niveau 2
+///   Barrière → disponible dès le niveau 4
+///   Arme     → disponible dès le niveau 6
 /// </summary>
 public class TBUpgradeData
 {
-    // ── Compteurs d'améliorations ─────────────────────────────────────────────
+    // ── Compteurs ─────────────────────────────────────────────────────────────
 
     /// <summary>Nombre d'alliés achetés (max 3).</summary>
     public int AllyCount    { get; private set; }
@@ -17,11 +27,17 @@ public class TBUpgradeData
     /// <summary>Nombre de barrières achetées (max 4).</summary>
     public int BarrierCount { get; private set; }
 
-    // ── Coût en score ─────────────────────────────────────────────────────────
+    // ── Coûts ─────────────────────────────────────────────────────────────────
 
-    public const int CostAlly    = 80;
-    public const int CostWeapon  = 120;
-    public const int CostBarrier = 60;
+    public const int CostAlly    = 200;
+    public const int CostWeapon  = 350;
+    public const int CostBarrier = 150;
+
+    // ── Niveaux de déblocage ──────────────────────────────────────────────────
+
+    public const int UnlockLevelAlly    = 2;
+    public const int UnlockLevelBarrier = 4;
+    public const int UnlockLevelWeapon  = 6;
 
     // ── Limites ───────────────────────────────────────────────────────────────
 
@@ -35,7 +51,7 @@ public class TBUpgradeData
     {
         if (AllyCount >= MaxAllies) return false;
         if (score < CostAlly)       return false;
-        score      -= CostAlly;
+        score     -= CostAlly;
         AllyCount++;
         return true;
     }
@@ -45,8 +61,8 @@ public class TBUpgradeData
     {
         if (HasWeapon)          return false;
         if (score < CostWeapon) return false;
-        score     -= CostWeapon;
-        HasWeapon  = true;
+        score    -= CostWeapon;
+        HasWeapon = true;
         return true;
     }
 
@@ -55,10 +71,17 @@ public class TBUpgradeData
     {
         if (BarrierCount >= MaxBarriers) return false;
         if (score < CostBarrier)         return false;
-        score        -= CostBarrier;
+        score       -= CostBarrier;
         BarrierCount++;
         return true;
     }
+
+    /// <summary>
+    /// Vérifie si une amélioration est débloquée pour le niveau courant.
+    /// </summary>
+    public static bool IsAllyUnlocked(int levelIndex)    => levelIndex >= UnlockLevelAlly;
+    public static bool IsBarrierUnlocked(int levelIndex) => levelIndex >= UnlockLevelBarrier;
+    public static bool IsWeaponUnlocked(int levelIndex)  => levelIndex >= UnlockLevelWeapon;
 
     /// <summary>Remet toutes les améliorations à zéro (nouvelle partie).</summary>
     public void Reset()

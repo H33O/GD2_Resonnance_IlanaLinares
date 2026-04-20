@@ -51,14 +51,14 @@ public class TBPlayerController : MonoBehaviour
         Vector2 dir = ReadInput();
         rb.linearVelocity = dir * MoveSpeed;
 
-        // Clamp la position dans les limites du monde — rayon du collider inclus
+        // Clamp la position dans les limites du monde — s'adapte au double slide
         const float ColliderRadius = 0.42f;
-        float lim  = TBSceneSetup.HalfW - TBSceneSetup.WallThickness - ColliderRadius;
-        float limY = TBSceneSetup.HalfH - TBSceneSetup.WallThickness - ColliderRadius;
+        float limX = TBSceneSetup.HalfW  - TBSceneSetup.WallThickness - ColliderRadius;
+        float limY = TBGrid.MaxY;   // mis à jour par TBSceneSetup selon le niveau
 
         Vector2 pos     = rb.position;
         Vector2 clamped = new Vector2(
-            Mathf.Clamp(pos.x, -lim,  lim),
+            Mathf.Clamp(pos.x, -limX, limX),
             Mathf.Clamp(pos.y, -limY, limY));
 
         if (clamped != pos)
@@ -66,7 +66,7 @@ public class TBPlayerController : MonoBehaviour
             rb.MovePosition(clamped);
 
             var v = rb.linearVelocity;
-            if (Mathf.Abs(clamped.x) >= lim)  v.x = 0f;
+            if (Mathf.Abs(clamped.x) >= limX) v.x = 0f;
             if (Mathf.Abs(clamped.y) >= limY) v.y = 0f;
             rb.linearVelocity = v;
         }
