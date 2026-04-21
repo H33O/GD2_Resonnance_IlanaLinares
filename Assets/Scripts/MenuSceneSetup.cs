@@ -30,6 +30,7 @@ public class MenuSceneSetup : MonoBehaviour
         BuildHud(canvasRT);
         BuildDoor(canvasRT);
         BuildGamesButton(canvasRT);
+        BuildQuestButton(canvasRT);
     }
 
     // ── Canvas ────────────────────────────────────────────────────────────────
@@ -115,6 +116,54 @@ public class MenuSceneSetup : MonoBehaviour
         tmp.alignment = TMPro.TextAlignmentOptions.Center;
         tmp.raycastTarget = false;
         var lrt       = tmp.rectTransform;
+        lrt.anchorMin = Vector2.zero;
+        lrt.anchorMax = Vector2.one;
+        lrt.offsetMin = lrt.offsetMax = Vector2.zero;
+
+        var btn           = btnGO.AddComponent<Button>();
+        btn.targetGraphic = img;
+        btn.onClick.AddListener(panel.Show);
+    }
+
+    // ── Bouton QUÊTES + panneau quêtes ────────────────────────────────────────
+
+    private static void BuildQuestButton(RectTransform canvasRT)
+    {
+        // ClockWidget : anchorMin=(1,1), pivot=(1,1), offset=(-32,-48), sizeDelta=(260,110)
+        // Bord bas du widget horloge = anchoredPosition.y - sizeDelta.y = -48 - 110 = -158
+        // Bouton Quêtes juste en dessous avec un gap de 16
+        const float marginX    = 32f;
+        const float clockBottomY = -48f - 110f;  // = -158
+        const float gapY       = 16f;
+        const float btnW       = 260f;
+        const float btnH       = 64f;
+
+        var panel = MenuQuestPanel.Create(canvasRT);
+
+        var btnGO = new GameObject("QuestButton");
+        btnGO.transform.SetParent(canvasRT, false);
+
+        var img    = btnGO.AddComponent<Image>();
+        img.sprite = SpriteGenerator.CreateWhiteSquare();
+        img.color  = new Color(1f, 1f, 1f, 0.08f);
+
+        var rt            = img.rectTransform;
+        rt.anchorMin      = new Vector2(1f, 1f);
+        rt.anchorMax      = new Vector2(1f, 1f);
+        rt.pivot          = new Vector2(1f, 1f);
+        rt.sizeDelta      = new Vector2(btnW, btnH);
+        rt.anchoredPosition = new Vector2(-marginX, clockBottomY - gapY);
+
+        var lgo  = new GameObject("Label");
+        lgo.transform.SetParent(rt, false);
+        var tmp  = lgo.AddComponent<TMPro.TextMeshProUGUI>();
+        tmp.text      = "QUÊTES";
+        tmp.fontSize  = 28f;
+        tmp.fontStyle = TMPro.FontStyles.Bold;
+        tmp.color     = new Color(1f, 1f, 1f, 0.70f);
+        tmp.alignment = TMPro.TextAlignmentOptions.Center;
+        tmp.raycastTarget = false;
+        var lrt  = tmp.rectTransform;
         lrt.anchorMin = Vector2.zero;
         lrt.anchorMax = Vector2.one;
         lrt.offsetMin = lrt.offsetMax = Vector2.zero;

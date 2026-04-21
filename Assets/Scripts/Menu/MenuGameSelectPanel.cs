@@ -92,7 +92,7 @@ public class MenuGameSelectPanel : MonoBehaviour
         var zoneRT        = zone.AddComponent<RectTransform>();
         zoneRT.anchorMin  = new Vector2(0.5f, 0.30f);
         zoneRT.anchorMax  = new Vector2(0.5f, 0.80f);
-        zoneRT.sizeDelta  = new Vector2(700f, 0f);
+        zoneRT.sizeDelta  = new Vector2(880f, 0f);
         zoneRT.offsetMin  = zoneRT.offsetMax = Vector2.zero;
 
         const float gap   = 0.04f;
