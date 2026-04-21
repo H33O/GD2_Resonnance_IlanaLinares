@@ -209,7 +209,124 @@ public static class SpriteGenerator
         return sprite;
     }
 
-    // ── Matériau additif partagé ──────────────────────────────────────────────
+    // ── Porte ─────────────────────────────────────────────────────────────────
+
+    private static Sprite _doorSprite;
+
+    /// <summary>
+    /// Retourne un sprite de porte procédural (mis en cache).
+    ///
+    /// Dimensions : <paramref name="w"/> × <paramref name="h"/> px.
+    /// Dessin : cadre extérieur + panneau intérieur + arc de voûte + poignée ronde.
+    /// Tout en blanc/gris — la couleur est appliquée par le SpriteRenderer.
+    /// </summary>
+    public static Sprite CreateDoor(int w = 128, int h = 200)
+    {
+        if (_doorSprite != null) return _doorSprite;
+
+        var   tex    = new Texture2D(w, h, TextureFormat.RGBA32, false);
+        tex.filterMode = FilterMode.Bilinear;
+        var   pixels = new Color32[w * h];
+
+        // ── Helpers locaux ────────────────────────────────────────────────────
+
+        Color32 Transparent = new Color32(0, 0, 0, 0);
+        Color32 Fill        = new Color32(255, 255, 255, 255);
+        Color32 Mid         = new Color32(200, 200, 200, 255);
+        Color32 Dark        = new Color32(140, 140, 140, 255);
+
+        // Initialise tout à transparent
+        for (int i = 0; i < pixels.Length; i++) pixels[i] = Transparent;
+
+        void SetPx(int x, int y, Color32 c)
+        {
+            if (x < 0 || x >= w || y < 0 || y >= h) return;
+            pixels[y * w + x] = c;
+        }
+
+        void FillRect(int x0, int y0, int x1, int y1, Color32 c)
+        {
+            for (int yy = y0; yy <= y1; yy++)
+            for (int xx = x0; xx <= x1; xx++)
+                SetPx(xx, yy, c);
+        }
+
+        bool InEllipse(int x, int y, float cx, float cy, float rx, float ry)
+            => ((x - cx) * (x - cx)) / (rx * rx) + ((y - cy) * (y - cy)) / (ry * ry) <= 1f;
+
+        // ── Paramètres de mise en page ─────────────────────────────────────────
+
+        int border   = Mathf.Max(3, w / 20);   // épaisseur du cadre
+        int baseH    = h / 6;                   // socle rectangulaire sous l'arc
+        int archTopY = h - 1;                   // sommet de la voûte
+
+        // Demi-largeur et centre horizontal
+        float cx  = w * 0.5f;
+        float ry  = (h - baseH) * 0.52f;       // rayon vertical de l'ellipse
+        float rx  = (w - border * 2) * 0.5f;   // rayon horizontal
+
+        float arcCY = baseH + ry;              // centre vertical de l'ellipse de voûte
+
+        // ── Corps principal : rectangle du bas ────────────────────────────────
+        FillRect(border, 0, w - border - 1, baseH + (int)ry, Fill);
+
+        // ── Voûte : demi-ellipse ──────────────────────────────────────────────
+        for (int yy = (int)arcCY; yy < h; yy++)
+        for (int xx = 0; xx < w; xx++)
+        {
+            if (InEllipse(xx, yy, cx, arcCY, rx + border, ry))
+                SetPx(xx, yy, Fill);
+        }
+
+        // ── Panneau intérieur (zone sombre) ────────────────────────────────────
+        int panelX0 = border * 3;
+        int panelX1 = w - border * 3 - 1;
+        int panelY0 = border * 2;
+        int panelY1 = baseH + (int)(ry * 0.55f);
+
+        FillRect(panelX0, panelY0, panelX1, panelY1, Mid);
+
+        // Demi-ellipse intérieure (miroir plus petite)
+        float rx2 = (panelX1 - panelX0) * 0.5f;
+        float ry2 = ry * 0.52f;
+        float cy2 = panelY1;
+
+        for (int yy = (int)cy2; yy < h; yy++)
+        for (int xx = panelX0; xx <= panelX1; xx++)
+        {
+            if (InEllipse(xx, yy, cx, cy2, rx2, ry2))
+                SetPx(xx, yy, Mid);
+        }
+
+        // ── Fente verticale centrale (ligne de fermeture) ──────────────────────
+        int midX = w / 2;
+        for (int yy = panelY0; yy <= panelY1 + (int)(ry2 * 0.85f); yy++)
+            SetPx(midX, yy, Dark);
+
+        // ── Poignée ronde ─────────────────────────────────────────────────────
+        int   knobX = w / 2 + (int)(rx * 0.25f);
+        int   knobY = panelY0 + (panelY1 - panelY0) / 2;
+        int   knobR = Mathf.Max(2, w / 18);
+
+        for (int yy = knobY - knobR; yy <= knobY + knobR; yy++)
+        for (int xx = knobX - knobR; xx <= knobX + knobR; xx++)
+        {
+            float dx = xx - knobX, dy = yy - knobY;
+            if (dx * dx + dy * dy <= knobR * knobR)
+                SetPx(xx, yy, Dark);
+        }
+
+        // ── Seuil (bande basse) ────────────────────────────────────────────────
+        FillRect(0, 0, w - 1, border - 1, Fill);
+
+        // ── Application ───────────────────────────────────────────────────────
+        tex.SetPixels32(pixels);
+        tex.Apply(false, true);
+
+        _doorSprite = Sprite.Create(tex, new Rect(0, 0, w, h), new Vector2(0.5f, 0f), w);
+        return _doorSprite;
+    }
+
 
     /// <summary>
     /// Retourne le matériau additif partagé utilisé par tous les LineRenderer d'éclairs.

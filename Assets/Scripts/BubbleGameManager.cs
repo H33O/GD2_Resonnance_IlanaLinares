@@ -354,6 +354,11 @@ public class BubbleGameManager : MonoBehaviour
     private void EndGame(bool win)
     {
         IsGameActive = false;
+
+        // Persistance du score Bubble Shooter
+        ScoreManager.EnsureExists();
+        ScoreManager.Instance.AddScore(GameType.BubbleShooter, Score);
+
         if (win)
             CreateVictoryScreen();
         else

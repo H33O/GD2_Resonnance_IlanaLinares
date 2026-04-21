@@ -135,6 +135,10 @@ public class ArenaGameManager : MonoBehaviour
         State = GameState.GameOver;
         OnGameOver?.Invoke();
 
+        // Persistance du score Arena (Ball & Goal)
+        ScoreManager.EnsureExists();
+        ScoreManager.Instance.AddScore(GameType.BallAndGoal, Score);
+
         if (gameOverPanel != null)
             gameOverPanel.SetActive(true);
     }

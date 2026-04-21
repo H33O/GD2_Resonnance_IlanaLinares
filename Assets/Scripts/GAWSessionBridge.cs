@@ -65,6 +65,11 @@ public class GAWSessionBridge : MonoBehaviour
         sessionEnded = true;
 
         int earned = GameManager.Instance != null ? GameManager.Instance.CurrentScore : 0;
+
+        // Persistance du score Game & Watch
+        ScoreManager.EnsureExists();
+        ScoreManager.Instance.AddScore(GameType.GameAndWatch, earned);
+
         StartCoroutine(ShowRecapThenReturn(earned));
     }
 

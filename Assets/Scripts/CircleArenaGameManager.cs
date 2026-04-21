@@ -519,6 +519,10 @@ public class CircleArenaGameManager : MonoBehaviour
 
     private void ShowGameOver()
     {
+        // Persistance du score Circle Arena (Ball & Goal)
+        ScoreManager.EnsureExists();
+        ScoreManager.Instance.AddScore(GameType.BallAndGoal, score);
+
         var panel = new GameObject("GameOverPanel");
         panel.transform.SetParent(uiLayer, false);
 
@@ -1207,6 +1211,10 @@ public class CircleArenaGameManager : MonoBehaviour
 
     private void ShowGameOver()
     {
+        // Persistance du score Circle Arena (Ball & Goal)
+        ScoreManager.EnsureExists();
+        ScoreManager.Instance.AddScore(GameType.BallAndGoal, score);
+
         gameOverPanel = new GameObject("GameOverPanel");
         gameOverPanel.transform.SetParent(uiLayer, false);
 

@@ -285,20 +285,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 434d536f10b4425449ceb5cc9298a881, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  backgroundSprite: {fileID: -2069933491170220886, guid: 992cdf97b9bf1944cb71f3feb5111cda, type: 3}
-  backgroundTint: {r: 1, g: 1, b: 1, a: 1}
-  backgroundOversize: 1.15
-  parallaxAmplitude: 40
-  parallaxSmooth: 6
-  parallaxInvertX: 1
-  parallaxInvertY: 0
-  characterSprite: {fileID: 0}
-  characterTint: {r: 1, g: 1, b: 1, a: 1}
-  characterWidth: 260
-  characterHeight: 340
-  characterBobEnabled: 0
-  characterBobAmplitude: 18
-  characterBobPeriod: 2.4
 --- !u!4 &1712787627
 Transform:
   m_ObjectHideFlags: 0

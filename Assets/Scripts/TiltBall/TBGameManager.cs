@@ -94,7 +94,10 @@ public class TBGameManager : MonoBehaviour
 
         if (nextLevel >= TotalLevels)
         {
-            // Victoire finale — pas de boutique
+            // Victoire finale — persistance du score total de la session Ball & Goal
+            ScoreManager.EnsureExists();
+            ScoreManager.Instance.AddScore(GameType.BallAndGoal, Score);
+
             HasKey = false;
             TBWinWidget.Show(ElapsedTime, Score, GoToMenuDirect);
         }
