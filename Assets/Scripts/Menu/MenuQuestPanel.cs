@@ -19,9 +19,6 @@ public class MenuQuestPanel : MonoBehaviour
     private static readonly Color ColBg        = new Color(0.06f, 0.05f, 0.08f, 0.98f);
     private static readonly Color ColTitle      = new Color(1f, 1f, 1f, 0.40f);
     private static readonly Color ColSeparator  = new Color(1f, 1f, 1f, 0.14f);
-    private static readonly Color ColQuestBtn   = new Color(0.14f, 0.12f, 0.18f, 1f);
-    private static readonly Color ColQuestTxt   = Color.white;
-    private static readonly Color ColOutline    = new Color(1f, 1f, 1f, 0.20f);
     private static readonly Color ColBackBtn    = new Color(1f, 1f, 1f, 0.06f);
     private static readonly Color ColBackTxt    = new Color(1f, 1f, 1f, 0.45f);
 
@@ -62,7 +59,7 @@ public class MenuQuestPanel : MonoBehaviour
 
     private void Build(RectTransform root)
     {
-        // Fond
+        // Fond plein écran
         MakeImage("PanelBg", root, ColBg, stretch: true);
 
         // Titre
@@ -77,100 +74,7 @@ public class MenuQuestPanel : MonoBehaviour
         sepRT.anchorMax = new Vector2(0.92f, 0.833f);
         sepRT.sizeDelta = new Vector2(0f, 2f);
 
-        // Zone des quêtes
-        var zone       = new GameObject("QuestZone");
-        zone.transform.SetParent(root, false);
-        var zoneRT     = zone.AddComponent<RectTransform>();
-        zoneRT.anchorMin = new Vector2(0.5f, 0.28f);
-        zoneRT.anchorMax = new Vector2(0.5f, 0.82f);
-        zoneRT.sizeDelta = new Vector2(880f, 0f);
-        zoneRT.offsetMin = zoneRT.offsetMax = Vector2.zero;
-
-        // 3 entrées de quête réparties verticalement
-        const float gap   = 0.03f;
-        const float slotH = 1f / 3f;
-
-        MakeQuestEntry(zoneRT, "Quest_1",
-            "COMPLÉTER 5 PARTIES",
-            "0 / 5 parties jouées",
-            new Vector2(0f, slotH * 2 + gap), new Vector2(1f, 1f));
-
-        MakeQuestEntry(zoneRT, "Quest_2",
-            "SCORE > 500",
-            "Meilleur score : 0",
-            new Vector2(0f, slotH + gap), new Vector2(1f, slotH * 2 - gap));
-
-        MakeQuestEntry(zoneRT, "Quest_3",
-            "ESSAYER 3 JEUX",
-            "0 / 3 jeux essayés",
-            new Vector2(0f, 0f), new Vector2(1f, slotH - gap));
-
         MakeBackButton(root);
-    }
-
-    // ── Entrée de quête ───────────────────────────────────────────────────────
-
-    private static void MakeQuestEntry(RectTransform parent, string goName,
-        string title, string progress,
-        Vector2 anchorMin, Vector2 anchorMax)
-    {
-        var go  = new GameObject(goName);
-        go.transform.SetParent(parent, false);
-
-        var img    = go.AddComponent<Image>();
-        img.sprite = SpriteGenerator.CreateWhiteSquare();
-        img.color  = ColQuestBtn;
-        img.raycastTarget = false;
-        var rt     = img.rectTransform;
-        rt.anchorMin = anchorMin;
-        rt.anchorMax = anchorMax;
-        rt.offsetMin = rt.offsetMax = Vector2.zero;
-
-        // Contour
-        var outGO       = new GameObject("Outline");
-        outGO.transform.SetParent(rt, false);
-        var outImg      = outGO.AddComponent<Image>();
-        outImg.sprite   = SpriteGenerator.CreateWhiteSquare();
-        outImg.color    = ColOutline;
-        outImg.raycastTarget = false;
-        var outRT       = outImg.rectTransform;
-        outRT.anchorMin = Vector2.zero;
-        outRT.anchorMax = Vector2.one;
-        outRT.offsetMin = new Vector2(-1.5f, -1.5f);
-        outRT.offsetMax = new Vector2( 1.5f,  1.5f);
-        outGO.transform.SetAsFirstSibling();
-
-        // Titre de la quête
-        var tGO    = new GameObject("Title");
-        tGO.transform.SetParent(rt, false);
-        var ttmp   = tGO.AddComponent<TextMeshProUGUI>();
-        ttmp.text  = title;
-        ttmp.fontSize  = 38f;
-        ttmp.fontStyle = FontStyles.Bold;
-        ttmp.color     = ColQuestTxt;
-        ttmp.alignment = TextAlignmentOptions.Left;
-        ttmp.raycastTarget = false;
-        var tRT    = ttmp.rectTransform;
-        tRT.anchorMin = new Vector2(0f, 0.48f);
-        tRT.anchorMax = Vector2.one;
-        tRT.offsetMin = new Vector2(36f, 0f);
-        tRT.offsetMax = new Vector2(-16f, 0f);
-
-        // Progression
-        var pGO    = new GameObject("Progress");
-        pGO.transform.SetParent(rt, false);
-        var ptmp   = pGO.AddComponent<TextMeshProUGUI>();
-        ptmp.text  = progress;
-        ptmp.fontSize  = 26f;
-        ptmp.fontStyle = FontStyles.Normal;
-        ptmp.color     = new Color(1f, 1f, 1f, 0.50f);
-        ptmp.alignment = TextAlignmentOptions.Left;
-        ptmp.raycastTarget = false;
-        var pRT    = ptmp.rectTransform;
-        pRT.anchorMin = Vector2.zero;
-        pRT.anchorMax = new Vector2(1f, 0.50f);
-        pRT.offsetMin = new Vector2(36f, 0f);
-        pRT.offsetMax = new Vector2(-16f, 0f);
     }
 
     // ── Bouton Retour ────────────────────────────────────────────────────────
