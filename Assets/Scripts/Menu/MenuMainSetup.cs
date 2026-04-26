@@ -19,7 +19,7 @@ public class MenuMainSetup : MonoBehaviour
     // ── Constantes ────────────────────────────────────────────────────────────
 
     /// <summary>Nom de cette scène dans les Build Settings.</summary>
-    public const string SceneName = "MenuScene";
+    public const string SceneName = "Menu";
 
     // ── Palette fond placeholder ───────────────────────────────────────────────
 
@@ -55,6 +55,7 @@ public class MenuMainSetup : MonoBehaviour
         BuildDoor(canvasRT);
         BuildGamesButton(canvasRT);
         BuildQuestsButton(canvasRT);
+        MenuCoinReceiver.Create(canvasRT);   // traite les pièces en attente après une partie
         EnsureSceneTransition();
     }
 

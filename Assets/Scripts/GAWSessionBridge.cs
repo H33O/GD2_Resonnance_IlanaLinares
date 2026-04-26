@@ -66,9 +66,10 @@ public class GAWSessionBridge : MonoBehaviour
 
         int earned = GameManager.Instance != null ? GameManager.Instance.CurrentScore : 0;
 
-        // Persistance du score Game & Watch
+        // On sauvegarde uniquement le score ici (sans convertir en pièces).
+        // Les pièces seront créditées une seule fois par MenuCoinReceiver au retour au menu.
         ScoreManager.EnsureExists();
-        ScoreManager.Instance.AddScore(GameType.GameAndWatch, earned);
+        ScoreManager.Instance.AddScoreOnly(GameType.GameAndWatch, earned);
 
         StartCoroutine(ShowRecapThenReturn(earned));
     }
@@ -92,6 +93,7 @@ public class GAWSessionBridge : MonoBehaviour
             yield return null;
         }
         canvasGroup.alpha = 1f;
+        canvasGroup.blocksRaycasts = true;   // activer les clics après le fade-in
 
         // Attendre soit le bouton, soit l'expiration du timer
         float waited = 0f;
@@ -114,11 +116,14 @@ public class GAWSessionBridge : MonoBehaviour
 
         yield return new WaitForSecondsRealtime(AutoReturnDelay * 0.4f);
 
-        // Transfert du score et retour
-        if (OWGameManager.Instance != null)
-            OWGameManager.Instance.FinishGameAndWatch(earned);
+        // Stocker les données pour le Menu, puis charger le Menu
+        int coinsEarned = Mathf.Max(1, earned / 10);
+        GameEndData.Set(earned, coinsEarned);
+
+        if (SceneTransition.Instance != null)
+            SceneTransition.Instance.LoadScene(MenuMainSetup.SceneName, MenuMainSetup.SceneName);
         else
-            UnityEngine.SceneManagement.SceneManager.LoadScene(OWGameManager.SceneOverworld);
+            UnityEngine.SceneManagement.SceneManager.LoadScene(MenuMainSetup.SceneName);
     }
 
     // ── Construction de l'UI de récap ────────────────────────────────────────

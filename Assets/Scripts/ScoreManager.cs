@@ -93,6 +93,18 @@ public class ScoreManager : MonoBehaviour
     }
 
     /// <summary>
+    /// Enregistre un score sans créditer de pièces.
+    /// Utiliser quand les pièces seront créditées séparément (ex. animation au menu).
+    /// </summary>
+    public void AddScoreOnly(GameType type, int score)
+    {
+        if (score < 0) return;
+        GetList(type).Add(score);
+        Save();
+        OnScoreAdded?.Invoke(type, score);
+    }
+
+    /// <summary>
     /// Ajoute directement un montant de pièces au solde du joueur et persiste.
     /// </summary>
     public void AddCoins(int amount)

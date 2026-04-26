@@ -191,6 +191,12 @@ public class CoinWalletWidget : MonoBehaviour
             ScoreManager.Instance.OnCoinsAdded -= OnCoinsAdded;
     }
 
+    private void OnDestroy()
+    {
+        if (ScoreManager.Instance != null)
+            ScoreManager.Instance.OnCoinsAdded -= OnCoinsAdded;
+    }
+
     private void Update()
     {
         if (!isRollingUp) return;
@@ -210,6 +216,9 @@ public class CoinWalletWidget : MonoBehaviour
 
     private void OnCoinsAdded(int amount, int newTotal)
     {
+        // Guard : le widget peut être détruit avant que ScoreManager n'ait fini d'émettre
+        if (this == null) return;
+
         targetCoins = newTotal;
         isRollingUp = true;
 

@@ -89,7 +89,12 @@ public class SceneTransition : MonoBehaviour
         load.allowSceneActivation = false;
         while (load.progress < 0.9f) yield return null;
         load.allowSceneActivation = true;
-        yield return null; // un frame pour que la scène s'initialise
+
+        // Attendre que la scène ait eu le temps d'exécuter Awake + Start
+        // (MenuMainSetup construit tout le fond et le canvas dans Start)
+        yield return null;  // frame 1 : Awake
+        yield return null;  // frame 2 : Start
+        yield return null;  // frame 3 : premier Update — tout est visible
 
         // ── 3. Glitch à l'arrivée ─────────────────────────────────────────────
         yield return StartCoroutine(GlitchRoutine());
