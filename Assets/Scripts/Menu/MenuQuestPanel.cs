@@ -87,6 +87,7 @@ public class MenuQuestPanel : MonoBehaviour
         var img    = go.AddComponent<Image>();
         img.sprite = SpriteGenerator.CreateWhiteSquare();
         img.color  = ColBackBtn;
+        MenuAssets.ApplyButtonSprite(img);
         var rt     = img.rectTransform;
         rt.anchorMin      = new Vector2(0.5f, 0f);
         rt.anchorMax      = new Vector2(0.5f, 0f);

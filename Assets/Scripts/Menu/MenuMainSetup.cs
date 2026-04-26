@@ -23,8 +23,8 @@ public class MenuMainSetup : MonoBehaviour
 
     // ── Palette fond placeholder ───────────────────────────────────────────────
 
-    private static readonly Color ColBgTop    = new Color(0.06f, 0.05f, 0.12f, 1f);
-    private static readonly Color ColBgCenter = new Color(0.10f, 0.08f, 0.18f, 1f);
+    private static readonly Color ColBgTop    = Color.black;
+    private static readonly Color ColBgCenter = Color.black;
 
     // ── Palette bouton GAMES ──────────────────────────────────────────────────
 
@@ -40,6 +40,19 @@ public class MenuMainSetup : MonoBehaviour
     [Tooltip("Teinte appliquée sur le sprite de fond.")]
     [SerializeField] public Color backgroundTint = Color.white;
 
+    [Header("Porte — Intérieur")]
+    [Tooltip("Image de fond de l'overlay intérieur porte (fond_interieur porte.png).")]
+    [SerializeField] public Sprite doorInteriorSprite;
+
+    [Tooltip("Sprite du bouton UI de l'overlay intérieur porte (bouton UI.png).")]
+    [SerializeField] public Sprite doorButtonSprite;
+
+    [Tooltip("Nom de la scène chargée depuis l'overlay intérieur porte.")]
+    [SerializeField] public string doorTargetScene = "CircleArena";
+
+    [Tooltip("Libellé affiché sur le bouton de l'overlay intérieur porte.")]
+    [SerializeField] public string doorButtonLabel = "JOUER";
+
     // ── Lifecycle ─────────────────────────────────────────────────────────────
 
     private void Awake() => EnsureEventSystem();
@@ -48,10 +61,12 @@ public class MenuMainSetup : MonoBehaviour
     {
         NeedsManager.EnsureExists();
         ShopManager.EnsureExists();
+        ScoreManager.EnsureExists();
 
         BuildBackground2D();
         var canvasRT = BuildCanvas();
         BuildHud(canvasRT);
+        BuildDoorManager(canvasRT);   // DoorManager doit être initialisé avant MenuDoor
         BuildDoor(canvasRT);
         BuildGamesButton(canvasRT);
         BuildQuestsButton(canvasRT);
@@ -121,6 +136,28 @@ public class MenuMainSetup : MonoBehaviour
         hud.Init(rt);
     }
 
+    // ── DoorManager (verrou + overlay intérieur porte) ────────────────────────
+
+    private void BuildDoorManager(RectTransform canvasRT)
+    {
+        var go      = new GameObject("DoorManagerRoot");
+        go.transform.SetParent(canvasRT, false);
+
+        var rt      = go.AddComponent<RectTransform>();
+        StretchFull(rt);
+
+        var dm             = go.AddComponent<DoorManager>();
+        dm.interiorSprite  = doorInteriorSprite;
+        dm.buttonSprite    = doorButtonSprite;
+        dm.TargetScene     = doorTargetScene;
+        dm.ButtonLabel     = doorButtonLabel;
+        dm.Init(rt);
+
+        // Écouter les nouveaux scores pour débloquer automatiquement
+        if (ScoreManager.Instance != null)
+            ScoreManager.Instance.OnScoreAdded += (_, __) => dm.EvaluateUnlock();
+    }
+
     // ── Porte (bas-centre) ────────────────────────────────────────────────────
 
     private static void BuildDoor(RectTransform canvasRT)
@@ -181,7 +218,7 @@ public class MenuMainSetup : MonoBehaviour
 
     private static void BuildQuestsButton(RectTransform canvasRT)
     {
-        // Panneau quêtes (hors écran, à droite)
+        // Panneau quêtes (hors écran, à droite) — sans sprites de jauges custom ici
         var needsPanel = MenuNeedsPanel.Create(canvasRT);
 
         // Bouton "QUÊTES" — bas-gauche

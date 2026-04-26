@@ -23,8 +23,8 @@ public class NeedsManager : MonoBehaviour
     [Tooltip("Durée d'un cycle en secondes (600 = 10 minutes).")]
     [SerializeField] public float CycleDurationSeconds = 600f;
 
-    [Tooltip("Perte de jauge par cycle (0-100).")]
-    [SerializeField] public float DrainPerCycle = 20f;
+    [Tooltip("Perte de jauge par cycle (0-100). 100 = jauge vide en exactement 1 cycle (10 min).")]
+    [SerializeField] public float DrainPerCycle = 100f;
 
     // ── Événements ────────────────────────────────────────────────────────────
 
@@ -76,6 +76,17 @@ public class NeedsManager : MonoBehaviour
     {
         _cycleTimer += Time.deltaTime;
 
+        // Drain continu proportionnel au cycle : chaque frame les jauges descendent
+        // de DrainPerCycle / CycleDurationSeconds * deltaTime
+        if (CycleDurationSeconds > 0f)
+        {
+            float drainThisFrame = (DrainPerCycle / CycleDurationSeconds) * Time.deltaTime;
+            _water = Mathf.Clamp(_water - drainThisFrame, 0f, 100f);
+            _food  = Mathf.Clamp(_food  - drainThisFrame, 0f, 100f);
+            _sleep = Mathf.Clamp(_sleep - drainThisFrame, 0f, 100f);
+            OnNeedsChanged?.Invoke(_water, _food, _sleep);
+        }
+
         // Touche E : avancer au cycle suivant immédiatement (test)
         if (Keyboard.current != null && Keyboard.current.eKey.wasPressedThisFrame)
             AdvanceCycle();
@@ -114,10 +125,7 @@ public class NeedsManager : MonoBehaviour
         _cycleTimer = 0f;
         _day++;
 
-        _water = Mathf.Clamp(_water - DrainPerCycle, 0f, 100f);
-        _food  = Mathf.Clamp(_food  - DrainPerCycle, 0f, 100f);
-        _sleep = Mathf.Clamp(_sleep - DrainPerCycle, 0f, 100f);
-
+        // Le drain est géré en continu dans Update() — pas de saut supplémentaire ici.
         OnNeedsChanged?.Invoke(_water, _food, _sleep);
         OnDayAdvanced?.Invoke(_day);
     }

@@ -16,7 +16,7 @@ public class MenuCoinReceiver : MonoBehaviour
 {
     // ── Timings ───────────────────────────────────────────────────────────────
 
-    private const float WaitAfterLoad  = 0.80f;  // laisse le menu se stabiliser
+    private const float WaitAfterLoad  = 0.80f;
     private const float SlideInDur     = 0.40f;
     private const float ScoreCountDur  = 1.00f;
     private const float CoinCountDur   = 0.70f;
@@ -24,6 +24,10 @@ public class MenuCoinReceiver : MonoBehaviour
     private const float TransferDur    = 0.90f;
     private const float HoldAfterDur   = 1.60f;
     private const float FadeOutDur     = 0.35f;
+
+    // Pulse du score
+    private const float PulseDur       = 0.18f;
+    private const float PulseScale     = 1.22f;
 
     // ── Palette ───────────────────────────────────────────────────────────────
 
@@ -85,8 +89,9 @@ public class MenuCoinReceiver : MonoBehaviour
 
         yield return StartCoroutine(SlideIn(cardRT, cardGroup, SlideInDur));
 
-        // ── 2. Count-up score ─────────────────────────────────────────────────
+        // ── 2. Count-up score + pulse à la fin ────────────────────────────────
         yield return StartCoroutine(CountUp(scoreVal, 0, score, ScoreCountDur, isCoin: false));
+        StartCoroutine(Pulse(scoreVal.rectTransform));
 
         // ── 3. Count-up pièces ────────────────────────────────────────────────
         yield return new WaitForSeconds(0.30f);
@@ -95,8 +100,8 @@ public class MenuCoinReceiver : MonoBehaviour
         // ── 4. Pause avant le transfert ───────────────────────────────────────
         yield return new WaitForSeconds(PreTransferWait);
 
-        // ── 5. Tokens volants + crédit ────────────────────────────────────────
-        yield return StartCoroutine(TransferCoins(cardRT, coins));
+        // ── 5. Tokens depuis le label pièces → wallet + crédit ────────────────
+        yield return StartCoroutine(TransferCoins(coinsVal.rectTransform, coins));
 
         // ── 6. Hold ───────────────────────────────────────────────────────────
         yield return new WaitForSeconds(HoldAfterDur);
@@ -108,15 +113,15 @@ public class MenuCoinReceiver : MonoBehaviour
 
     // ── Transfert de pièces ───────────────────────────────────────────────────
 
-    private IEnumerator TransferCoins(RectTransform cardRT, int coins)
+    private IEnumerator TransferCoins(RectTransform coinsLabelRT, int coins)
     {
         int count = Mathf.Clamp(coins, 1, 8);
 
-        // Lancer les tokens en cascade
+        // Lancer les tokens en cascade depuis le label pièces
         for (int i = 0; i < count; i++)
         {
             float delay = i * (TransferDur / count) * 0.55f;
-            StartCoroutine(FlyToken(cardRT, delay));
+            StartCoroutine(FlyToken(coinsLabelRT, delay));
         }
 
         // Créditer quand les premiers tokens atteignent le wallet (~30% du vol)
@@ -128,6 +133,11 @@ public class MenuCoinReceiver : MonoBehaviour
         yield return new WaitForSeconds(TransferDur * 0.70f);
     }
 
+    /// <summary>
+    /// Anime un jeton doré depuis le label de pièces jusqu'au widget wallet en haut.
+    /// Chaque token part d'un point légèrement aléatoire autour du centre du label,
+    /// suit un arc de Bézier et se dissout en arrivant.
+    /// </summary>
     private IEnumerator FlyToken(RectTransform origin, float delay)
     {
         if (delay > 0f) yield return new WaitForSeconds(delay);
@@ -136,26 +146,27 @@ public class MenuCoinReceiver : MonoBehaviour
         go.transform.SetParent(canvasRT, false);
 
         var img = go.AddComponent<Image>();
-        img.sprite = SpriteGenerator.CreateWhiteSquare();
+        img.sprite = SpriteGenerator.CreateCircle(32);
         img.color  = ColToken;
         img.raycastTarget = false;
 
         var rt   = img.rectTransform;
         rt.anchorMin = rt.anchorMax = new Vector2(0.5f, 0.5f);
         rt.pivot     = new Vector2(0.5f, 0.5f);
-        rt.sizeDelta = new Vector2(20f, 20f);
+        rt.sizeDelta = new Vector2(24f, 24f);
 
-        // Départ depuis le centre de la card (anchoredPosition canvas-space)
-        Vector2 startAP = WorldToCanvasAnchoredPos(origin.TransformPoint(Vector3.zero));
+        // Départ : centre du label pièces avec léger bruit
+        Vector2 startAP = WorldToCanvasAnchoredPos(origin.TransformPoint(Vector3.zero))
+                        + new Vector2(Random.Range(-40f, 40f), Random.Range(-20f, 20f));
 
-        // Arrivée : wallet en haut du canvas (anchorY ≈ 0.93 = zone CoinWalletWidget)
+        // Arrivée : wallet en haut du canvas (anchorY ≈ 0.93)
         Vector2 endAP = new Vector2(
-            Random.Range(-80f, 80f),
+            Random.Range(-60f, 60f),
             (0.93f - 0.5f) * canvasRT.rect.height);
 
-        // Point de contrôle pour arc bezier
-        Vector2 ctrl = Vector2.Lerp(startAP, endAP, 0.45f)
-                     + new Vector2(Random.Range(-150f, 150f), Random.Range(60f, 200f));
+        // Point de contrôle pour arc Bézier — déviation latérale + légère montée
+        Vector2 ctrl = Vector2.Lerp(startAP, endAP, 0.40f)
+                     + new Vector2(Random.Range(-180f, 180f), Random.Range(40f, 160f));
 
         float t = 0f;
         while (t < TransferDur)
@@ -164,15 +175,22 @@ public class MenuCoinReceiver : MonoBehaviour
             float n = Mathf.Clamp01(t / TransferDur);
             float e = 1f - Mathf.Pow(1f - n, 3f);  // EaseOutCubic
 
-            // Bezier quadratique
+            // Bézier quadratique
             rt.anchoredPosition =
                   Mathf.Pow(1f - e, 2f) * startAP
                 + 2f * (1f - e) * e     * ctrl
                 + e * e                 * endAP;
 
+            // Fondu en approche du wallet (derniers 28%)
             float alpha = n > 0.72f ? Mathf.InverseLerp(1f, 0.72f, n) : 1f;
             img.color   = new Color(ColToken.r, ColToken.g, ColToken.b, alpha);
-            rt.localRotation = Quaternion.Euler(0f, 0f, e * 380f);
+
+            // Légère rotation
+            rt.localRotation = Quaternion.Euler(0f, 0f, e * 340f);
+
+            // Scale : part petit, grossit rapidement, rétrécit en arrivant
+            float s = Mathf.Sin(n * Mathf.PI) * 1.4f + 0.3f;
+            rt.localScale = Vector3.one * s;
 
             yield return null;
         }
@@ -330,6 +348,40 @@ public class MenuCoinReceiver : MonoBehaviour
     }
 
     // ── Coroutines ────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Fait grossir puis revenir le score : scale 1 → PulseScale → 1,
+    /// avec deux rebonds rapides pour un effet "punch".
+    /// </summary>
+    private static IEnumerator Pulse(RectTransform rt)
+    {
+        Vector3 base3 = rt.localScale;
+
+        // Frappe 1 (forte)
+        yield return StartCoroutinePulseHalf(rt, base3, PulseScale, PulseDur);
+        yield return StartCoroutinePulseHalf(rt, base3 * PulseScale, 1f, PulseDur * 0.8f);
+
+        // Frappe 2 (légère)
+        yield return StartCoroutinePulseHalf(rt, base3, 1f + (PulseScale - 1f) * 0.4f, PulseDur * 0.6f);
+        yield return StartCoroutinePulseHalf(rt, base3 * (1f + (PulseScale - 1f) * 0.4f), 1f, PulseDur * 0.5f);
+
+        rt.localScale = base3;
+    }
+
+    private static IEnumerator StartCoroutinePulseHalf(RectTransform rt,
+        Vector3 from, float toFactor, float dur)
+    {
+        Vector3 to = rt.localScale * toFactor;
+        float   t  = 0f;
+        while (t < dur)
+        {
+            t            += Time.deltaTime;
+            float e       = Mathf.Clamp01(t / dur);
+            rt.localScale = Vector3.Lerp(from, to, e);
+            yield return null;
+        }
+        rt.localScale = to;
+    }
 
     /// <summary>Slide depuis hors-écran (y = +H) jusqu'à anchoredPosition (0, -targetY).</summary>
     private static IEnumerator SlideIn(RectTransform rt, CanvasGroup group, float dur)

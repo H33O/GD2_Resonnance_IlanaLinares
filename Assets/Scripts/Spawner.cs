@@ -5,6 +5,7 @@ public class Spawner : MonoBehaviour
     [Header("Grid Spawn Settings")]
     [SerializeField] private GameObject collectiblePrefab;
     [SerializeField] private GameObject fastEnemyPrefab;
+    [SerializeField] private GameObject redEnemyPrefab;
     [SerializeField] private float baseSpawnInterval = 1.5f;
     [SerializeField] private int numberOfColumns = 3;
     [SerializeField] private float columnSpacing = 2f;
@@ -105,7 +106,21 @@ public class Spawner : MonoBehaviour
             ? GameManager.Instance.GetFastEnemyChance()
             : fastEnemySpawnChance;
 
-        GameObject prefabToSpawn = Random.value < fastChance ? fastEnemyPrefab : collectiblePrefab;
+        float redChance = GameManager.Instance != null
+            ? GameManager.Instance.GetRedEnemyChance()
+            : 0f;
+
+        // Résolution de la priorité : rouge > rapide > collectible
+        // On tire un seul dé [0, 1] et on tranche par seuils.
+        float roll = Random.value;
+
+        GameObject prefabToSpawn;
+        if (roll < redChance && redEnemyPrefab != null)
+            prefabToSpawn = redEnemyPrefab;
+        else if (roll < redChance + fastChance && fastEnemyPrefab != null)
+            prefabToSpawn = fastEnemyPrefab;
+        else
+            prefabToSpawn = collectiblePrefab;
 
         if (prefabToSpawn == null)
         {
@@ -113,7 +128,7 @@ public class Spawner : MonoBehaviour
             return;
         }
 
-        Vector3 spawnPosition = new Vector3(xPos, spawnY, 0f);
+        Vector3 spawnPosition   = new Vector3(xPos, spawnY, 0f);
         GameObject spawnedObject = Instantiate(prefabToSpawn, spawnPosition, Quaternion.identity);
 
         Collectible collectibleScript = spawnedObject.GetComponent<Collectible>();
@@ -128,6 +143,13 @@ public class Spawner : MonoBehaviour
         {
             fastEnemyScript.SetColumn(xPos);
             fastEnemyScript.SetStepDuration(currentStepDuration);
+        }
+
+        RedEnemy redEnemyScript = spawnedObject.GetComponent<RedEnemy>();
+        if (redEnemyScript != null)
+        {
+            redEnemyScript.SetColumn(xPos);
+            redEnemyScript.SetStepDuration(currentStepDuration);
         }
     }
 

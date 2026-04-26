@@ -66,9 +66,18 @@ public class MenuScorePanel : MonoBehaviour
     private const float NavBtnW   = 110f;
     private const float NavBtnH   = 80f;
 
+    // ── Feedback ─────────────────────────────────────────────────────────────
+
+    private const float RecordFlashDuration  = 0.55f;
+    private const float WidgetPulseDuration  = 0.35f;
+    private const float WidgetPulseScale     = 1.18f;
+
+    private static readonly Color ColRecordFlash = new Color(1.00f, 0.82f, 0.18f, 0.22f);
+
     // ── Références runtime ────────────────────────────────────────────────────
 
     private TextMeshProUGUI totalScoreLabel;
+    private RectTransform   widgetRT;   // référence au widget haut-gauche pour le pulse
 
     // Panel plein écran
     private RectTransform   panelRT;
@@ -91,6 +100,9 @@ public class MenuScorePanel : MonoBehaviour
     private float  dragStartX;
     private float  containerStartX;
 
+    // Suivi des records par jeu pour détecter un nouveau meilleur score
+    private readonly int[] _previousBest = { -1, -1, -1 };
+
     // ── Initialisation ────────────────────────────────────────────────────────
 
     /// <summary>Appelé par <see cref="MenuMainHud.Init"/>.</summary>
@@ -112,12 +124,35 @@ public class MenuScorePanel : MonoBehaviour
 
     private void OnScoreAdded(GameType type, int score)
     {
-        RefreshTotal();
-        // Si le panel est ouvert, rafraîchir le slide concerné
-        if (panelRT != null && panelRT.gameObject.activeSelf)
+        int idx = System.Array.IndexOf(GameTypes, type);
+
+        // Détecter si c'est un nouveau record
+        bool isNewRecord = false;
+        if (idx >= 0 && ScoreManager.Instance != null)
         {
-            int idx = System.Array.IndexOf(GameTypes, type);
-            if (idx >= 0) PopulateSlide(idx);
+            var scores = ScoreManager.Instance.GetAllScores(type);
+            int best   = 0;
+            foreach (int s in scores) if (s > best) best = s;
+
+            if (score >= best && score > _previousBest[idx])
+            {
+                isNewRecord         = true;
+                _previousBest[idx]  = score;
+            }
+        }
+
+        RefreshTotal();
+
+        // Pulse du widget score pour indiquer qu'un score est arrivé
+        StopCoroutine(nameof(PulseWidget));
+        StartCoroutine(PulseWidget());
+
+        // Si le panel est ouvert, rafraîchir + flash record
+        if (panelRT != null && panelRT.gameObject.activeSelf && idx >= 0)
+        {
+            PopulateSlide(idx);
+            if (isNewRecord)
+                StartCoroutine(FlashHistorySlide(idx));
         }
     }
 
@@ -131,6 +166,7 @@ public class MenuScorePanel : MonoBehaviour
         var img          = go.AddComponent<Image>();
         img.sprite       = SpriteGenerator.CreateWhiteSquare();
         img.color        = ColWidgetBg;
+        MenuAssets.ApplyButtonSprite(img);
 
         var rt           = img.rectTransform;
         rt.anchorMin     = new Vector2(0f, 1f);
@@ -138,20 +174,21 @@ public class MenuScorePanel : MonoBehaviour
         rt.pivot         = new Vector2(0f, 1f);
         rt.sizeDelta     = new Vector2(WidgetW, WidgetH);
         rt.anchoredPosition = new Vector2(MarginX, -MarginY);
+        widgetRT         = rt;   // stocker pour le pulse
 
-        // Label "SCORE TOTAL"
-        Lbl("ScoreLabel", rt, "SCORE TOTAL",
-            20f, FontStyles.Bold, ColWidgetLbl,
-            new Vector2(0f, 0.55f), Vector2.one,
-            new Vector2(14f, 0f), new Vector2(-14f, 0f));
+        // Label "SCORES" centré (pas de valeur numérique visible ici)
+        Lbl("ScoreLabel", rt, "SCORES",
+            28f, FontStyles.Bold, ColWidgetVal,
+            new Vector2(0f, 0.30f), Vector2.one,
+            new Vector2(14f, 0f), new Vector2(-14f, 0f),
+            TextAlignmentOptions.Center);
 
-        // Valeur
-        var valueTMP = Lbl("ScoreValue", rt, "0",
-            40f, FontStyles.Bold, ColWidgetVal,
-            Vector2.zero, new Vector2(1f, 0.62f),
+        // Sous-label indicatif
+        Lbl("ScoreHint", rt, "Voir l'historique →",
+            18f, FontStyles.Normal, ColWidgetLbl,
+            Vector2.zero, new Vector2(1f, 0.42f),
             new Vector2(14f, 4f), new Vector2(-14f, 0f),
-            TextAlignmentOptions.BottomLeft);
-        totalScoreLabel = valueTMP;
+            TextAlignmentOptions.Center);
 
         var btn        = go.AddComponent<Button>();
         btn.targetGraphic = img;
@@ -161,8 +198,6 @@ public class MenuScorePanel : MonoBehaviour
         colors.fadeDuration     = 0.08f;
         btn.colors = colors;
         btn.onClick.AddListener(OpenPanel);
-
-        RefreshTotal();
     }
 
     // ── Panel plein écran ─────────────────────────────────────────────────────
@@ -248,9 +283,6 @@ public class MenuScorePanel : MonoBehaviour
 
     private void BuildSlide(int idx, RectTransform viewportRT)
     {
-        // Chaque slide est positionné horizontalement dans le sliderContainer.
-        // On utilise des anchorMin/Max relatifs au viewport width pour simuler
-        // le positioning côte à côte — géré via anchoredPosition après layout.
         var go = new GameObject($"Slide_{GameNames[idx]}");
         go.transform.SetParent(sliderContainer, false);
 
@@ -258,9 +290,25 @@ public class MenuScorePanel : MonoBehaviour
         rt.anchorMin    = new Vector2(0f, 0f);
         rt.anchorMax    = new Vector2(0f, 1f);
         rt.pivot        = new Vector2(0f, 0.5f);
-        // La largeur réelle est assignée dans UpdateSlidePositions()
         rt.sizeDelta    = new Vector2(0f, 0f);
         slideRTs[idx]   = rt;
+
+        // ── Fond du slide ─────────────────────────────────────────────────────
+        var bgGO  = new GameObject("SlideBg");
+        bgGO.transform.SetParent(rt, false);
+        var bgImg = bgGO.AddComponent<Image>();
+        bgImg.sprite = SpriteGenerator.CreateWhiteSquare();
+        // Fond sombre avec légère teinte de la couleur du jeu
+        bgImg.color  = new Color(
+            0.05f + GameColors[idx].r * 0.04f,
+            0.05f + GameColors[idx].g * 0.04f,
+            0.08f + GameColors[idx].b * 0.04f,
+            1f);
+        bgImg.raycastTarget = false;
+        var bgRT  = bgImg.rectTransform;
+        bgRT.anchorMin = Vector2.zero;
+        bgRT.anchorMax = Vector2.one;
+        bgRT.offsetMin = bgRT.offsetMax = Vector2.zero;
 
         // ── Accent couleur gauche ─────────────────────────────────────────────
         var accent    = new GameObject("Accent");
@@ -654,6 +702,7 @@ public class MenuScorePanel : MonoBehaviour
         tmp.color         = col;
         tmp.alignment     = TextAlignmentOptions.MidlineLeft;
         tmp.raycastTarget = false;
+        MenuAssets.ApplyFont(tmp);
         var lrt = tmp.rectTransform;
         lrt.anchorMin = Vector2.zero;
         lrt.anchorMax = Vector2.one;
@@ -695,6 +744,62 @@ public class MenuScorePanel : MonoBehaviour
         totalScoreLabel.text = total.ToString("N0");
     }
 
+    // ── Feedbacks visuels ─────────────────────────────────────────────────────
+
+    /// <summary>Pulse du widget score (scale) quand un nouveau score est enregistré.</summary>
+    private IEnumerator PulseWidget()
+    {
+        if (widgetRT == null) yield break;
+        float elapsed = 0f;
+        while (elapsed < WidgetPulseDuration)
+        {
+            elapsed += Time.deltaTime;
+            float t  = elapsed / WidgetPulseDuration;
+            float s  = t < 0.5f
+                ? Mathf.Lerp(1f, WidgetPulseScale, t * 2f)
+                : Mathf.Lerp(WidgetPulseScale, 1f, (t - 0.5f) * 2f);
+            widgetRT.localScale = Vector3.one * s;
+            yield return null;
+        }
+        widgetRT.localScale = Vector3.one;
+    }
+
+    /// <summary>
+    /// Flash doré sur le fond du slide d'historique pour signaler un nouveau record.
+    /// Répète 3 fois pour attirer l'attention.
+    /// </summary>
+    private IEnumerator FlashHistorySlide(int idx)
+    {
+        if (slideRTs == null || idx >= slideRTs.Length) yield break;
+        var slideRT = slideRTs[idx];
+        if (slideRT == null) yield break;
+
+        // Trouver le SlideBg
+        var bgT = slideRT.Find("SlideBg");
+        if (bgT == null) yield break;
+        var bgImg = bgT.GetComponent<Image>();
+        if (bgImg == null) yield break;
+
+        Color baseColor = bgImg.color;
+        int   pulses    = 3;
+
+        for (int p = 0; p < pulses; p++)
+        {
+            float elapsed = 0f;
+            while (elapsed < RecordFlashDuration)
+            {
+                elapsed += Time.deltaTime;
+                float t  = elapsed / RecordFlashDuration;
+                float e  = t < 0.4f
+                    ? Mathf.Lerp(0f, 1f, t / 0.4f)
+                    : Mathf.Lerp(1f, 0f, (t - 0.4f) / 0.6f);
+                if (bgImg != null) bgImg.color = Color.Lerp(baseColor, ColRecordFlash, e);
+                yield return null;
+            }
+        }
+        if (bgImg != null) bgImg.color = baseColor;
+    }
+
     // ── Helpers UI ────────────────────────────────────────────────────────────
 
     private static TextMeshProUGUI Lbl(string name, RectTransform parent, string text,
@@ -712,6 +817,7 @@ public class MenuScorePanel : MonoBehaviour
         tmp.color         = col;
         tmp.alignment     = align;
         tmp.raycastTarget = false;
+        MenuAssets.ApplyFont(tmp);
         var rt = tmp.rectTransform;
         rt.anchorMin = anchorMin;
         rt.anchorMax = anchorMax;

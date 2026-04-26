@@ -379,6 +379,81 @@ public class UIManager : MonoBehaviour
     }
 
 
+    /// <summary>
+    /// Affiche un flash rouge plein écran et le texte "−1 VIE"
+    /// lorsque le joueur touche un ennemi rouge.
+    /// </summary>
+    public void ShowLifeLostEffect()
+    {
+        StartCoroutine(LifeLostRoutine());
+    }
+
+    private static readonly Color LifeLostColor = new Color(0.95f, 0.10f, 0.08f, 1f);
+
+    private IEnumerator LifeLostRoutine()
+    {
+        Canvas canvas = scoreText != null
+            ? scoreText.canvas
+            : GetComponentInParent<Canvas>();
+        if (canvas == null) yield break;
+
+        Transform ct = canvas.transform;
+
+        // ── Flash rouge plein écran ───────────────────────────────────────────
+        var flashGO = new GameObject("LifeLostFlash");
+        flashGO.transform.SetParent(ct, false);
+        var flashImg = flashGO.AddComponent<Image>();
+        flashImg.color         = new Color(LifeLostColor.r, LifeLostColor.g, LifeLostColor.b, 0f);
+        flashImg.raycastTarget = false;
+        var flashRT = flashImg.rectTransform;
+        flashRT.anchorMin = Vector2.zero;
+        flashRT.anchorMax = Vector2.one;
+        flashRT.offsetMin = flashRT.offsetMax = Vector2.zero;
+
+        // ── Texte "−1 VIE" ────────────────────────────────────────────────────
+        var textGO = new GameObject("LifeLostText");
+        textGO.transform.SetParent(ct, false);
+        var textRT = textGO.AddComponent<RectTransform>();
+        textRT.anchorMin        = new Vector2(0.5f, 0.5f);
+        textRT.anchorMax        = new Vector2(0.5f, 0.5f);
+        textRT.pivot            = new Vector2(0.5f, 0.5f);
+        textRT.sizeDelta        = new Vector2(500f, 140f);
+        textRT.anchoredPosition = new Vector2(0f, 80f);
+
+        var tmp = textGO.AddComponent<TextMeshProUGUI>();
+        tmp.text      = "−1 VIE";
+        tmp.fontSize  = 90;
+        tmp.fontStyle = FontStyles.Bold;
+        tmp.color     = new Color(LifeLostColor.r, LifeLostColor.g, LifeLostColor.b, 0f);
+        tmp.alignment = TextAlignmentOptions.Center;
+
+        // ── Animation : montée puis fondu ─────────────────────────────────────
+        const float totalDuration = 1.1f;
+        const float peakAlphaFlash = 0.45f;
+        const float peakAlphaText  = 1.00f;
+        float elapsed = 0f;
+
+        while (elapsed < totalDuration)
+        {
+            elapsed += Time.deltaTime;
+            float t  = elapsed / totalDuration;
+            float e  = t < 0.15f
+                ? Mathf.Lerp(0f, 1f, t / 0.15f)
+                : Mathf.Lerp(1f, 0f, (t - 0.15f) / 0.85f);
+
+            flashImg.color = new Color(LifeLostColor.r, LifeLostColor.g, LifeLostColor.b, e * peakAlphaFlash);
+            tmp.color      = new Color(LifeLostColor.r, LifeLostColor.g, LifeLostColor.b, e * peakAlphaText);
+
+            // Légère montée du texte
+            textRT.anchoredPosition = new Vector2(0f, 80f + 40f * t);
+
+            yield return null;
+        }
+
+        Destroy(flashGO);
+        Destroy(textGO);
+    }
+
     private void UpdateScoreUI(int score)
     {
         if (scoreText != null)

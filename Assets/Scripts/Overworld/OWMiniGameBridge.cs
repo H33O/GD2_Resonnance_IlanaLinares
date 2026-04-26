@@ -14,8 +14,8 @@ public class OWMiniGameBridge : MonoBehaviour
     [SerializeField] private bool countAsCompletion   = true;
 
     [Header("Position du bouton (Viewport)")]
-    [SerializeField] private Vector2 buttonAnchorMin  = new Vector2(0f, 0.9f);
-    [SerializeField] private Vector2 buttonAnchorMax  = new Vector2(0.3f, 1f);
+    [SerializeField] private Vector2 buttonAnchorMin  = new Vector2(0.35f, 0.45f);
+    [SerializeField] private Vector2 buttonAnchorMax  = new Vector2(0.65f, 0.55f);
 
     private void Start()
     {

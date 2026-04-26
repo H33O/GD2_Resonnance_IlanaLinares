@@ -157,6 +157,7 @@ public class CoinWalletWidget : MonoBehaviour
         valTmp.color      = ColCoin;
         valTmp.alignment  = TextAlignmentOptions.BottomLeft;
         valTmp.raycastTarget = false;
+        MenuAssets.ApplyFont(valTmp);
 
         var valRT  = valTmp.rectTransform;
         valRT.anchorMin = new Vector2(0.22f, 0f);
@@ -391,6 +392,7 @@ public class CoinWalletWidget : MonoBehaviour
         tmp.color     = color;
         tmp.alignment = TextAlignmentOptions.BottomLeft;
         tmp.raycastTarget = false;
+        MenuAssets.ApplyFont(tmp);
 
         var rt   = tmp.rectTransform;
         rt.anchorMin = anchorMin;

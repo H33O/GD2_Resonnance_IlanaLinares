@@ -180,6 +180,7 @@ public class MenuGameSelectPanel : MonoBehaviour
         ltmp.color     = txtColor;
         ltmp.alignment = TextAlignmentOptions.Center;
         ltmp.raycastTarget = false;
+        MenuAssets.ApplyFont(ltmp);
         var lrt  = ltmp.rectTransform;
         lrt.anchorMin = Vector2.zero;
         lrt.anchorMax = Vector2.one;
@@ -195,6 +196,7 @@ public class MenuGameSelectPanel : MonoBehaviour
         atmp.color     = new Color(txtColor.r, txtColor.g, txtColor.b, 0.35f);
         atmp.alignment = TextAlignmentOptions.Right;
         atmp.raycastTarget = false;
+        MenuAssets.ApplyFont(atmp);
         var aRT  = atmp.rectTransform;
         aRT.anchorMin = Vector2.zero;
         aRT.anchorMax = Vector2.one;
@@ -217,18 +219,19 @@ public class MenuGameSelectPanel : MonoBehaviour
         rt.anchorMin      = new Vector2(0.5f, 0f);
         rt.anchorMax      = new Vector2(0.5f, 0f);
         rt.pivot          = new Vector2(0.5f, 0f);
-        rt.sizeDelta      = new Vector2(340f, 80f);
+        rt.sizeDelta      = new Vector2(500f, 120f);
         rt.anchoredPosition = new Vector2(0f, 72f);
 
         var lgo   = new GameObject("Label");
         lgo.transform.SetParent(rt, false);
         var ltmp  = lgo.AddComponent<TextMeshProUGUI>();
         ltmp.text = "← RETOUR";
-        ltmp.fontSize  = 38f;
+        ltmp.fontSize  = 52f;
         ltmp.fontStyle = FontStyles.Bold;
         ltmp.color     = ColBackTxt;
         ltmp.alignment = TextAlignmentOptions.Center;
         ltmp.raycastTarget = false;
+        MenuAssets.ApplyFont(ltmp);
         var lrt   = ltmp.rectTransform;
         lrt.anchorMin = Vector2.zero;
         lrt.anchorMax = Vector2.one;
@@ -270,6 +273,7 @@ public class MenuGameSelectPanel : MonoBehaviour
         tmp.color     = color;
         tmp.alignment = TextAlignmentOptions.Center;
         tmp.raycastTarget = false;
+        MenuAssets.ApplyFont(tmp);
         var rt    = tmp.rectTransform;
         rt.anchorMin = anchorMin;
         rt.anchorMax = anchorMax;

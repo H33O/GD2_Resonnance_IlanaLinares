@@ -84,11 +84,11 @@ public class GameManager : MonoBehaviour
 
     private void ClearAllCollectibles()
     {
-        Collectible[] collectibles = FindObjectsOfType<Collectible>();
-        foreach (Collectible collectible in collectibles)
-        {
-            Destroy(collectible.gameObject);
-        }
+        foreach (var c in FindObjectsOfType<Collectible>())
+            Destroy(c.gameObject);
+
+        foreach (var r in FindObjectsOfType<RedEnemy>())
+            Destroy(r.gameObject);
     }
 
     public void AddScore(int amount)
@@ -177,6 +177,16 @@ public class GameManager : MonoBehaviour
         if (difficultyLevel < 5) return 0.25f;
         // Jump to 55% at x5, +12% per level, capped at 90%
         return Mathf.Min(0.90f, 0.55f + (difficultyLevel - 5) * 0.12f);
+    }
+
+    /// <summary>
+    /// Returns the red enemy spawn probability for the current difficulty level.
+    /// Starts appearing at difficulty 1 (5%), ramps up to 35% max.
+    /// </summary>
+    public float GetRedEnemyChance()
+    {
+        if (difficultyLevel < 1) return 0f;
+        return Mathf.Min(0.35f, 0.05f + (difficultyLevel - 1) * 0.05f);
     }
 
     /// <summary>Returns how many objects to spawn simultaneously at the current difficulty.</summary>

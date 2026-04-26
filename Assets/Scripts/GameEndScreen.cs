@@ -75,6 +75,15 @@ public class GameEndScreen : MonoBehaviour
             GameManager.Instance.OnGameOver.RemoveListener(Trigger);
     }
 
+    // ── Conversion score → pièces ─────────────────────────────────────────────
+
+    /// <summary>1 pièce par tranche de 5 points, minimum 1 si score > 0.</summary>
+    private static int ScoreToCoins(int score)
+    {
+        if (score <= 0) return 0;
+        return Mathf.Max(1, score / 5);
+    }
+
     // ── Point d'entrée public ─────────────────────────────────────────────────
 
     /// <summary>Déclenche le widget manuellement si nécessaire.</summary>
@@ -84,13 +93,11 @@ public class GameEndScreen : MonoBehaviour
         fired = true;
 
         int score = GameManager.Instance != null ? GameManager.Instance.CurrentScore : 0;
-        int coins = Mathf.Max(1, score / 10);
+        int coins = ScoreToCoins(score);
 
-        // Sauvegarder le score (sans créditer les pièces — MenuCoinReceiver le fera)
         ScoreManager.EnsureExists();
         ScoreManager.Instance.AddScoreOnly(gameType, score);
 
-        // Stocker pour le Menu
         GameEndData.Set(score, coins);
 
         StartCoroutine(RunScreen(score, coins));
@@ -206,12 +213,12 @@ public class GameEndScreen : MonoBehaviour
             86f, ColScoreVal, FontStyles.Bold);
 
         // ── Section PIÈCES ───────────────────────────────────────────────────
-        Label(card, "CoinsLbl", "PIÈCES GAGNÉES",
+        Label(card, "CoinsLbl", "PIÈCES",
             new Vector2(0.52f, 0.60f), new Vector2(0.95f, 0.72f),
             26f, ColCoinsLbl, FontStyles.Bold);
         coinsValLabel = Label(card, "CoinsVal", "0 🪙",
             new Vector2(0.52f, 0.44f), new Vector2(0.95f, 0.63f),
-            72f, ColCoinsVal, FontStyles.Bold);
+            72f, new Color(0.55f, 0.55f, 0.55f, 1f), FontStyles.Bold);
 
         // Séparateur vertical entre score et pièces
         VLine(card, 0.50f, ColSep);

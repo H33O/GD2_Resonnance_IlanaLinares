@@ -134,6 +134,7 @@ public class MenuMainHud : MonoBehaviour
         tmp.color          = color;
         tmp.alignment      = alignment;
         tmp.raycastTarget  = false;
+        MenuAssets.ApplyFont(tmp);
 
         var rt         = tmp.rectTransform;
         rt.anchorMin   = anchorMin;

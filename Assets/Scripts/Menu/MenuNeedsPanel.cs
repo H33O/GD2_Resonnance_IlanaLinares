@@ -66,6 +66,11 @@ public class MenuNeedsPanel : MonoBehaviour
     private TextMeshProUGUI foodPct;
     private TextMeshProUGUI sleepPct;
 
+    // Blocs cliquables (pour le pulse de danger)
+    private RectTransform   waterBlock;
+    private RectTransform   foodBlock;
+    private RectTransform   sleepBlock;
+
     // Cycle / Jour
     private TextMeshProUGUI dayLabel;
     private RectTransform   cycleFill;
@@ -73,6 +78,7 @@ public class MenuNeedsPanel : MonoBehaviour
     // Pièces
     private TextMeshProUGUI coinLabel;
     private Image           coinBarBg;
+    private RectTransform   coinBarRT;   // pour le pulse scale
 
     // Labels de coût inline (à côté des jauges)
     private TextMeshProUGUI waterCostLabel;
@@ -82,10 +88,26 @@ public class MenuNeedsPanel : MonoBehaviour
     // Feedback panel bg
     private Image panelBgImage;
 
+    // ── Seuil de danger pour le pulse ────────────────────────────────────────
+
+    private const float DangerThreshold  = 25f;   // % en dessous duquel le bloc pulse
+    private const float DangerPulseDur   = 0.60f;
+    private const float DangerPulseScale = 1.04f;
+    private const float CoinPulseScale   = 1.10f;
+    private const float CoinPulseDur     = 0.30f;
+
+    private static readonly Color ColDangerPulse = new Color(1f, 0.25f, 0.15f, 0.18f);
+
+    // État des pulses de danger (pour ne pas en lancer plusieurs en parallèle)
+    private bool _waterPulsing;
+    private bool _foodPulsing;
+    private bool _sleepPulsing;
+
     // ── Factory ───────────────────────────────────────────────────────────────
 
     /// <summary>Crée le panneau hors écran (à droite) et retourne l'instance.</summary>
-    public static MenuNeedsPanel Create(Transform canvasParent)
+    public static MenuNeedsPanel Create(Transform canvasParent,
+        Sprite spriteWater = null, Sprite spriteFood = null, Sprite spriteSleep = null)
     {
         var go = new GameObject("NeedsPanel");
         go.transform.SetParent(canvasParent, false);
@@ -100,9 +122,12 @@ public class MenuNeedsPanel : MonoBehaviour
         cg.blocksRaycasts = false;
         cg.interactable   = false;
 
-        var panel     = go.AddComponent<MenuNeedsPanel>();
-        panel.panelRT = rt;
-        panel.group   = cg;
+        var panel        = go.AddComponent<MenuNeedsPanel>();
+        panel.panelRT    = rt;
+        panel.group      = cg;
+        panel.SpriteWater = spriteWater;
+        panel.SpriteFood  = spriteFood;
+        panel.SpriteSleep = spriteSleep;
         rt.anchoredPosition = new Vector2(CanvasRefWidth, 0f);
 
         panel.Build(rt);
@@ -125,11 +150,11 @@ public class MenuNeedsPanel : MonoBehaviour
 
         MakeSep("Sep1", root, 0.888f);
 
-        // Wallet Pièces
-        BuildCoinBar(root);
-
-        // Indicateur jour + cycle
+        // Indicateur jour + cycle (affiché en premier, au-dessus du wallet)
         BuildDayWidget(root);
+
+        // Wallet Pièces (placé directement sous le widget jour)
+        BuildCoinBar(root);
 
         // Jauges cliquables avec coûts inline
         BuildNeedsSection(root);
@@ -151,11 +176,11 @@ public class MenuNeedsPanel : MonoBehaviour
         coinBarBg.raycastTarget = false;
 
         var rt = coinBarBg.rectTransform;
-        rt.anchorMin = new Vector2(0.5f, 1f);
-        rt.anchorMax = new Vector2(0.5f, 1f);
-        rt.pivot     = new Vector2(0.5f, 1f);
-        rt.sizeDelta = new Vector2(340f, 72f);
-        rt.anchoredPosition = new Vector2(0f, -120f);
+        // Ancré juste en dessous du DayWidget (qui termine à anchorY ~0.830)
+        rt.anchorMin = new Vector2(0.08f, 0.790f);
+        rt.anchorMax = new Vector2(0.92f, 0.825f);
+        rt.offsetMin = rt.offsetMax = Vector2.zero;
+        coinBarRT = rt;
 
         // Icône pièce
         var iconGO  = new GameObject("CoinIcon");
@@ -181,6 +206,7 @@ public class MenuNeedsPanel : MonoBehaviour
         valTmp.color     = ColCoin;
         valTmp.alignment = TextAlignmentOptions.MidlineLeft;
         valTmp.raycastTarget = false;
+        MenuAssets.ApplyFont(valTmp);
         var valRT = valTmp.rectTransform;
         valRT.anchorMin = new Vector2(0.18f, 0f);
         valRT.anchorMax = Vector2.one;
@@ -198,6 +224,7 @@ public class MenuNeedsPanel : MonoBehaviour
         lblTmp.color     = ColLabel;
         lblTmp.alignment = TextAlignmentOptions.MidlineRight;
         lblTmp.raycastTarget = false;
+        MenuAssets.ApplyFont(lblTmp);
         var lblRT = lblTmp.rectTransform;
         lblRT.anchorMin = new Vector2(0.55f, 0f);
         lblRT.anchorMax = Vector2.one;
@@ -232,6 +259,7 @@ public class MenuNeedsPanel : MonoBehaviour
         lblTmp.color     = ColDayText;
         lblTmp.alignment = TextAlignmentOptions.MidlineLeft;
         lblTmp.raycastTarget = false;
+        MenuAssets.ApplyFont(lblTmp);
         var lrt = lblTmp.rectTransform;
         lrt.anchorMin = Vector2.zero;
         lrt.anchorMax = new Vector2(0.5f, 1f);
@@ -271,6 +299,12 @@ public class MenuNeedsPanel : MonoBehaviour
         StartCoroutine(AnimateCycleFill(_fillImg));
     }
 
+    // ── Sprites de jauges (assignés depuis MenuSceneSetup / MenuNeedsPanel.Create) ──
+
+    public Sprite SpriteWater { get; set; }
+    public Sprite SpriteFood  { get; set; }
+    public Sprite SpriteSleep { get; set; }
+
     // ── Section Jauges ────────────────────────────────────────────────────────
 
     private void BuildNeedsSection(RectTransform root)
@@ -284,29 +318,30 @@ public class MenuNeedsPanel : MonoBehaviour
         int sleepCost = ShopManager.Instance != null ? ShopManager.Instance.SleepCost : 50;
 
         BuildGaugeRow(root, "Eau",        "EAU",        ColWater, topAnchor,
-            waterCost, () => ShopManager.Instance?.BuyWater(),
-            out waterFill, out waterPct, out waterCostLabel);
+            waterCost, () => ShopManager.Instance?.BuyWater(), SpriteWater,
+            out waterFill, out waterPct, out waterCostLabel, out waterBlock);
 
         BuildGaugeRow(root, "Nourriture", "NOURRITURE", ColFood,  topAnchor - spacing,
-            foodCost, () => ShopManager.Instance?.BuyFood(),
-            out foodFill, out foodPct, out foodCostLabel);
+            foodCost, () => ShopManager.Instance?.BuyFood(), SpriteFood,
+            out foodFill, out foodPct, out foodCostLabel, out foodBlock);
 
         BuildGaugeRow(root, "Sommeil",    "SOMMEIL",    ColSleep, topAnchor - spacing * 2f,
-            sleepCost, () => ShopManager.Instance?.BuySleep(),
-            out sleepFill, out sleepPct, out sleepCostLabel);
+            sleepCost, () => ShopManager.Instance?.BuySleep(), SpriteSleep,
+            out sleepFill, out sleepPct, out sleepCostLabel, out sleepBlock);
     }
 
     /// <summary>
     /// Construit une ligne de jauge cliquable.
-    /// La zone de clic couvre tout le bloc (label + track + coût).
-    /// </summary>
+    /// La zone de clic couvre tout le bloc (label + track + coût).</summary>
     private void BuildGaugeRow(RectTransform root,
         string id, string labelText, Color fillColor,
         float anchorYCenter,
         int cost, System.Action onBuy,
+        Sprite gaugeSprite,
         out RectTransform fillOut,
         out TextMeshProUGUI pctOut,
-        out TextMeshProUGUI costLabelOut)
+        out TextMeshProUGUI costLabelOut,
+        out RectTransform blockOut)
     {
         const float blockHalf  = 0.058f;   // demi-hauteur du bloc cliquable
         const float trackHalf  = 0.018f;   // demi-hauteur de la piste
@@ -328,6 +363,7 @@ public class MenuNeedsPanel : MonoBehaviour
         blockRT.anchorMax = new Vector2(0.96f, blockYMax);
         blockRT.offsetMin = new Vector2(0f,  4f);
         blockRT.offsetMax = new Vector2(0f, -4f);
+        blockOut = blockRT;
 
         // Barre de couleur gauche
         var sideGO  = new GameObject("ColorBar");
@@ -351,6 +387,7 @@ public class MenuNeedsPanel : MonoBehaviour
         lblTmp.color     = fillColor;
         lblTmp.alignment = TextAlignmentOptions.MidlineLeft;
         lblTmp.raycastTarget = false;
+        MenuAssets.ApplyFont(lblTmp);
         var lblRT = lblTmp.rectTransform;
         lblRT.anchorMin = new Vector2(0.05f, 0.55f);
         lblRT.anchorMax = new Vector2(0.55f, 1f);
@@ -367,6 +404,7 @@ public class MenuNeedsPanel : MonoBehaviour
         pctTmp.color     = new Color(fillColor.r, fillColor.g, fillColor.b, 0.75f);
         pctTmp.alignment = TextAlignmentOptions.MidlineRight;
         pctTmp.raycastTarget = false;
+        MenuAssets.ApplyFont(pctTmp);
         var pctRT = pctTmp.rectTransform;
         pctRT.anchorMin = new Vector2(0.45f, 0.55f);
         pctRT.anchorMax = new Vector2(0.95f, 1f);
@@ -390,12 +428,24 @@ public class MenuNeedsPanel : MonoBehaviour
         var fillGO  = new GameObject($"Fill_{id}");
         fillGO.transform.SetParent(trackGO.transform, false);
         var fillImg = fillGO.AddComponent<Image>();
-        fillImg.sprite = SpriteGenerator.CreateWhiteSquare();
-        fillImg.color  = fillColor;
+        if (gaugeSprite != null)
+        {
+            fillImg.sprite       = gaugeSprite;
+            fillImg.color        = Color.white;
+            fillImg.type         = Image.Type.Filled;
+            fillImg.fillMethod   = Image.FillMethod.Horizontal;
+            fillImg.fillOrigin   = (int)Image.OriginHorizontal.Left;
+            fillImg.preserveAspect = false;
+        }
+        else
+        {
+            fillImg.sprite     = SpriteGenerator.CreateWhiteSquare();
+            fillImg.color      = fillColor;
+            fillImg.type       = Image.Type.Filled;
+            fillImg.fillMethod = Image.FillMethod.Horizontal;
+        }
         fillImg.raycastTarget = false;
-        fillImg.type       = Image.Type.Filled;
-        fillImg.fillMethod = Image.FillMethod.Horizontal;
-        fillImg.fillAmount = 1f;
+        fillImg.fillAmount    = 1f;
         var fillRT  = fillImg.rectTransform;
         fillRT.anchorMin = Vector2.zero;
         fillRT.anchorMax = Vector2.one;
@@ -441,6 +491,7 @@ public class MenuNeedsPanel : MonoBehaviour
         var img    = go.AddComponent<Image>();
         img.sprite = SpriteGenerator.CreateWhiteSquare();
         img.color  = ColBackBtn;
+        MenuAssets.ApplyButtonSprite(img);
         var rt     = img.rectTransform;
         rt.anchorMin      = new Vector2(0.5f, 0f);
         rt.anchorMax      = new Vector2(0.5f, 0f);
@@ -457,6 +508,7 @@ public class MenuNeedsPanel : MonoBehaviour
         ltmp.color     = ColBackTxt;
         ltmp.alignment = TextAlignmentOptions.Center;
         ltmp.raycastTarget = false;
+        MenuAssets.ApplyFont(ltmp);
         var lrt  = ltmp.rectTransform;
         lrt.anchorMin = Vector2.zero;
         lrt.anchorMax = Vector2.one;
@@ -531,6 +583,26 @@ public class MenuNeedsPanel : MonoBehaviour
         SetGauge(waterFill, waterPct, water);
         SetGauge(foodFill,  foodPct,  food);
         SetGauge(sleepFill, sleepPct, sleep);
+
+        // Pulse de danger si une jauge est en dessous du seuil
+        TriggerDangerPulse(waterBlock, water, ref _waterPulsing);
+        TriggerDangerPulse(foodBlock,  food,  ref _foodPulsing);
+        TriggerDangerPulse(sleepBlock, sleep, ref _sleepPulsing);
+    }
+
+    /// <summary>Déclenche le pulse rouge sur un bloc si la valeur passe sous le seuil et qu'aucun pulse n'est déjà en cours.</summary>
+    private void TriggerDangerPulse(RectTransform block, float value, ref bool isPulsing)
+    {
+        if (block == null || isPulsing) return;
+        if (value > DangerThreshold)   return;
+
+        isPulsing = true;   // marquer immédiatement avant le StartCoroutine
+        if (block == waterBlock)
+            StartCoroutine(DangerPulse(block, b => _waterPulsing = b));
+        else if (block == foodBlock)
+            StartCoroutine(DangerPulse(block, b => _foodPulsing  = b));
+        else if (block == sleepBlock)
+            StartCoroutine(DangerPulse(block, b => _sleepPulsing = b));
     }
 
     private static void SetGauge(RectTransform fill, TextMeshProUGUI pct, float value)
@@ -555,6 +627,7 @@ public class MenuNeedsPanel : MonoBehaviour
         if (coinLabel != null)
             coinLabel.text = coins.ToString("N0");
 
+        StopCoroutine(nameof(PulseCoinBar));
         StartCoroutine(PulseCoinBar());
     }
 
@@ -574,10 +647,72 @@ public class MenuNeedsPanel : MonoBehaviour
 
     // ── Coroutines feedback ───────────────────────────────────────────────────
 
+    /// <summary>
+    /// Pulse rouge continu sur un bloc de jauge tant qu'il est en danger.
+    /// S'arrête automatiquement quand la valeur repasse au-dessus du seuil.
+    /// </summary>
+    private IEnumerator DangerPulse(RectTransform block, System.Action<bool> setPulsing)
+    {
+        setPulsing(true);
+        var blockImg = block.GetComponent<Image>();
+        if (blockImg == null) { setPulsing(false); yield break; }
+
+        Color baseColor = blockImg.color;
+
+        // Boucle de pulses tant que la valeur est en danger
+        while (true)
+        {
+            // Vérifier si on est encore en danger (on relit depuis NeedsManager)
+            float val = GetBlockValue(block);
+            if (val > DangerThreshold || val <= 0f) break;
+
+            // Un aller-retour
+            float elapsed = 0f;
+            while (elapsed < DangerPulseDur)
+            {
+                elapsed += Time.deltaTime;
+                float t  = elapsed / DangerPulseDur;
+                float e  = t < 0.4f
+                    ? Mathf.Lerp(0f, 1f, t / 0.4f)
+                    : Mathf.Lerp(1f, 0f, (t - 0.4f) / 0.6f);
+
+                // Pulse couleur + légère mise à l'échelle
+                if (blockImg != null)
+                    blockImg.color = Color.Lerp(baseColor, ColDangerPulse, e);
+                float s = Mathf.Lerp(1f, DangerPulseScale, Mathf.Sin(t * Mathf.PI));
+                if (block != null)
+                    block.localScale = Vector3.one * s;
+
+                yield return null;
+            }
+
+            if (blockImg != null) blockImg.color = baseColor;
+            if (block    != null) block.localScale = Vector3.one;
+
+            // Petite pause avant le prochain pulse
+            yield return new WaitForSeconds(0.8f);
+        }
+
+        if (blockImg != null) blockImg.color = baseColor;
+        if (block    != null) block.localScale = Vector3.one;
+        setPulsing(false);
+    }
+
+    /// <summary>Retourne la valeur (0-100) correspondant au bloc de jauge fourni.</summary>
+    private float GetBlockValue(RectTransform block)
+    {
+        if (NeedsManager.Instance == null) return 100f;
+        if (block == waterBlock) return NeedsManager.Instance.Water;
+        if (block == foodBlock)  return NeedsManager.Instance.Food;
+        if (block == sleepBlock) return NeedsManager.Instance.Sleep;
+        return 100f;
+    }
+
     private IEnumerator PulseCoinBar()
     {
         if (coinBarBg == null) yield break;
 
+        // Flash couleur
         float duration = 0.35f;
         float elapsed  = 0f;
         Color baseColor  = ColCoinBg;
@@ -591,9 +726,20 @@ public class MenuNeedsPanel : MonoBehaviour
                 ? Mathf.Lerp(0f, 1f, t / 0.3f)
                 : Mathf.Lerp(1f, 0f, (t - 0.3f) / 0.7f);
             coinBarBg.color = Color.Lerp(baseColor, flashColor, e);
+
+            // Scale simultané
+            if (coinBarRT != null)
+            {
+                float s = Mathf.Lerp(1f, CoinPulseScale, Mathf.Sin(t * Mathf.PI));
+                coinBarRT.localScale = Vector3.one * s;
+            }
+
             yield return null;
         }
+
         coinBarBg.color = baseColor;
+        if (coinBarRT != null)
+            coinBarRT.localScale = Vector3.one;
     }
 
     private IEnumerator FlashFail()
@@ -703,6 +849,7 @@ public class MenuNeedsPanel : MonoBehaviour
         tmp.color     = color;
         tmp.alignment = TextAlignmentOptions.Center;
         tmp.raycastTarget = false;
+        MenuAssets.ApplyFont(tmp);
         var rt    = tmp.rectTransform;
         rt.anchorMin = anchorMin;
         rt.anchorMax = anchorMax;

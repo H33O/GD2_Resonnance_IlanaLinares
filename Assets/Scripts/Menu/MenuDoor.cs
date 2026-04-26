@@ -6,230 +6,215 @@ using TMPro;
 /// <summary>
 /// Widget "Porte" du menu principal.
 ///
-/// Layout bas-centre du Canvas :
-///   - Rectangle bordeaux/gris sombre cliquable (bouton porte)
-///   - Au clic : 3 slots de jeu apparaissent en fade-in (Game and Watch, Bulles, TiltBall)
-///   - Un second clic referme les slots
-///
-/// Référence de résolution : 1080 × 1920.
+/// - Affiche le sprite de porte centré bas-écran.
+/// - Verrouillée : sprite cadenas centré + tooltip au clic.
+/// - Déverrouillée : clic → <see cref="DoorManager.OnDoorClicked"/> (overlay intérieur).
 /// </summary>
 public class MenuDoor : MonoBehaviour
 {
     // ── Mise en page ──────────────────────────────────────────────────────────
 
-    private const float DoorW       = 420f;
-    private const float DoorH       = 640f;
-    private const float DoorOffsetY = 60f;
+    private const float DoorW       = 620f;
+    private const float DoorH       = 900f;
+    private const float DoorOffsetY = 120f;
 
-    private const float SlotW       = 320f;
-    private const float SlotH       = 140f;
-    private const float SlotGap     = 22f;
-    private const float SlotFadeT   = 0.28f;
+    // Cadenas — positionné au centre vertical haut de la porte
+    private const float LockW = 200f;
+    private const float LockH = 200f;
 
-    // ── Palette ───────────────────────────────────────────────────────────────
+    // Tooltip
+    private const float TooltipW    = 780f;
+    private const float TooltipH    = 200f;
+    private const float TooltipDur  = 2.8f;   // durée d'affichage en secondes
+    private const float TooltipFade = 0.30f;  // durée du fondu
 
-    private static readonly Color ColDoorBg     = new Color(0.14f, 0.10f, 0.16f, 1f);
-    private static readonly Color ColDoorBorder = new Color(0.60f, 0.55f, 0.70f, 0.55f);
-    private static readonly Color ColSlotBg     = new Color(0.18f, 0.18f, 0.28f, 1f);
-    private static readonly Color ColSlotBorder = new Color(0.70f, 0.70f, 0.90f, 0.45f);
-    private static readonly Color ColSlotLabel  = Color.white;
-    private static readonly Color ColSlotSub    = new Color(1f, 1f, 1f, 0.45f);
-    private static readonly Color ColDoorHint   = new Color(1f, 1f, 1f, 0.30f);
+    // ── Références runtime ────────────────────────────────────────────────────
 
-    // ── Données des 3 jeux ────────────────────────────────────────────────────
+    private Image           _lockImage;
+    private RectTransform   _tooltipRT;
+    private CanvasGroup     _tooltipGroup;
+    private bool            _tooltipShowing;
 
-    private static readonly string[] SlotTitles    = { "GAME AND WATCH", "BUBBLE SHOOTER", "TILT BALL" };
-    private static readonly string[] SlotSubtitles = { "Classic", "Casual", "Skill" };
+    // ── Sprites (assignés depuis MenuSceneSetup) ──────────────────────────────
 
-    // ── État ──────────────────────────────────────────────────────────────────
-
-    private CanvasGroup slotsGroup;
-    private bool        slotsVisible;
-    private bool        isAnimating;
+    public Sprite DoorSprite { get; set; }
 
     // ── Initialisation ────────────────────────────────────────────────────────
 
     /// <summary>Construit la porte dans le <paramref name="canvasRT"/> fourni.</summary>
     public void Init(RectTransform canvasRT)
     {
-        var doorRT = BuildDoorBackground(canvasRT);
-        BuildHintLabel(doorRT);
-        BuildSlots(doorRT);
+        var doorRT = BuildDoorImage(canvasRT);
+        BuildLockImage(doorRT);
+        BuildTooltip(canvasRT);
+        RefreshLockVisual();
     }
 
-    // ── Fond de la porte ──────────────────────────────────────────────────────
+    // ── Image de porte ────────────────────────────────────────────────────────
 
-    private RectTransform BuildDoorBackground(RectTransform parent)
+    private RectTransform BuildDoorImage(RectTransform parent)
     {
         var go = new GameObject("Door");
         go.transform.SetParent(parent, false);
 
-        var img           = go.AddComponent<Image>();
-        img.sprite        = SpriteGenerator.CreateWhiteSquare();
-        img.color         = ColDoorBg;
+        var img          = go.AddComponent<Image>();
+        img.sprite       = DoorSprite;
+        img.color        = Color.white;
+        img.preserveAspect = true;
+        img.raycastTarget = true;
 
-        var rt            = img.rectTransform;
-        rt.anchorMin      = new Vector2(0.5f, 0f);
-        rt.anchorMax      = new Vector2(0.5f, 0f);
-        rt.pivot          = new Vector2(0.5f, 0f);
-        rt.sizeDelta      = new Vector2(DoorW, DoorH);
+        if (DoorSprite == null)
+            img.color = new Color(1f, 1f, 1f, 0f);
+
+        var rt              = img.rectTransform;
+        rt.anchorMin        = new Vector2(0.5f, 0f);
+        rt.anchorMax        = new Vector2(0.5f, 0f);
+        rt.pivot            = new Vector2(0.5f, 0f);
+        rt.sizeDelta        = new Vector2(DoorW, DoorH);
         rt.anchoredPosition = new Vector2(0f, DoorOffsetY);
 
-        BuildOutline(rt, ColDoorBorder, 3f);
-
-        var btn           = go.AddComponent<Button>();
-        btn.targetGraphic = img;
-        btn.onClick.AddListener(ToggleSlots);
+        var btn                  = go.AddComponent<Button>();
+        btn.targetGraphic        = img;
+        var colors               = btn.colors;
+        colors.highlightedColor  = new Color(1f, 1f, 1f, 0.85f);
+        colors.pressedColor      = new Color(0.8f, 0.8f, 0.8f, 1f);
+        colors.fadeDuration      = 0.08f;
+        btn.colors               = colors;
+        btn.onClick.AddListener(OnClick);
 
         return rt;
     }
 
-    // ── Label "OUVRIR" bas de porte ───────────────────────────────────────────
+    // ── Sprite cadenas ────────────────────────────────────────────────────────
 
-    private static void BuildHintLabel(RectTransform doorRT)
+    private void BuildLockImage(RectTransform doorRT)
     {
-        var go      = new GameObject("HintLabel");
+        var go  = new GameObject("LockImage");
         go.transform.SetParent(doorRT, false);
 
-        var tmp     = go.AddComponent<TextMeshProUGUI>();
-        tmp.text    = "▲  OUVRIR";
-        tmp.fontSize = 22f;
-        tmp.fontStyle = FontStyles.Bold;
-        tmp.color   = ColDoorHint;
-        tmp.alignment = TextAlignmentOptions.Center;
+        _lockImage               = go.AddComponent<Image>();
+        _lockImage.sprite        = MenuAssets.LockSprite;
+        _lockImage.color         = Color.white;
+        _lockImage.preserveAspect = true;
+        _lockImage.raycastTarget = false;
+
+        // Si pas de sprite, fallback invisible
+        if (MenuAssets.LockSprite == null)
+            _lockImage.color = new Color(1f, 1f, 1f, 0f);
+
+        var rt        = _lockImage.rectTransform;
+        rt.anchorMin  = new Vector2(0.5f, 0.5f);
+        rt.anchorMax  = new Vector2(0.5f, 0.5f);
+        rt.pivot      = new Vector2(0.5f, 0.5f);
+        rt.sizeDelta  = new Vector2(LockW, LockH);
+        rt.anchoredPosition = Vector2.zero;
+    }
+
+    // ── Tooltip "Finissez les 3 mini jeux…" ──────────────────────────────────
+
+    private void BuildTooltip(RectTransform canvasRT)
+    {
+        var go  = new GameObject("DoorTooltip");
+        go.transform.SetParent(canvasRT, false);
+
+        var rt          = go.AddComponent<RectTransform>();
+        rt.anchorMin    = new Vector2(0.5f, 0f);
+        rt.anchorMax    = new Vector2(0.5f, 0f);
+        rt.pivot        = new Vector2(0.5f, 0f);
+        rt.sizeDelta    = new Vector2(TooltipW, TooltipH);
+        rt.anchoredPosition = new Vector2(0f, DoorOffsetY + DoorH + 24f);
+
+        _tooltipGroup               = go.AddComponent<CanvasGroup>();
+        _tooltipGroup.alpha         = 0f;
+        _tooltipGroup.blocksRaycasts = false;
+        _tooltipGroup.interactable  = false;
+
+        // Fond
+        var bg          = go.AddComponent<Image>();
+        bg.sprite       = SpriteGenerator.CreateWhiteSquare();
+        bg.color        = new Color(0.06f, 0.04f, 0.10f, 0.92f);
+        bg.raycastTarget = false;
+
+        // Texte
+        var txtGO  = new GameObject("TooltipText");
+        txtGO.transform.SetParent(go.transform, false);
+        var tmp    = txtGO.AddComponent<TextMeshProUGUI>();
+        tmp.text   = "Finissez les 3 mini jeux\npour voir ce qu'il y a derrière la porte";
+        tmp.fontSize    = 32f;
+        tmp.fontStyle   = FontStyles.Bold;
+        tmp.color       = Color.white;
+        tmp.alignment   = TextAlignmentOptions.Center;
         tmp.raycastTarget = false;
+        MenuAssets.ApplyFont(tmp);
 
-        var rt      = tmp.rectTransform;
-        rt.anchorMin = new Vector2(0f, 0f);
-        rt.anchorMax = new Vector2(1f, 0.13f);
-        rt.offsetMin = rt.offsetMax = Vector2.zero;
+        var trt         = tmp.rectTransform;
+        trt.anchorMin   = Vector2.zero;
+        trt.anchorMax   = Vector2.one;
+        trt.offsetMin   = new Vector2(24f, 16f);
+        trt.offsetMax   = new Vector2(-24f, -16f);
+
+        _tooltipRT = rt;
     }
 
-    // ── 3 slots de jeu (centrés dans la porte, cachés au départ) ─────────────
+    // ── Rafraîchissement visuel ───────────────────────────────────────────────
 
-    private void BuildSlots(RectTransform doorRT)
+    /// <summary>Affiche/masque le cadenas selon l'état courant de <see cref="DoorManager"/>.</summary>
+    public void RefreshLockVisual()
     {
-        var container = new GameObject("SlotsContainer");
-        container.transform.SetParent(doorRT, false);
+        bool locked = DoorManager.Instance == null || !DoorManager.Instance.IsUnlocked;
+        if (_lockImage != null) _lockImage.gameObject.SetActive(locked);
+    }
 
-        var containerRT       = container.AddComponent<RectTransform>();
-        containerRT.anchorMin = Vector2.zero;
-        containerRT.anchorMax = Vector2.one;
-        containerRT.offsetMin = containerRT.offsetMax = Vector2.zero;
+    // ── Clic ──────────────────────────────────────────────────────────────────
 
-        slotsGroup                = container.AddComponent<CanvasGroup>();
-        slotsGroup.alpha          = 0f;
-        slotsGroup.blocksRaycasts = false;
-        slotsGroup.interactable   = false;
+    private void OnClick()
+    {
+        if (DoorManager.Instance == null) return;
 
-        float totalH = SlotH * 3f + SlotGap * 2f;
-        float startY = totalH * 0.5f + SlotGap * 0.5f;
+        DoorManager.Instance.EvaluateUnlock();
+        RefreshLockVisual();
 
-        for (int i = 0; i < 3; i++)
+        if (!DoorManager.Instance.IsUnlocked)
         {
-            float cy = startY - i * (SlotH + SlotGap);
-            BuildSlot(containerRT, i, cy);
+            // Afficher le tooltip "Finissez les 3 mini jeux…"
+            StopAllCoroutines();
+            StartCoroutine(ShowTooltip());
+            return;
         }
+
+        DoorManager.Instance.OnDoorClicked();
     }
 
-    private static void BuildSlot(RectTransform parent, int index, float centerY)
+    // ── Tooltip coroutine ─────────────────────────────────────────────────────
+
+    private IEnumerator ShowTooltip()
     {
-        var go = new GameObject($"Slot_{index}");
-        go.transform.SetParent(parent, false);
+        if (_tooltipGroup == null) yield break;
+        _tooltipShowing = true;
 
-        var img           = go.AddComponent<Image>();
-        img.sprite        = SpriteGenerator.CreateWhiteSquare();
-        img.color         = ColSlotBg;
-        img.raycastTarget = false;
+        // Fade in
+        yield return StartCoroutine(FadeTooltip(0f, 1f, TooltipFade));
 
-        var rt            = img.rectTransform;
-        rt.anchorMin      = new Vector2(0.5f, 0.5f);
-        rt.anchorMax      = new Vector2(0.5f, 0.5f);
-        rt.pivot          = new Vector2(0.5f, 0.5f);
-        rt.sizeDelta      = new Vector2(SlotW, SlotH);
-        rt.anchoredPosition = new Vector2(0f, centerY);
+        // Maintien
+        yield return new WaitForSeconds(TooltipDur);
 
-        BuildOutline(rt, ColSlotBorder, 2f);
+        // Fade out
+        yield return StartCoroutine(FadeTooltip(1f, 0f, TooltipFade));
 
-        // Titre du jeu
-        var titleGO        = new GameObject("Title");
-        titleGO.transform.SetParent(rt, false);
-        var titleTmp       = titleGO.AddComponent<TextMeshProUGUI>();
-        titleTmp.text      = SlotTitles[index];
-        titleTmp.fontSize  = 30f;
-        titleTmp.fontStyle = FontStyles.Bold;
-        titleTmp.color     = ColSlotLabel;
-        titleTmp.alignment = TextAlignmentOptions.Center;
-        titleTmp.raycastTarget = false;
-        var titleRT        = titleTmp.rectTransform;
-        titleRT.anchorMin  = new Vector2(0f, 0.5f);
-        titleRT.anchorMax  = Vector2.one;
-        titleRT.offsetMin  = new Vector2(12f, 0f);
-        titleRT.offsetMax  = new Vector2(-12f, 0f);
-
-        // Sous-titre genre
-        var subGO        = new GameObject("Subtitle");
-        subGO.transform.SetParent(rt, false);
-        var subTmp       = subGO.AddComponent<TextMeshProUGUI>();
-        subTmp.text      = SlotSubtitles[index];
-        subTmp.fontSize  = 22f;
-        subTmp.fontStyle = FontStyles.Normal;
-        subTmp.color     = ColSlotSub;
-        subTmp.alignment = TextAlignmentOptions.Center;
-        subTmp.raycastTarget = false;
-        var subRT        = subTmp.rectTransform;
-        subRT.anchorMin  = Vector2.zero;
-        subRT.anchorMax  = new Vector2(1f, 0.5f);
-        subRT.offsetMin  = new Vector2(12f, 0f);
-        subRT.offsetMax  = new Vector2(-12f, 0f);
+        _tooltipShowing = false;
     }
 
-    // ── Toggle slots ──────────────────────────────────────────────────────────
-
-    private void ToggleSlots()
+    private IEnumerator FadeTooltip(float from, float to, float duration)
     {
-        if (isAnimating) return;
-        slotsVisible = !slotsVisible;
-        StartCoroutine(FadeSlots(slotsVisible));
-    }
-
-    private IEnumerator FadeSlots(bool show)
-    {
-        isAnimating = true;
-        float from  = show ? 0f : 1f;
-        float to    = show ? 1f : 0f;
-
-        slotsGroup.blocksRaycasts = show;
-        slotsGroup.interactable   = show;
-
         float elapsed = 0f;
-        while (elapsed < SlotFadeT)
+        while (elapsed < duration)
         {
-            elapsed          += Time.deltaTime;
-            slotsGroup.alpha  = Mathf.Lerp(from, to, Mathf.Clamp01(elapsed / SlotFadeT));
+            elapsed += Time.deltaTime;
+            if (_tooltipGroup != null)
+                _tooltipGroup.alpha = Mathf.Lerp(from, to, Mathf.Clamp01(elapsed / duration));
             yield return null;
         }
-        slotsGroup.alpha = to;
-        isAnimating      = false;
-    }
-
-    // ── Helper bordure ────────────────────────────────────────────────────────
-
-    private static void BuildOutline(RectTransform parent, Color color, float thickness)
-    {
-        var go = new GameObject("Outline");
-        go.transform.SetParent(parent, false);
-        go.transform.SetAsFirstSibling();
-
-        var img           = go.AddComponent<Image>();
-        img.sprite        = SpriteGenerator.CreateWhiteSquare();
-        img.color         = color;
-        img.raycastTarget = false;
-
-        var rt       = img.rectTransform;
-        rt.anchorMin = Vector2.zero;
-        rt.anchorMax = Vector2.one;
-        rt.offsetMin = new Vector2(-thickness, -thickness);
-        rt.offsetMax = new Vector2( thickness,  thickness);
+        if (_tooltipGroup != null)
+            _tooltipGroup.alpha = to;
     }
 }

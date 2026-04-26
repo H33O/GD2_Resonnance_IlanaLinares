@@ -1748,6 +1748,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   collectiblePrefab: {fileID: 1083978023019957827, guid: bcefe9c1ea9507b428679a939cd934fc, type: 3}
   fastEnemyPrefab: {fileID: 6058775408093793959, guid: 09d7a7caa4a2cb84d852d3adc72374d4, type: 3}
+  redEnemyPrefab: {fileID: 678886338237339308, guid: cbc9389a06c32dc409d08f2c0a5934d7, type: 3}
   baseSpawnInterval: 1.5
   numberOfColumns: 3
   columnSpacing: 2
@@ -2137,10 +2138,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 72115dfa3f7c0214daeb498e2476592e, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  showReturnButton: 1
+  showReturnButton: 0
   countAsCompletion: 1
-  buttonAnchorMin: {x: 0, y: 0.9}
-  buttonAnchorMax: {x: 0.35, y: 1}
+  buttonAnchorMin: {x: 0.35, y: 0.45}
+  buttonAnchorMax: {x: 0.65, y: 0.55}
 --- !u!1 &1658400169
 GameObject:
   m_ObjectHideFlags: 0
