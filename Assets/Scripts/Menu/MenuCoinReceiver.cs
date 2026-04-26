@@ -4,57 +4,56 @@ using UnityEngine.UI;
 using TMPro;
 
 /// <summary>
-/// Traite les pièces en attente depuis <see cref="GameEndData"/> au retour dans la scène Menu.
+/// Créé par <see cref="MenuMainSetup"/> au démarrage de la scène Menu.
 ///
-/// Séquence :
-///   1. Affiche une mini-card "Score de la partie" en haut du canvas.
-///   2. Après un bref délai, les pièces "glissent" dans le <see cref="CoinWalletWidget"/>
-///      via <see cref="ScoreManager.AddCoins"/> qui déclenche son propre roll-up + jetons.
-///   3. Pulse la barre du wallet pour attirer l'attention.
-///
-/// Créé et géré par <see cref="MenuMainSetup"/>.
+/// Si <see cref="GameEndData.HasPending"/> est vrai, lance la séquence :
+///   1. Mini-card score/pièces slide-in depuis le haut
+///   2. Tokens dorés qui volent vers le <see cref="CoinWalletWidget"/>
+///   3. <see cref="ScoreManager.AddCoins"/> → le wallet affiche son propre roll-up + flash
+///   4. La card fade-out et se détruit
 /// </summary>
 public class MenuCoinReceiver : MonoBehaviour
 {
     // ── Timings ───────────────────────────────────────────────────────────────
 
-    private const float AppearDelay    = 0.60f;   // délai après le chargement du menu
-    private const float FadeInDur      = 0.30f;
+    private const float WaitAfterLoad  = 0.80f;  // laisse le menu se stabiliser
+    private const float SlideInDur     = 0.40f;
     private const float ScoreCountDur  = 1.00f;
-    private const float PreCoinDelay   = 0.70f;   // pause avant d'envoyer les pièces
-    private const float CoinAnimDur    = 0.80f;   // durée de l'anim de transfert visuel
-    private const float HoldDur        = 1.80f;   // durée d'affichage après réception
-    private const float FadeOutDur     = 0.40f;
+    private const float CoinCountDur   = 0.70f;
+    private const float PreTransferWait= 0.55f;
+    private const float TransferDur    = 0.90f;
+    private const float HoldAfterDur   = 1.60f;
+    private const float FadeOutDur     = 0.35f;
 
     // ── Palette ───────────────────────────────────────────────────────────────
 
-    private static readonly Color ColCard        = new Color(0.07f, 0.06f, 0.12f, 0.96f);
-    private static readonly Color ColBorder      = new Color(1f, 0.82f, 0.18f, 0.60f);
-    private static readonly Color ColTitle       = new Color(1f, 1f, 1f, 0.40f);
-    private static readonly Color ColScore       = new Color(1f, 0.82f, 0.18f, 1f);
-    private static readonly Color ColCoins       = new Color(0.35f, 0.95f, 0.50f, 1f);
-    private static readonly Color ColToken       = new Color(1f, 0.82f, 0.18f, 1f);
+    private static readonly Color ColCard     = new Color(0.07f, 0.06f, 0.13f, 0.97f);
+    private static readonly Color ColEdge     = new Color(0.95f, 0.15f, 0.15f, 0.85f);
+    private static readonly Color ColBorder   = new Color(1.00f, 1.00f, 1.00f, 0.10f);
+    private static readonly Color ColSub      = new Color(1.00f, 1.00f, 1.00f, 0.35f);
+    private static readonly Color ColScoreVal = new Color(1.00f, 0.82f, 0.18f, 1.00f);
+    private static readonly Color ColCoinsVal = new Color(0.30f, 0.95f, 0.45f, 1.00f);
+    private static readonly Color ColToken    = new Color(1.00f, 0.82f, 0.18f, 1.00f);
+    private static readonly Color ColLbl      = new Color(1.00f, 1.00f, 1.00f, 0.40f);
 
-    // ── Construction ──────────────────────────────────────────────────────────
+    // ── Factory ───────────────────────────────────────────────────────────────
 
-    /// <summary>
-    /// Initialise le receiver. Appeler depuis <see cref="MenuMainSetup"/> après la création du canvas.
-    /// </summary>
+    /// <summary>Crée le composant et l'attache au canvas du menu.</summary>
     public static MenuCoinReceiver Create(RectTransform canvasRT)
     {
-        var go = new GameObject("MenuCoinReceiver");
+        var go   = new GameObject("MenuCoinReceiver");
         go.transform.SetParent(canvasRT, false);
-        var rt = go.AddComponent<RectTransform>();
+        var rt   = go.AddComponent<RectTransform>();
         rt.anchorMin = Vector2.zero;
         rt.anchorMax = Vector2.one;
         rt.offsetMin = rt.offsetMax = Vector2.zero;
 
-        var comp = go.AddComponent<MenuCoinReceiver>();
+        var comp      = go.AddComponent<MenuCoinReceiver>();
         comp.canvasRT = canvasRT;
         return comp;
     }
 
-    // ── Références ────────────────────────────────────────────────────────────
+    // ── Champs ────────────────────────────────────────────────────────────────
 
     private RectTransform canvasRT;
 
@@ -64,269 +63,317 @@ public class MenuCoinReceiver : MonoBehaviour
     {
         if (!GameEndData.HasPending) return;
 
-        int finalScore = GameEndData.FinalScore;
-        int coins      = GameEndData.CoinsEarned;
+        int score = GameEndData.FinalScore;
+        int coins = GameEndData.CoinsEarned;
         GameEndData.Consume();
 
-        StartCoroutine(RunSequence(finalScore, coins));
+        StartCoroutine(Run(score, coins));
     }
 
-    // ── Séquence ──────────────────────────────────────────────────────────────
+    // ── Séquence principale ───────────────────────────────────────────────────
 
-    private IEnumerator RunSequence(int finalScore, int coins)
+    private IEnumerator Run(int score, int coins)
     {
-        // Attendre 2 frames : CoinWalletWidget s'abonne à OnCoinsAdded dans OnEnable
-        // qui tourne au même frame que Start → on laisse passer un cycle complet.
+        // Attendre que CoinWalletWidget soit abonné (OnEnable = même frame que Start)
         yield return null;
         yield return null;
+        yield return new WaitForSeconds(WaitAfterLoad);
 
-        yield return new WaitForSeconds(AppearDelay);
-
-        // ── 1. Construire la card ─────────────────────────────────────────────
-        var (cardRT, group, scoreLabel, coinsLabel) = BuildCard();
+        // ── 1. Construire et slide-in la card ─────────────────────────────────
+        var (cardRT, cardGroup, scoreVal, coinsVal) = BuildCard();
         cardRT.gameObject.SetActive(true);
 
-        // Fade in
-        yield return StartCoroutine(FadeGroup(group, 0f, 1f, FadeInDur));
+        yield return StartCoroutine(SlideIn(cardRT, cardGroup, SlideInDur));
 
-        // ── 2. Compteur score ─────────────────────────────────────────────────
-        yield return StartCoroutine(CountUpLabel(scoreLabel, 0, finalScore, ScoreCountDur, isCoin: false));
+        // ── 2. Count-up score ─────────────────────────────────────────────────
+        yield return StartCoroutine(CountUp(scoreVal, 0, score, ScoreCountDur, isCoin: false));
 
-        // ── 3. Pause puis envoi des pièces ────────────────────────────────────
-        yield return new WaitForSeconds(PreCoinDelay);
+        // ── 3. Count-up pièces ────────────────────────────────────────────────
+        yield return new WaitForSeconds(0.30f);
+        yield return StartCoroutine(CountUp(coinsVal, 0, coins, CoinCountDur, isCoin: true));
 
-        // Mettre à jour le label pièces
-        coinsLabel.text = $"+{coins} 🪙";
+        // ── 4. Pause avant le transfert ───────────────────────────────────────
+        yield return new WaitForSeconds(PreTransferWait);
 
-        // Lancer l'animation de transfert visuel (tokens qui volent vers le wallet)
-        // Puis appeler AddCoins qui déclenche le roll-up + flash du CoinWalletWidget
-        yield return StartCoroutine(AnimateCoinTransfer(cardRT, coins, CoinAnimDur));
+        // ── 5. Tokens volants + crédit ────────────────────────────────────────
+        yield return StartCoroutine(TransferCoins(cardRT, coins));
 
-        // ── 4. Hold ───────────────────────────────────────────────────────────
-        yield return new WaitForSeconds(HoldDur);
+        // ── 6. Hold ───────────────────────────────────────────────────────────
+        yield return new WaitForSeconds(HoldAfterDur);
 
-        // ── 5. Fade out et destruction ────────────────────────────────────────
-        yield return StartCoroutine(FadeGroup(group, 1f, 0f, FadeOutDur));
+        // ── 7. Fade-out ───────────────────────────────────────────────────────
+        yield return StartCoroutine(Fade(cardGroup, 1f, 0f, FadeOutDur));
         Destroy(cardRT.gameObject);
     }
 
-    // ── Animation de transfert ────────────────────────────────────────────────
+    // ── Transfert de pièces ───────────────────────────────────────────────────
 
-    private IEnumerator AnimateCoinTransfer(RectTransform cardRT, int coins, float duration)
+    private IEnumerator TransferCoins(RectTransform cardRT, int coins)
     {
-        int tokenCount = Mathf.Clamp(coins, 1, 8);
-        var walletTargetAnchor = new Vector2(0.5f, 0.95f);
+        int count = Mathf.Clamp(coins, 1, 8);
 
-        for (int i = 0; i < tokenCount; i++)
+        // Lancer les tokens en cascade
+        for (int i = 0; i < count; i++)
         {
-            float delay = i * (duration / tokenCount) * 0.6f;
-            StartCoroutine(FlyToken(cardRT, walletTargetAnchor, delay, duration));
+            float delay = i * (TransferDur / count) * 0.55f;
+            StartCoroutine(FlyToken(cardRT, delay));
         }
 
-        // Créditer les pièces au moment où les premiers tokens arrivent au wallet
-        yield return new WaitForSeconds(duration * 0.3f);
+        // Créditer quand les premiers tokens atteignent le wallet (~30% du vol)
+        yield return new WaitForSeconds(TransferDur * 0.30f);
 
         ScoreManager.EnsureExists();
         ScoreManager.Instance.AddCoins(coins);
 
-        yield return new WaitForSeconds(duration * 0.7f);
+        yield return new WaitForSeconds(TransferDur * 0.70f);
     }
 
-    private IEnumerator FlyToken(RectTransform origin, Vector2 targetAnchor, float delay, float flightDur)
+    private IEnumerator FlyToken(RectTransform origin, float delay)
     {
-        yield return new WaitForSeconds(delay);
+        if (delay > 0f) yield return new WaitForSeconds(delay);
 
-        var tokenGO = new GameObject("FlyToken");
-        tokenGO.transform.SetParent(canvasRT, false);
+        var go  = new GameObject("CoinToken");
+        go.transform.SetParent(canvasRT, false);
 
-        var img    = tokenGO.AddComponent<Image>();
+        var img = go.AddComponent<Image>();
         img.sprite = SpriteGenerator.CreateWhiteSquare();
         img.color  = ColToken;
         img.raycastTarget = false;
 
-        var rt     = img.rectTransform;
+        var rt   = img.rectTransform;
         rt.anchorMin = rt.anchorMax = new Vector2(0.5f, 0.5f);
         rt.pivot     = new Vector2(0.5f, 0.5f);
-        rt.sizeDelta = new Vector2(22f, 22f);
+        rt.sizeDelta = new Vector2(20f, 20f);
 
-        // Départ : position de la card en coordonnées canvas
-        Vector3 startWorld  = origin.TransformPoint(Vector3.zero);
-        Vector3 endWorld    = new Vector3(
-            canvasRT.rect.width  * targetAnchor.x,
-            canvasRT.rect.height * targetAnchor.y, 0f);
+        // Départ depuis le centre de la card (anchoredPosition canvas-space)
+        Vector2 startAP = WorldToCanvasAnchoredPos(origin.TransformPoint(Vector3.zero));
 
-        // Convertir en anchoredPosition locale du canvas
-        RectTransformUtility.ScreenPointToLocalPointInRectangle(
-            canvasRT,
-            RectTransformUtility.WorldToScreenPoint(null, startWorld),
-            null,
-            out Vector2 startAP);
-
+        // Arrivée : wallet en haut du canvas (anchorY ≈ 0.93 = zone CoinWalletWidget)
         Vector2 endAP = new Vector2(
-            (targetAnchor.x - 0.5f) * canvasRT.rect.width,
-            (targetAnchor.y - 0.5f) * canvasRT.rect.height);
+            Random.Range(-80f, 80f),
+            (0.93f - 0.5f) * canvasRT.rect.height);
 
-        Vector2 ctrl = Vector2.Lerp(startAP, endAP, 0.5f)
-                     + new Vector2(Random.Range(-120f, 120f), Random.Range(80f, 240f));
+        // Point de contrôle pour arc bezier
+        Vector2 ctrl = Vector2.Lerp(startAP, endAP, 0.45f)
+                     + new Vector2(Random.Range(-150f, 150f), Random.Range(60f, 200f));
 
-        float elapsed = 0f;
-        while (elapsed < flightDur)
+        float t = 0f;
+        while (t < TransferDur)
         {
-            elapsed += Time.deltaTime;
-            float t  = Mathf.Clamp01(elapsed / flightDur);
-            float e  = 1f - Mathf.Pow(1f - t, 3f);   // EaseOutCubic
+            t += Time.deltaTime;
+            float n = Mathf.Clamp01(t / TransferDur);
+            float e = 1f - Mathf.Pow(1f - n, 3f);  // EaseOutCubic
 
-            rt.anchoredPosition = Mathf.Pow(1f - e, 2f) * startAP
-                                + 2f * (1f - e) * e * ctrl
-                                + e * e * endAP;
+            // Bezier quadratique
+            rt.anchoredPosition =
+                  Mathf.Pow(1f - e, 2f) * startAP
+                + 2f * (1f - e) * e     * ctrl
+                + e * e                 * endAP;
 
-            float alpha = t > 0.75f ? Mathf.Lerp(1f, 0f, (t - 0.75f) / 0.25f) : 1f;
+            float alpha = n > 0.72f ? Mathf.InverseLerp(1f, 0.72f, n) : 1f;
             img.color   = new Color(ColToken.r, ColToken.g, ColToken.b, alpha);
+            rt.localRotation = Quaternion.Euler(0f, 0f, e * 380f);
 
-            rt.localRotation = Quaternion.Euler(0f, 0f, e * 360f);
             yield return null;
         }
 
-        Destroy(tokenGO);
+        Destroy(go);
+    }
+
+    private Vector2 WorldToCanvasAnchoredPos(Vector3 worldPos)
+    {
+        RectTransformUtility.ScreenPointToLocalPointInRectangle(
+            canvasRT,
+            RectTransformUtility.WorldToScreenPoint(null, worldPos),
+            null,
+            out Vector2 local);
+        return local;
     }
 
     // ── Construction de la card ───────────────────────────────────────────────
 
-    private (RectTransform card, CanvasGroup group,
-             TextMeshProUGUI scoreLabel, TextMeshProUGUI coinsLabel) BuildCard()
+    private (RectTransform rt, CanvasGroup group,
+             TextMeshProUGUI scoreVal, TextMeshProUGUI coinsVal) BuildCard()
     {
-        const float CardW = 720f;
-        const float CardH = 260f;
+        const float W = 900f;
+        const float H = 220f;
 
-        // Racine card (haut-centre, juste sous le wallet)
-        var cardGO  = new GameObject("ScoreCard");
-        cardGO.transform.SetParent(canvasRT, false);
-        cardGO.SetActive(false);
+        // Racine (hors écran en haut → slide-in)
+        var go = new GameObject("ResultCard");
+        go.transform.SetParent(canvasRT, false);
+        go.SetActive(false);
 
-        var cardGroup = cardGO.AddComponent<CanvasGroup>();
-        cardGroup.alpha = 0f;
+        var group   = go.AddComponent<CanvasGroup>();
+        group.alpha = 0f;
 
-        var cardRT  = cardGO.AddComponent<RectTransform>();
-        cardRT.anchorMin = new Vector2(0.5f, 1f);
-        cardRT.anchorMax = new Vector2(0.5f, 1f);
-        cardRT.pivot     = new Vector2(0.5f, 1f);
-        cardRT.sizeDelta = new Vector2(CardW, CardH);
-        cardRT.anchoredPosition = new Vector2(0f, -180f);  // sous le CoinWalletWidget
+        var rt = go.AddComponent<RectTransform>();
+        rt.anchorMin        = new Vector2(0.5f, 1f);
+        rt.anchorMax        = new Vector2(0.5f, 1f);
+        rt.pivot            = new Vector2(0.5f, 1f);
+        rt.sizeDelta        = new Vector2(W, H);
+        rt.anchoredPosition = new Vector2(0f, H);  // hors écran initialement
 
-        // Fond bordure
-        var borderGO  = new GameObject("Border");
-        borderGO.transform.SetParent(cardRT, false);
-        var borderImg = borderGO.AddComponent<Image>();
+        // Fond
+        RawImg(rt, "Bg", ColCard, stretch: true);
+
+        // Accent gauche rouge defeat
+        var accent   = new GameObject("Accent");
+        accent.transform.SetParent(rt, false);
+        var accentImg = accent.AddComponent<Image>();
+        accentImg.sprite = SpriteGenerator.CreateWhiteSquare();
+        accentImg.color  = ColEdge;
+        accentImg.raycastTarget = false;
+        var accentRT = accentImg.rectTransform;
+        accentRT.anchorMin = new Vector2(0f, 0f);
+        accentRT.anchorMax = new Vector2(0.008f, 1f);
+        accentRT.offsetMin = accentRT.offsetMax = Vector2.zero;
+
+        // Bordure extérieure subtile
+        var border = new GameObject("Border");
+        border.transform.SetParent(rt, false);
+        var borderImg = border.AddComponent<Image>();
         borderImg.sprite = SpriteGenerator.CreateWhiteSquare();
         borderImg.color  = ColBorder;
         borderImg.raycastTarget = false;
         var borderRT = borderImg.rectTransform;
         borderRT.anchorMin = Vector2.zero;
         borderRT.anchorMax = Vector2.one;
-        borderRT.offsetMin = new Vector2(-3f, -3f);
-        borderRT.offsetMax = new Vector2( 3f,  3f);
-
-        // Fond card
-        var bgGO  = new GameObject("Bg");
-        bgGO.transform.SetParent(cardRT, false);
-        var bgImg = bgGO.AddComponent<Image>();
-        bgImg.sprite = SpriteGenerator.CreateWhiteSquare();
-        bgImg.color  = ColCard;
-        bgImg.raycastTarget = false;
-        var bgRT = bgImg.rectTransform;
-        bgRT.anchorMin = Vector2.zero;
-        bgRT.anchorMax = Vector2.one;
-        bgRT.offsetMin = bgRT.offsetMax = Vector2.zero;
+        borderRT.offsetMin = new Vector2(-1f, -1f);
+        borderRT.offsetMax = new Vector2( 1f,  1f);
+        border.transform.SetAsFirstSibling();
 
         // Titre
-        MakeLabel(cardRT, "Title", "PARTIE TERMINÉE",
-            new Vector2(0.05f, 0.72f), new Vector2(0.95f, 1f),
-            26f, ColTitle, bold: true);
+        Lbl(rt, "Title", "RÉSULTATS DE LA PARTIE",
+            new Vector2(0.03f, 0.68f), new Vector2(0.97f, 1.0f),
+            22f, ColSub, FontStyles.Bold);
 
-        // Score
-        MakeLabel(cardRT, "ScoreLbl", "SCORE",
-            new Vector2(0.05f, 0.50f), new Vector2(0.48f, 0.72f),
-            22f, ColTitle, bold: false);
-
-        var scoreLabel = MakeLabel(cardRT, "ScoreVal", "0",
-            new Vector2(0.05f, 0.22f), new Vector2(0.48f, 0.54f),
-            56f, ColScore, bold: true);
-
-        // Pièces
-        MakeLabel(cardRT, "CoinsLbl", "PIÈCES",
-            new Vector2(0.52f, 0.50f), new Vector2(0.95f, 0.72f),
-            22f, ColTitle, bold: false);
-
-        var coinsLabel = MakeLabel(cardRT, "CoinsVal", "0 🪙",
-            new Vector2(0.52f, 0.22f), new Vector2(0.95f, 0.54f),
-            56f, ColCoins, bold: true);
-
-        // Séparateur vertical
-        var sepGO  = new GameObject("VSep");
-        sepGO.transform.SetParent(cardRT, false);
-        var sepImg = sepGO.AddComponent<Image>();
+        // Séparateur
+        var sep = new GameObject("Sep");
+        sep.transform.SetParent(rt, false);
+        var sepImg = sep.AddComponent<Image>();
         sepImg.sprite = SpriteGenerator.CreateWhiteSquare();
-        sepImg.color  = new Color(1f, 1f, 1f, 0.10f);
+        sepImg.color  = new Color(1f, 1f, 1f, 0.08f);
         sepImg.raycastTarget = false;
         var sepRT = sepImg.rectTransform;
-        sepRT.anchorMin = new Vector2(0.495f, 0.1f);
-        sepRT.anchorMax = new Vector2(0.505f, 0.9f);
+        sepRT.anchorMin = new Vector2(0.02f, 0.67f);
+        sepRT.anchorMax = new Vector2(0.98f, 0.675f);
         sepRT.offsetMin = sepRT.offsetMax = Vector2.zero;
 
-        return (cardRT, cardGroup, scoreLabel, coinsLabel);
+        // Labels score
+        Lbl(rt, "ScoreLbl", "SCORE",
+            new Vector2(0.04f, 0.35f), new Vector2(0.46f, 0.65f),
+            20f, ColLbl, FontStyles.Normal);
+        var scoreVal = Lbl(rt, "ScoreVal", "0",
+            new Vector2(0.04f, 0.02f), new Vector2(0.46f, 0.40f),
+            64f, ColScoreVal, FontStyles.Bold);
+
+        // Labels pièces
+        Lbl(rt, "CoinsLbl", "PIÈCES GAGNÉES",
+            new Vector2(0.54f, 0.35f), new Vector2(0.97f, 0.65f),
+            20f, ColLbl, FontStyles.Normal);
+        var coinsVal = Lbl(rt, "CoinsVal", "0 🪙",
+            new Vector2(0.54f, 0.02f), new Vector2(0.97f, 0.40f),
+            56f, ColCoinsVal, FontStyles.Bold);
+
+        // Séparateur vertical
+        var vsep = new GameObject("VSep");
+        vsep.transform.SetParent(rt, false);
+        var vsepImg = vsep.AddComponent<Image>();
+        vsepImg.sprite = SpriteGenerator.CreateWhiteSquare();
+        vsepImg.color  = new Color(1f, 1f, 1f, 0.07f);
+        vsepImg.raycastTarget = false;
+        var vsepRT = vsepImg.rectTransform;
+        vsepRT.anchorMin = new Vector2(0.498f, 0.05f);
+        vsepRT.anchorMax = new Vector2(0.502f, 0.62f);
+        vsepRT.offsetMin = vsepRT.offsetMax = Vector2.zero;
+
+        return (rt, group, scoreVal, coinsVal);
     }
 
     // ── Helpers UI ────────────────────────────────────────────────────────────
 
-    private static TextMeshProUGUI MakeLabel(RectTransform parent,
-        string name, string text,
-        Vector2 anchorMin, Vector2 anchorMax,
-        float size, Color color, bool bold)
+    private static void RawImg(RectTransform parent, string name, Color col, bool stretch)
+    {
+        var go  = new GameObject(name);
+        go.transform.SetParent(parent, false);
+        var img = go.AddComponent<Image>();
+        img.sprite = SpriteGenerator.CreateWhiteSquare();
+        img.color  = col;
+        img.raycastTarget = false;
+        var rt   = img.rectTransform;
+        if (stretch)
+        {
+            rt.anchorMin = Vector2.zero;
+            rt.anchorMax = Vector2.one;
+            rt.offsetMin = rt.offsetMax = Vector2.zero;
+        }
+    }
+
+    private static TextMeshProUGUI Lbl(RectTransform parent, string name, string text,
+        Vector2 aMin, Vector2 aMax, float size, Color col, FontStyles style)
     {
         var go  = new GameObject(name);
         go.transform.SetParent(parent, false);
         var tmp = go.AddComponent<TextMeshProUGUI>();
-        tmp.text      = text;
-        tmp.fontSize  = size;
-        tmp.fontStyle = bold ? FontStyles.Bold : FontStyles.Normal;
-        tmp.color     = color;
-        tmp.alignment = TextAlignmentOptions.Center;
-        tmp.raycastTarget = false;
+        tmp.text             = text;
+        tmp.fontSize         = size;
+        tmp.fontStyle        = style;
+        tmp.color            = col;
+        tmp.alignment        = TextAlignmentOptions.Center;
+        tmp.raycastTarget    = false;
+        tmp.enableAutoSizing = false;
         var rt = tmp.rectTransform;
-        rt.anchorMin = anchorMin;
-        rt.anchorMax = anchorMax;
+        rt.anchorMin = aMin;
+        rt.anchorMax = aMax;
         rt.offsetMin = rt.offsetMax = Vector2.zero;
         return tmp;
     }
 
-    // ── Coroutines utilitaires ────────────────────────────────────────────────
+    // ── Coroutines ────────────────────────────────────────────────────────────
 
-    private static IEnumerator FadeGroup(CanvasGroup group, float from, float to, float dur)
+    /// <summary>Slide depuis hors-écran (y = +H) jusqu'à anchoredPosition (0, -targetY).</summary>
+    private static IEnumerator SlideIn(RectTransform rt, CanvasGroup group, float dur)
     {
-        float elapsed = 0f;
-        while (elapsed < dur)
+        float cardH   = rt.sizeDelta.y;
+        float targetY = -cardH * 0.02f;   // légèrement sous le bord supérieur
+        float startY  = cardH;
+
+        float t = 0f;
+        group.alpha = 1f;
+        while (t < dur)
         {
-            elapsed    += Time.deltaTime;
-            group.alpha = Mathf.Lerp(from, to, Mathf.Clamp01(elapsed / dur));
+            t += Time.deltaTime;
+            float e = 1f - Mathf.Pow(1f - Mathf.Clamp01(t / dur), 3f);  // EaseOutCubic
+            rt.anchoredPosition = new Vector2(0f, Mathf.Lerp(startY, targetY, e));
             yield return null;
         }
-        group.alpha = to;
+        rt.anchoredPosition = new Vector2(0f, targetY);
     }
 
-    private static IEnumerator CountUpLabel(TextMeshProUGUI label,
-        int from, int to, float dur, bool isCoin)
+    private static IEnumerator Fade(CanvasGroup g, float from, float to, float dur)
     {
-        if (label == null) yield break;
-        float elapsed = 0f;
-        while (elapsed < dur)
+        float t = 0f;
+        while (t < dur)
         {
-            elapsed += Time.unscaledDeltaTime;
-            float t  = Mathf.Clamp01(elapsed / dur);
-            float e  = 1f - Mathf.Pow(1f - t, 4f);
-            int   v  = Mathf.RoundToInt(Mathf.Lerp(from, to, e));
-            label.text = isCoin ? $"+{v} 🪙" : v.ToString("N0");
+            t      += Time.deltaTime;
+            g.alpha = Mathf.Lerp(from, to, Mathf.Clamp01(t / dur));
             yield return null;
         }
-        label.text = isCoin ? $"+{to} 🪙" : to.ToString("N0");
+        g.alpha = to;
+    }
+
+    private static IEnumerator CountUp(TextMeshProUGUI lbl, int from, int to, float dur, bool isCoin)
+    {
+        if (lbl == null) yield break;
+        float t = 0f;
+        while (t < dur)
+        {
+            t += Time.unscaledDeltaTime;
+            float e = 1f - Mathf.Pow(1f - Mathf.Clamp01(t / dur), 4f);
+            int   v = Mathf.RoundToInt(Mathf.Lerp(from, to, e));
+            lbl.text = isCoin ? $"+{v} 🪙" : v.ToString("N0");
+            yield return null;
+        }
+        lbl.text = isCoin ? $"+{to} 🪙" : to.ToString("N0");
     }
 }

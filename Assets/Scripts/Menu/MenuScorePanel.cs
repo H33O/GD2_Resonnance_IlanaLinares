@@ -1,77 +1,108 @@
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
 
 /// <summary>
-/// Widget de score affiché en permanence dans le menu.
+/// Widget de score du menu principal.
 ///
-/// Layout haut-gauche :
-///   ScorePanel  → label "SCORE TOTAL" + valeur + bouton [DÉTAILS]
-///   DetailsModal → sous-panel plein écran avec 3 onglets :
-///     - Game &amp; Watch
-///     - Bubble Shooter
-///     - Ball &amp; Goal
-///   Chaque onglet liste tous les runs enregistrés depuis le début de la partie.
+/// Le widget haut-gauche affiche le score total persistant et est entièrement cliquable.
+/// Un clic ouvre un panneau plein écran avec 3 slides swipables :
+///   - Game &amp; Watch
+///   - Bubble Shooter
+///   - Ball &amp; Goal
 ///
-/// Appelé par <see cref="MenuMainHud.Init"/> à la place du widget score simple.
+/// Chaque slide contient :
+///   - Le nom du jeu + accent de couleur
+///   - Le meilleur score en grand
+///   - L'historique complet de toutes les parties (scrollable), du plus récent au plus ancien
+///
+/// Navigation : boutons ← → + swipe tactile (drag horizontal).
 /// </summary>
 public class MenuScorePanel : MonoBehaviour
 {
-    // ── Palette ───────────────────────────────────────────────────────────────
+    // ── Données des jeux ──────────────────────────────────────────────────────
 
-    private static readonly Color ColWidgetBg   = new Color(0.04f, 0.04f, 0.08f, 0.85f);
-    private static readonly Color ColLabel      = new Color(1f, 1f, 1f, 0.45f);
-    private static readonly Color ColValue      = Color.white;
-    private static readonly Color ColDetailsBg  = new Color(0.04f, 0.04f, 0.10f, 0.96f);
-    private static readonly Color ColTabActive  = new Color(0.20f, 0.55f, 1.00f, 1f);
-    private static readonly Color ColTabIdle    = new Color(0.12f, 0.12f, 0.20f, 1f);
-    private static readonly Color ColTabText    = Color.white;
-    private static readonly Color ColScrollBg   = new Color(0.06f, 0.06f, 0.12f, 1f);
-    private static readonly Color ColRunEntry   = new Color(1f, 1f, 1f, 0.80f);
-    private static readonly Color ColNoScore    = new Color(1f, 1f, 1f, 0.30f);
-    private static readonly Color ColCloseBtn   = new Color(0.20f, 0.20f, 0.30f, 1f);
+    private static readonly string[]   GameNames  = { "GAME & WATCH", "BUBBLE SHOOTER", "BALL & GOAL" };
+    private static readonly GameType[] GameTypes  = { GameType.GameAndWatch, GameType.BubbleShooter, GameType.BallAndGoal };
+    private static readonly Color[]    GameColors =
+    {
+        new Color(0.35f, 0.75f, 1.00f, 1f),   // bleu ciel  — Game & Watch
+        new Color(0.40f, 1.00f, 0.55f, 1f),   // vert       — Bubble Shooter
+        new Color(1.00f, 0.60f, 0.20f, 1f),   // orange     — Ball & Goal
+    };
+
+    // ── Palette générale ──────────────────────────────────────────────────────
+
+    private static readonly Color ColWidgetBg    = new Color(0.04f, 0.04f, 0.08f, 0.85f);
+    private static readonly Color ColWidgetLbl   = new Color(1f, 1f, 1f, 0.45f);
+    private static readonly Color ColWidgetVal   = Color.white;
+    private static readonly Color ColPanelBg     = new Color(0.04f, 0.04f, 0.10f, 0.98f);
+    private static readonly Color ColPanelTitle  = new Color(1f, 1f, 1f, 0.35f);
+    private static readonly Color ColBestLbl     = new Color(1f, 1f, 1f, 0.38f);
+    private static readonly Color ColHistLbl     = new Color(1f, 1f, 1f, 0.30f);
+    private static readonly Color ColEntryBg     = new Color(1f, 1f, 1f, 0.04f);
+    private static readonly Color ColEntryBest   = new Color(1.00f, 0.82f, 0.18f, 1f);
+    private static readonly Color ColEntryNormal = new Color(1f, 1f, 1f, 0.75f);
+    private static readonly Color ColNoScore     = new Color(1f, 1f, 1f, 0.25f);
+    private static readonly Color ColNavBtn      = new Color(1f, 1f, 1f, 0.08f);
+    private static readonly Color ColNavBtnHov   = new Color(1f, 1f, 1f, 0.18f);
+    private static readonly Color ColNavTxt      = new Color(1f, 1f, 1f, 0.80f);
+    private static readonly Color ColDot         = new Color(1f, 1f, 1f, 0.25f);
+    private static readonly Color ColDotActive   = Color.white;
+    private static readonly Color ColCloseBtn    = new Color(1f, 1f, 1f, 0.07f);
+    private static readonly Color ColCloseTxt    = new Color(1f, 1f, 1f, 0.55f);
+    private static readonly Color ColSep         = new Color(1f, 1f, 1f, 0.08f);
 
     // ── Layout ────────────────────────────────────────────────────────────────
 
-    private const float PanelW     = 320f;
-    private const float PanelH     = 140f;
-    private const float MarginX    = 32f;
-    private const float MarginY    = 48f;
-    private const float ModalW     = 860f;
-    private const float ModalH     = 1400f;
-    private const float TabH       = 88f;
-    private const float EntryH     = 60f;
+    private const float WidgetW   = 320f;
+    private const float WidgetH   = 140f;
+    private const float MarginX   = 32f;
+    private const float MarginY   = 48f;
+    private const float SlideAnim = 0.38f;   // durée de la transition slide
+    private const float EntryH    = 72f;
+    private const float NavBtnW   = 110f;
+    private const float NavBtnH   = 80f;
 
-    // ── Références ────────────────────────────────────────────────────────────
+    // ── Références runtime ────────────────────────────────────────────────────
 
     private TextMeshProUGUI totalScoreLabel;
-    private GameObject      detailsModal;
-    private RectTransform   modalRT;
 
-    // Onglets
-    private readonly string[] tabNames  = { "Game & Watch", "Bubble Shooter", "Ball & Goal" };
-    private readonly GameType[] tabTypes = { GameType.GameAndWatch, GameType.BubbleShooter, GameType.BallAndGoal };
+    // Panel plein écran
+    private RectTransform   panelRT;
+    private CanvasGroup     panelGroup;
 
-    private Image[]         tabBackgrounds;
-    private TextMeshProUGUI[] tabLabels;
-    private GameObject[]    tabContents;
-    private int             activeTab = 0;
+    // Slider (viewport + conteneur des 3 slides)
+    private RectTransform   sliderContainer;   // contient les 3 slides côte à côte
+    private float           slideWidth;        // largeur d'un slide = largeur du viewport
 
-    // ── API publique ──────────────────────────────────────────────────────────
+    // Slides et leurs listes de scores
+    private RectTransform[] slideRTs;
+    private RectTransform[] scoreListRTs;      // le RectTransform "List" scrollable de chaque slide
+    private Image[]         dotImages;
 
-    /// <summary>Construit le widget dans le canvas fourni.</summary>
+    // Indicateurs dot
+    private int             currentSlide = 0;
+
+    // Swipe drag
+    private bool   isDragging;
+    private float  dragStartX;
+    private float  containerStartX;
+
+    // ── Initialisation ────────────────────────────────────────────────────────
+
+    /// <summary>Appelé par <see cref="MenuMainHud.Init"/>.</summary>
     public void Init(RectTransform canvasRT)
     {
-        BuildScoreWidget(canvasRT);
-        BuildDetailsModal(canvasRT);
+        ScoreManager.EnsureExists();
+        BuildWidget(canvasRT);
+        BuildPanel(canvasRT);
 
-        // Écouter les nouveaux scores pour rafraîchir le total en temps réel
         if (ScoreManager.Instance != null)
             ScoreManager.Instance.OnScoreAdded += OnScoreAdded;
     }
-
-    // ── Lifecycle ─────────────────────────────────────────────────────────────
 
     private void OnDestroy()
     {
@@ -82,19 +113,22 @@ public class MenuScorePanel : MonoBehaviour
     private void OnScoreAdded(GameType type, int score)
     {
         RefreshTotal();
-        if (detailsModal != null && detailsModal.activeSelf)
-            RefreshTab(activeTab);
+        // Si le panel est ouvert, rafraîchir le slide concerné
+        if (panelRT != null && panelRT.gameObject.activeSelf)
+        {
+            int idx = System.Array.IndexOf(GameTypes, type);
+            if (idx >= 0) PopulateSlide(idx);
+        }
     }
 
-    // ── Widget principal (haut-gauche, entièrement cliquable) ─────────────────
+    // ── Widget haut-gauche ────────────────────────────────────────────────────
 
-    private void BuildScoreWidget(RectTransform parent)
+    private void BuildWidget(RectTransform parent)
     {
-        // Conteneur — c'est lui qui est le bouton
-        var widgetGO  = new GameObject("ScorePanel");
-        widgetGO.transform.SetParent(parent, false);
+        var go  = new GameObject("ScorePanel");
+        go.transform.SetParent(parent, false);
 
-        var img          = widgetGO.AddComponent<Image>();
+        var img          = go.AddComponent<Image>();
         img.sprite       = SpriteGenerator.CreateWhiteSquare();
         img.color        = ColWidgetBg;
 
@@ -102,382 +136,650 @@ public class MenuScorePanel : MonoBehaviour
         rt.anchorMin     = new Vector2(0f, 1f);
         rt.anchorMax     = new Vector2(0f, 1f);
         rt.pivot         = new Vector2(0f, 1f);
-        rt.sizeDelta     = new Vector2(PanelW, PanelH);
+        rt.sizeDelta     = new Vector2(WidgetW, WidgetH);
         rt.anchoredPosition = new Vector2(MarginX, -MarginY);
 
-        // Libellé "SCORE TOTAL"
-        MakeText("ScoreLabel", rt, "SCORE TOTAL",
-            fontSize: 20f, style: FontStyles.Bold, color: ColLabel,
-            anchorMin: new Vector2(0f, 0.55f), anchorMax: Vector2.one,
-            offsetMin: new Vector2(14f, 0f),   offsetMax: new Vector2(-14f, 0f));
+        // Label "SCORE TOTAL"
+        Lbl("ScoreLabel", rt, "SCORE TOTAL",
+            20f, FontStyles.Bold, ColWidgetLbl,
+            new Vector2(0f, 0.55f), Vector2.one,
+            new Vector2(14f, 0f), new Vector2(-14f, 0f));
 
-        // Valeur numérique — occupe tout le bas du widget
-        var valueTMP = MakeText("ScoreValue", rt, "0",
-            fontSize: 40f, style: FontStyles.Bold, color: ColValue,
-            anchorMin: Vector2.zero,             anchorMax: new Vector2(1f, 0.62f),
-            offsetMin: new Vector2(14f, 4f),     offsetMax: new Vector2(-14f, 0f),
-            alignment: TextAlignmentOptions.BottomLeft);
-        totalScoreLabel = valueTMP.GetComponent<TextMeshProUGUI>();
+        // Valeur
+        var valueTMP = Lbl("ScoreValue", rt, "0",
+            40f, FontStyles.Bold, ColWidgetVal,
+            Vector2.zero, new Vector2(1f, 0.62f),
+            new Vector2(14f, 4f), new Vector2(-14f, 0f),
+            TextAlignmentOptions.BottomLeft);
+        totalScoreLabel = valueTMP;
 
-        // Le widget entier est le bouton
-        var btn        = widgetGO.AddComponent<Button>();
+        var btn        = go.AddComponent<Button>();
         btn.targetGraphic = img;
-        btn.onClick.AddListener(OpenDetails);
+        var colors     = btn.colors;
+        colors.highlightedColor = new Color(1.2f, 1.2f, 1.2f, 1f);
+        colors.pressedColor     = new Color(0.8f, 0.8f, 0.8f, 1f);
+        colors.fadeDuration     = 0.08f;
+        btn.colors = colors;
+        btn.onClick.AddListener(OpenPanel);
 
         RefreshTotal();
     }
 
-    // ── Modal de détails ──────────────────────────────────────────────────────
+    // ── Panel plein écran ─────────────────────────────────────────────────────
 
-    private void BuildDetailsModal(RectTransform parent)
+    private void BuildPanel(RectTransform canvasRT)
     {
-        // Fond assombrissant plein écran
-        detailsModal = new GameObject("ScoreDetailsModal");
-        detailsModal.transform.SetParent(parent, false);
+        var go = new GameObject("ScoreDetailsPanel");
+        go.transform.SetParent(canvasRT, false);
 
-        var overlay    = detailsModal.AddComponent<Image>();
-        overlay.sprite = SpriteGenerator.CreateWhiteSquare();
-        overlay.color  = new Color(0f, 0f, 0f, 0.60f);
+        var bg       = go.AddComponent<Image>();
+        bg.sprite    = SpriteGenerator.CreateWhiteSquare();
+        bg.color     = ColPanelBg;
+        bg.raycastTarget = true;
 
-        var overlayRT  = overlay.rectTransform;
-        overlayRT.anchorMin = Vector2.zero;
-        overlayRT.anchorMax = Vector2.one;
-        overlayRT.offsetMin = overlayRT.offsetMax = Vector2.zero;
+        panelRT          = bg.rectTransform;
+        panelRT.anchorMin = Vector2.zero;
+        panelRT.anchorMax = Vector2.one;
+        panelRT.offsetMin = panelRT.offsetMax = Vector2.zero;
 
-        // Capturer les clics sur le fond pour fermer
-        var overlayBtn = detailsModal.AddComponent<Button>();
-        overlayBtn.targetGraphic = overlay;
-        overlayBtn.transition    = Selectable.Transition.None;
-        overlayBtn.onClick.AddListener(CloseDetails);
+        panelGroup            = go.AddComponent<CanvasGroup>();
+        panelGroup.alpha      = 0f;
+        panelGroup.blocksRaycasts = false;
 
-        // Panneau central
-        var panelGO    = new GameObject("DetailsPanel");
-        panelGO.transform.SetParent(detailsModal.transform, false);
+        // ── Titre du panel ────────────────────────────────────────────────────
+        Lbl("PanelTitle", panelRT, "HISTORIQUE DES SCORES",
+            38f, FontStyles.Bold, ColPanelTitle,
+            new Vector2(0f, 1f), new Vector2(1f, 1f),
+            new Vector2(0f, -110f), new Vector2(0f, -20f),
+            TextAlignmentOptions.Center);
 
-        var panelImg   = panelGO.AddComponent<Image>();
-        panelImg.sprite = SpriteGenerator.CreateWhiteSquare();
-        panelImg.color  = ColDetailsBg;
-        panelImg.raycastTarget = true;  // bloque le clic de fermeture du fond
+        Sep("TitleSep", panelRT,
+            new Vector2(0.04f, 1f), new Vector2(0.96f, 1f),
+            new Vector2(0f, -116f), new Vector2(0f, -112f));
 
-        modalRT              = panelImg.rectTransform;
-        modalRT.anchorMin    = new Vector2(0.5f, 0.5f);
-        modalRT.anchorMax    = new Vector2(0.5f, 0.5f);
-        modalRT.pivot        = new Vector2(0.5f, 0.5f);
-        modalRT.sizeDelta    = new Vector2(ModalW, ModalH);
-        modalRT.anchoredPosition = Vector2.zero;
+        // ── Viewport (zone d'affichage des slides) ────────────────────────────
+        var viewportGO  = new GameObject("Viewport");
+        viewportGO.transform.SetParent(panelRT, false);
+        var viewportImg = viewportGO.AddComponent<Image>();
+        viewportImg.color = Color.clear;
+        var mask        = viewportGO.AddComponent<Mask>();
+        mask.showMaskGraphic = false;
 
-        // Stopper la propagation du clic vers le fond
-        var panelBtn = panelGO.AddComponent<Button>();
-        panelBtn.targetGraphic = panelImg;
-        panelBtn.transition    = Selectable.Transition.None;
-        // pas de listener → absorbe le clic sans fermer
+        var viewportRT  = viewportImg.rectTransform;
+        viewportRT.anchorMin = new Vector2(0f, 0f);
+        viewportRT.anchorMax = new Vector2(1f, 1f);
+        viewportRT.offsetMin = new Vector2(0f,  160f);   // espace bas (nav + dots + close)
+        viewportRT.offsetMax = new Vector2(0f, -130f);   // espace haut (titre)
 
-        BuildModalHeader(modalRT);
-        BuildModalTabs(modalRT);
-        BuildModalContent(modalRT);
-        BuildCloseButton(modalRT);
+        // ── Conteneur des 3 slides (3× largeur) ──────────────────────────────
+        var containerGO = new GameObject("SliderContainer");
+        containerGO.transform.SetParent(viewportGO.transform, false);
+        sliderContainer = containerGO.AddComponent<RectTransform>();
 
-        detailsModal.SetActive(false);
+        // Plein haut du viewport, largeur = 3× viewport (rempli après layout)
+        sliderContainer.anchorMin       = new Vector2(0f, 0f);
+        sliderContainer.anchorMax       = new Vector2(1f, 1f);
+        sliderContainer.offsetMin       = sliderContainer.offsetMax = Vector2.zero;
+
+        // Drag handler sur le viewport
+        var dragHandler = viewportGO.AddComponent<SliderDragHandler>();
+        dragHandler.Init(this);
+
+        // ── Créer les 3 slides ────────────────────────────────────────────────
+        slideRTs      = new RectTransform[3];
+        scoreListRTs  = new RectTransform[3];
+
+        for (int i = 0; i < 3; i++)
+            BuildSlide(i, viewportRT);
+
+        // ── Navigation ← → ───────────────────────────────────────────────────
+        BuildNavButtons(panelRT);
+
+        // ── Dots indicateurs ──────────────────────────────────────────────────
+        BuildDots(panelRT);
+
+        // ── Bouton Fermer ─────────────────────────────────────────────────────
+        BuildCloseButton(panelRT);
+
+        go.SetActive(false);
     }
 
-    private void BuildModalHeader(RectTransform parent)
-    {
-        MakeText("ModalTitle", parent, "SCORES — HISTORIQUE",
-            fontSize: 44f, style: FontStyles.Bold, color: ColValue,
-            anchorMin: new Vector2(0f, 1f), anchorMax: new Vector2(1f, 1f),
-            offsetMin: new Vector2(30f, -110f), offsetMax: new Vector2(-30f, -20f),
-            alignment: TextAlignmentOptions.Center);
+    // ── Construction d'un slide ───────────────────────────────────────────────
 
-        // Séparateur
-        var sepGO  = new GameObject("Separator");
-        sepGO.transform.SetParent(parent, false);
-        var sepImg = sepGO.AddComponent<Image>();
-        sepImg.sprite = SpriteGenerator.CreateWhiteSquare();
-        sepImg.color  = new Color(1f, 1f, 1f, 0.12f);
-        sepImg.raycastTarget = false;
-        var sepRT    = sepImg.rectTransform;
-        sepRT.anchorMin = new Vector2(0f, 1f);
-        sepRT.anchorMax = new Vector2(1f, 1f);
-        sepRT.offsetMin = new Vector2(20f, -122f);
-        sepRT.offsetMax = new Vector2(-20f, -120f);
+    private void BuildSlide(int idx, RectTransform viewportRT)
+    {
+        // Chaque slide est positionné horizontalement dans le sliderContainer.
+        // On utilise des anchorMin/Max relatifs au viewport width pour simuler
+        // le positioning côte à côte — géré via anchoredPosition après layout.
+        var go = new GameObject($"Slide_{GameNames[idx]}");
+        go.transform.SetParent(sliderContainer, false);
+
+        var rt          = go.AddComponent<RectTransform>();
+        rt.anchorMin    = new Vector2(0f, 0f);
+        rt.anchorMax    = new Vector2(0f, 1f);
+        rt.pivot        = new Vector2(0f, 0.5f);
+        // La largeur réelle est assignée dans UpdateSlidePositions()
+        rt.sizeDelta    = new Vector2(0f, 0f);
+        slideRTs[idx]   = rt;
+
+        // ── Accent couleur gauche ─────────────────────────────────────────────
+        var accent    = new GameObject("Accent");
+        accent.transform.SetParent(rt, false);
+        var accentImg = accent.AddComponent<Image>();
+        accentImg.sprite       = SpriteGenerator.CreateWhiteSquare();
+        accentImg.color        = GameColors[idx];
+        accentImg.raycastTarget = false;
+        var accentRT  = accentImg.rectTransform;
+        accentRT.anchorMin = new Vector2(0f, 0f);
+        accentRT.anchorMax = new Vector2(0f, 1f);
+        accentRT.offsetMin = new Vector2(0f, 0f);
+        accentRT.offsetMax = new Vector2(8f, 0f);
+
+        // ── Nom du jeu ────────────────────────────────────────────────────────
+        Lbl($"GameName_{idx}", rt, GameNames[idx],
+            54f, FontStyles.Bold, GameColors[idx],
+            new Vector2(0.04f, 0.88f), new Vector2(0.96f, 1.0f),
+            default, default, TextAlignmentOptions.MidlineLeft);
+
+        // ── Section MEILLEUR SCORE ────────────────────────────────────────────
+        Sep($"Sep1_{idx}", rt,
+            new Vector2(0.04f, 0.87f), new Vector2(0.96f, 0.87f),
+            new Vector2(0f, -1f), Vector2.zero);
+
+        Lbl($"BestLbl_{idx}", rt, "MEILLEUR SCORE",
+            26f, FontStyles.Bold, ColBestLbl,
+            new Vector2(0.04f, 0.76f), new Vector2(0.96f, 0.86f),
+            default, default, TextAlignmentOptions.MidlineLeft);
+
+        var bestVal = Lbl($"BestVal_{idx}", rt, "—",
+            88f, FontStyles.Bold, GameColors[idx],
+            new Vector2(0.04f, 0.58f), new Vector2(0.96f, 0.78f),
+            default, default, TextAlignmentOptions.MidlineLeft);
+        // On stocke la ref dans le tag pour la retrouver facilement
+        bestVal.gameObject.name = $"BestScore_{idx}";
+
+        // ── Séparateur ────────────────────────────────────────────────────────
+        Sep($"Sep2_{idx}", rt,
+            new Vector2(0.04f, 0.57f), new Vector2(0.96f, 0.57f),
+            new Vector2(0f, -1f), Vector2.zero);
+
+        Lbl($"HistLbl_{idx}", rt, "TOUTES LES PARTIES",
+            24f, FontStyles.Bold, ColHistLbl,
+            new Vector2(0.04f, 0.50f), new Vector2(0.96f, 0.57f),
+            default, default, TextAlignmentOptions.MidlineLeft);
+
+        // ── Liste scrollable ──────────────────────────────────────────────────
+        var listViewGO  = new GameObject("ListView");
+        listViewGO.transform.SetParent(rt, false);
+        var listViewImg = listViewGO.AddComponent<Image>();
+        listViewImg.color = Color.clear;
+        listViewImg.raycastTarget = false;
+        var listViewMask = listViewGO.AddComponent<Mask>();
+        listViewMask.showMaskGraphic = false;
+        var listViewRT  = listViewImg.rectTransform;
+        listViewRT.anchorMin = new Vector2(0.04f, 0.00f);
+        listViewRT.anchorMax = new Vector2(0.96f, 0.49f);
+        listViewRT.offsetMin = listViewRT.offsetMax = Vector2.zero;
+
+        var scrollRect  = listViewGO.AddComponent<ScrollRect>();
+        scrollRect.horizontal        = false;
+        scrollRect.vertical          = true;
+        scrollRect.scrollSensitivity = 40f;
+        scrollRect.movementType      = ScrollRect.MovementType.Clamped;
+
+        var listGO = new GameObject("List");
+        listGO.transform.SetParent(listViewGO.transform, false);
+        var listRT = listGO.AddComponent<RectTransform>();
+        listRT.anchorMin = new Vector2(0f, 1f);
+        listRT.anchorMax = new Vector2(1f, 1f);
+        listRT.pivot     = new Vector2(0.5f, 1f);
+        listRT.offsetMin = listRT.offsetMax = Vector2.zero;
+
+        var vlg = listGO.AddComponent<VerticalLayoutGroup>();
+        vlg.spacing              = 6f;
+        vlg.padding              = new RectOffset(0, 0, 8, 8);
+        vlg.childAlignment       = TextAnchor.UpperCenter;
+        vlg.childControlWidth    = true;
+        vlg.childControlHeight   = false;
+        vlg.childForceExpandWidth  = true;
+        vlg.childForceExpandHeight = false;
+
+        var csf = listGO.AddComponent<ContentSizeFitter>();
+        csf.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+
+        scrollRect.content  = listRT;
+        scrollRect.viewport = listViewRT;
+
+        scoreListRTs[idx] = listRT;
     }
 
-    private void BuildModalTabs(RectTransform parent)
+    // ── Navigation ────────────────────────────────────────────────────────────
+
+    private void BuildNavButtons(RectTransform parent)
     {
-        int count        = tabNames.Length;
-        tabBackgrounds   = new Image[count];
-        tabLabels        = new TextMeshProUGUI[count];
+        // ← Précédent
+        var prevRT = MakeNavButton("BtnPrev", parent,
+            new Vector2(0f, 0f), new Vector2(0f, 0f), new Vector2(0f, 0f),
+            new Vector2(NavBtnW, NavBtnH), new Vector2(40f, 110f), "←");
+        prevRT.GetComponent<Button>().onClick.AddListener(() => GoToSlide(currentSlide - 1));
 
-        float tabW       = (ModalW - 40f) / count;
-        float tabY       = -140f;     // depuis le haut du modal
+        // → Suivant
+        var nextRT = MakeNavButton("BtnNext", parent,
+            new Vector2(1f, 0f), new Vector2(1f, 0f), new Vector2(1f, 0f),
+            new Vector2(NavBtnW, NavBtnH), new Vector2(-40f, 110f), "→");
+        nextRT.GetComponent<Button>().onClick.AddListener(() => GoToSlide(currentSlide + 1));
+    }
 
-        for (int i = 0; i < count; i++)
+    private RectTransform MakeNavButton(string name, RectTransform parent,
+        Vector2 anchorMin, Vector2 anchorMax, Vector2 pivot,
+        Vector2 size, Vector2 anchoredPos, string label)
+    {
+        var go  = new GameObject(name);
+        go.transform.SetParent(parent, false);
+
+        var img = go.AddComponent<Image>();
+        img.sprite = SpriteGenerator.CreateWhiteSquare();
+        img.color  = ColNavBtn;
+
+        var rt  = img.rectTransform;
+        rt.anchorMin       = anchorMin;
+        rt.anchorMax       = anchorMax;
+        rt.pivot           = pivot;
+        rt.sizeDelta       = size;
+        rt.anchoredPosition = anchoredPos;
+
+        var lgo = new GameObject("Label");
+        lgo.transform.SetParent(rt, false);
+        var tmp = lgo.AddComponent<TextMeshProUGUI>();
+        tmp.text          = label;
+        tmp.fontSize      = 44f;
+        tmp.fontStyle     = FontStyles.Bold;
+        tmp.color         = ColNavTxt;
+        tmp.alignment     = TextAlignmentOptions.Center;
+        tmp.raycastTarget = false;
+        var lrt = tmp.rectTransform;
+        lrt.anchorMin = Vector2.zero;
+        lrt.anchorMax = Vector2.one;
+        lrt.offsetMin = lrt.offsetMax = Vector2.zero;
+
+        var btn = go.AddComponent<Button>();
+        btn.targetGraphic = img;
+        var colors        = btn.colors;
+        colors.normalColor      = Color.white;
+        colors.highlightedColor = new Color(1.8f, 1.8f, 1.8f, 1f);
+        colors.pressedColor     = new Color(0.6f, 0.6f, 0.6f, 1f);
+        colors.fadeDuration     = 0.07f;
+        btn.colors = colors;
+
+        return rt;
+    }
+
+    // ── Dots ──────────────────────────────────────────────────────────────────
+
+    private void BuildDots(RectTransform parent)
+    {
+        dotImages = new Image[3];
+        float dotSize  = 14f;
+        float dotGap   = 22f;
+        float totalW   = 3 * dotSize + 2 * (dotGap - dotSize);
+
+        for (int i = 0; i < 3; i++)
         {
-            int idx = i;
+            var go  = new GameObject($"Dot_{i}");
+            go.transform.SetParent(parent, false);
+            var img = go.AddComponent<Image>();
+            img.sprite = SpriteGenerator.CreateWhiteSquare();
+            img.color  = (i == 0) ? ColDotActive : ColDot;
+            img.raycastTarget = false;
+            dotImages[i] = img;
 
-            var tabGO  = new GameObject($"Tab_{tabNames[i]}");
-            tabGO.transform.SetParent(parent, false);
-
-            var tabImg = tabGO.AddComponent<Image>();
-            tabImg.sprite = SpriteGenerator.CreateWhiteSquare();
-            tabImg.color  = (i == 0) ? ColTabActive : ColTabIdle;
-            tabBackgrounds[i] = tabImg;
-
-            var tabRT  = tabImg.rectTransform;
-            tabRT.anchorMin = new Vector2(0f, 1f);
-            tabRT.anchorMax = new Vector2(0f, 1f);
-            tabRT.pivot     = new Vector2(0f, 1f);
-            tabRT.sizeDelta = new Vector2(tabW - 4f, TabH);
-            tabRT.anchoredPosition = new Vector2(20f + i * (tabW), tabY);
-
-            var labelGO = new GameObject("Label");
-            labelGO.transform.SetParent(tabGO.transform, false);
-            var tmp     = labelGO.AddComponent<TextMeshProUGUI>();
-            tmp.text    = tabNames[i];
-            tmp.fontSize = 22f;
-            tmp.fontStyle = FontStyles.Bold;
-            tmp.color   = ColTabText;
-            tmp.alignment = TextAlignmentOptions.Center;
-            tmp.raycastTarget = false;
-            var labelRT = tmp.rectTransform;
-            labelRT.anchorMin = Vector2.zero;
-            labelRT.anchorMax = Vector2.one;
-            labelRT.offsetMin = labelRT.offsetMax = Vector2.zero;
-            tabLabels[i] = tmp;
-
-            var btn     = tabGO.AddComponent<Button>();
-            btn.targetGraphic = tabImg;
-            btn.onClick.AddListener(() => SelectTab(idx));
+            var rt  = img.rectTransform;
+            rt.anchorMin        = new Vector2(0.5f, 0f);
+            rt.anchorMax        = new Vector2(0.5f, 0f);
+            rt.pivot            = new Vector2(0.5f, 0f);
+            rt.sizeDelta        = new Vector2(dotSize, dotSize);
+            float offsetX       = (i - 1) * dotGap;
+            rt.anchoredPosition = new Vector2(offsetX, 168f);
         }
     }
 
-    private void BuildModalContent(RectTransform parent)
-    {
-        int count    = tabNames.Length;
-        tabContents  = new GameObject[count];
-
-        float contentTop    = -140f - TabH - 8f;  // sous les onglets
-        float contentBottom = 80f;                 // au-dessus du bouton fermer
-
-        for (int i = 0; i < count; i++)
-        {
-            // Zone scrollable pour chaque onglet
-            var contentGO  = new GameObject($"Content_{tabNames[i]}");
-            contentGO.transform.SetParent(parent, false);
-            tabContents[i] = contentGO;
-
-            var bgImg = contentGO.AddComponent<Image>();
-            bgImg.sprite = SpriteGenerator.CreateWhiteSquare();
-            bgImg.color  = ColScrollBg;
-            bgImg.raycastTarget = false;
-
-            var contentRT  = bgImg.rectTransform;
-            contentRT.anchorMin = new Vector2(0f, 0f);
-            contentRT.anchorMax = new Vector2(1f, 1f);
-            contentRT.offsetMin = new Vector2(20f, contentBottom);
-            contentRT.offsetMax = new Vector2(-20f, contentTop);
-
-            // ScrollRect
-            var scrollRect = contentGO.AddComponent<ScrollRect>();
-            scrollRect.horizontal = false;
-            scrollRect.vertical   = true;
-            scrollRect.scrollSensitivity = 30f;
-
-            // Viewport
-            var viewportGO = new GameObject("Viewport");
-            viewportGO.transform.SetParent(contentGO.transform, false);
-            var viewportImg = viewportGO.AddComponent<Image>();
-            viewportImg.color = Color.clear;
-            viewportImg.raycastTarget = false;
-            var mask = viewportGO.AddComponent<Mask>();
-            mask.showMaskGraphic = false;
-            var viewportRT = viewportImg.rectTransform;
-            viewportRT.anchorMin = Vector2.zero;
-            viewportRT.anchorMax = Vector2.one;
-            viewportRT.offsetMin = viewportRT.offsetMax = Vector2.zero;
-
-            // Liste des scores (conteneur scrollable)
-            var listGO  = new GameObject("List");
-            listGO.transform.SetParent(viewportGO.transform, false);
-            var listRT  = listGO.AddComponent<RectTransform>();
-            listRT.anchorMin = new Vector2(0f, 1f);
-            listRT.anchorMax = new Vector2(1f, 1f);
-            listRT.pivot     = new Vector2(0.5f, 1f);
-            listRT.offsetMin = listRT.offsetMax = Vector2.zero;
-
-            var vlg = listGO.AddComponent<VerticalLayoutGroup>();
-            vlg.spacing           = 4f;
-            vlg.padding           = new RectOffset(16, 16, 10, 10);
-            vlg.childAlignment    = TextAnchor.UpperLeft;
-            vlg.childControlWidth  = true;
-            vlg.childControlHeight = false;
-            vlg.childForceExpandWidth  = true;
-            vlg.childForceExpandHeight = false;
-
-            var csf = listGO.AddComponent<ContentSizeFitter>();
-            csf.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
-
-            scrollRect.content  = listRT;
-            scrollRect.viewport = viewportRT;
-
-            contentGO.SetActive(i == 0);
-        }
-    }
+    // ── Bouton fermer ─────────────────────────────────────────────────────────
 
     private void BuildCloseButton(RectTransform parent)
     {
-        var btnGO  = new GameObject("CloseButton");
-        btnGO.transform.SetParent(parent, false);
+        var go  = new GameObject("BtnClose");
+        go.transform.SetParent(parent, false);
 
-        var btnImg = btnGO.AddComponent<Image>();
-        btnImg.sprite = SpriteGenerator.CreateWhiteSquare();
-        btnImg.color  = ColCloseBtn;
+        var img = go.AddComponent<Image>();
+        img.sprite = SpriteGenerator.CreateWhiteSquare();
+        img.color  = ColCloseBtn;
 
-        var btnRT  = btnImg.rectTransform;
-        btnRT.anchorMin = new Vector2(0f, 0f);
-        btnRT.anchorMax = new Vector2(1f, 0f);
-        btnRT.pivot     = new Vector2(0.5f, 0f);
-        btnRT.sizeDelta = new Vector2(0f, 72f);
-        btnRT.offsetMin = new Vector2(20f, 10f);
-        btnRT.offsetMax = new Vector2(-20f, 82f);
+        var rt  = img.rectTransform;
+        rt.anchorMin        = new Vector2(0.5f, 0f);
+        rt.anchorMax        = new Vector2(0.5f, 0f);
+        rt.pivot            = new Vector2(0.5f, 0f);
+        rt.sizeDelta        = new Vector2(560f, 72f);
+        rt.anchoredPosition = new Vector2(0f, 44f);
 
-        var labelGO = new GameObject("Label");
-        labelGO.transform.SetParent(btnGO.transform, false);
-        var tmp     = labelGO.AddComponent<TextMeshProUGUI>();
-        tmp.text    = "FERMER";
-        tmp.fontSize = 32f;
-        tmp.fontStyle = FontStyles.Bold;
-        tmp.color   = ColTabText;
-        tmp.alignment = TextAlignmentOptions.Center;
+        var lgo = new GameObject("Label");
+        lgo.transform.SetParent(rt, false);
+        var tmp = lgo.AddComponent<TextMeshProUGUI>();
+        tmp.text          = "FERMER";
+        tmp.fontSize      = 30f;
+        tmp.fontStyle     = FontStyles.Bold;
+        tmp.color         = ColCloseTxt;
+        tmp.alignment     = TextAlignmentOptions.Center;
         tmp.raycastTarget = false;
-        var labelRT = tmp.rectTransform;
-        labelRT.anchorMin = Vector2.zero;
-        labelRT.anchorMax = Vector2.one;
-        labelRT.offsetMin = labelRT.offsetMax = Vector2.zero;
+        var lrt = tmp.rectTransform;
+        lrt.anchorMin = Vector2.zero;
+        lrt.anchorMax = Vector2.one;
+        lrt.offsetMin = lrt.offsetMax = Vector2.zero;
 
-        var btn     = btnGO.AddComponent<Button>();
-        btn.targetGraphic = btnImg;
-        btn.onClick.AddListener(CloseDetails);
+        var btn = go.AddComponent<Button>();
+        btn.targetGraphic = img;
+        var colors        = btn.colors;
+        colors.highlightedColor = new Color(1.5f, 1.5f, 1.5f, 1f);
+        colors.fadeDuration     = 0.07f;
+        btn.colors = colors;
+        btn.onClick.AddListener(ClosePanel);
     }
 
-    // ── Logique des onglets ───────────────────────────────────────────────────
+    // ── Navigation slides ─────────────────────────────────────────────────────
 
-    private void SelectTab(int idx)
+    public void GoToSlide(int idx)
     {
-        for (int i = 0; i < tabNames.Length; i++)
+        if (idx < 0 || idx >= 3 || idx == currentSlide) return;
+        currentSlide = idx;
+        UpdateDots();
+        PopulateSlide(idx);
+        StartCoroutine(AnimateSlider(idx));
+    }
+
+    /// <summary>Appelé par le drag handler quand un swipe est complété.</summary>
+    public void OnSwipeEnd(float deltaX)
+    {
+        if (Mathf.Abs(deltaX) < 60f) return;
+        GoToSlide(deltaX < 0 ? currentSlide + 1 : currentSlide - 1);
+    }
+
+    private IEnumerator AnimateSlider(int targetIdx)
+    {
+        if (sliderContainer == null) yield break;
+
+        float startX   = sliderContainer.anchoredPosition.x;
+        float targetX  = -targetIdx * slideWidth;
+        float elapsed  = 0f;
+
+        while (elapsed < SlideAnim)
         {
-            tabBackgrounds[i].color = (i == idx) ? ColTabActive : ColTabIdle;
-            if (tabContents[i] != null) tabContents[i].SetActive(i == idx);
+            elapsed += Time.deltaTime;
+            float e  = 1f - Mathf.Pow(1f - Mathf.Clamp01(elapsed / SlideAnim), 3f); // EaseOutCubic
+            sliderContainer.anchoredPosition = new Vector2(Mathf.Lerp(startX, targetX, e), 0f);
+            yield return null;
         }
-        activeTab = idx;
-        RefreshTab(idx);
+        sliderContainer.anchoredPosition = new Vector2(targetX, 0f);
     }
 
-    private void RefreshTab(int idx)
+    private void UpdateDots()
     {
-        if (tabContents == null || idx >= tabContents.Length) return;
+        if (dotImages == null) return;
+        for (int i = 0; i < dotImages.Length; i++)
+            dotImages[i].color = (i == currentSlide) ? ColDotActive : ColDot;
+    }
 
-        var contentGO = tabContents[idx];
-        if (contentGO == null) return;
+    // ── Positionnement des slides (après layout) ──────────────────────────────
 
-        var scrollRect = contentGO.GetComponent<ScrollRect>();
-        if (scrollRect == null || scrollRect.content == null) return;
+    /// <summary>
+    /// Appelé à la fin du premier frame pour que le viewport ait ses dimensions réelles.
+    /// </summary>
+    private IEnumerator SetupSlideLayout()
+    {
+        // Attendre un frame que le layout soit calculé
+        yield return null;
+        yield return null;
 
-        var listRT = scrollRect.content;
+        var viewportRT = sliderContainer.parent as RectTransform;
+        if (viewportRT == null) yield break;
 
-        // Vider l'ancienne liste
+        slideWidth = viewportRT.rect.width;
+        if (slideWidth <= 0f) slideWidth = 1080f;   // fallback sécurisé
+
+        // Conteneur = 3× largeur viewport
+        sliderContainer.sizeDelta = new Vector2(slideWidth * 3f, 0f);
+        sliderContainer.anchorMin = new Vector2(0f, 0f);
+        sliderContainer.anchorMax = new Vector2(0f, 1f);
+        sliderContainer.pivot     = new Vector2(0f, 0.5f);
+        sliderContainer.anchoredPosition = Vector2.zero;
+
+        // Positionner chaque slide
+        for (int i = 0; i < slideRTs.Length; i++)
+        {
+            var rt        = slideRTs[i];
+            rt.sizeDelta  = new Vector2(slideWidth, 0f);
+            rt.anchoredPosition = new Vector2(i * slideWidth, 0f);
+        }
+
+        // Peupler le premier slide visible
+        PopulateSlide(0);
+    }
+
+    // ── Population des scores ─────────────────────────────────────────────────
+
+    private void PopulateSlide(int idx)
+    {
+        if (ScoreManager.Instance == null) return;
+        if (scoreListRTs == null || idx >= scoreListRTs.Length) return;
+
+        IReadOnlyList<int> scores = ScoreManager.Instance.GetAllScores(GameTypes[idx]);
+
+        // Meilleur score
+        var bestLabel = FindLabelInSlide(idx, $"BestScore_{idx}");
+        if (bestLabel != null)
+        {
+            if (scores.Count == 0)
+            {
+                bestLabel.text  = "—";
+                bestLabel.color = ColNoScore;
+            }
+            else
+            {
+                int best       = 0;
+                foreach (int s in scores) if (s > best) best = s;
+                bestLabel.text  = best.ToString("N0");
+                bestLabel.color = GameColors[idx];
+            }
+        }
+
+        // Historique
+        var listRT = scoreListRTs[idx];
+        if (listRT == null) return;
+
+        // Vider
         for (int c = listRT.childCount - 1; c >= 0; c--)
             Destroy(listRT.GetChild(c).gameObject);
 
-        // Peupler avec les scores
-        IReadOnlyList<int> scores = ScoreManager.Instance != null
-            ? ScoreManager.Instance.GetAllScores(tabTypes[idx])
-            : new List<int>();
-
         if (scores.Count == 0)
         {
-            AddEntryRow(listRT, "Aucun score enregistré", ColNoScore, isBold: false);
+            AddHistoryRow(listRT, "Aucune partie jouée", ColNoScore, isRecord: false, isBold: false);
+            return;
         }
-        else
+
+        // Trouver le meilleur pour le mettre en évidence
+        int bestScore = 0;
+        foreach (int s in scores) if (s > bestScore) bestScore = s;
+
+        // Du plus récent au plus ancien
+        for (int i = scores.Count - 1; i >= 0; i--)
         {
-            // Du plus récent au plus ancien
-            for (int i = scores.Count - 1; i >= 0; i--)
-            {
-                int runNumber = scores.Count - i;
-                string label  = $"Run #{runNumber}   {scores[i]:N0} pts";
-                AddEntryRow(listRT, label, ColRunEntry, isBold: false);
-            }
+            int  run    = scores.Count - i;
+            bool isRec  = (scores[i] == bestScore);
+            string txt  = $"Partie #{run}   {scores[i]:N0} pts{(isRec ? "  ★" : "")}";
+            AddHistoryRow(listRT, txt,
+                isRec ? ColEntryBest : ColEntryNormal,
+                isRecord: isRec, isBold: isRec);
         }
     }
 
-    private void AddEntryRow(RectTransform parent, string text, Color color, bool isBold)
+    private TextMeshProUGUI FindLabelInSlide(int idx, string goName)
+    {
+        if (slideRTs == null || idx >= slideRTs.Length) return null;
+        var slide = slideRTs[idx];
+        if (slide == null) return null;
+        var found = slide.Find(goName);
+        return found != null ? found.GetComponent<TextMeshProUGUI>() : null;
+    }
+
+    private void AddHistoryRow(RectTransform parent, string text, Color col,
+        bool isRecord, bool isBold)
     {
         var go  = new GameObject("Entry");
         go.transform.SetParent(parent, false);
 
-        var rt  = go.AddComponent<RectTransform>();
+        var bg  = go.AddComponent<Image>();
+        bg.sprite = SpriteGenerator.CreateWhiteSquare();
+        bg.color  = isRecord
+            ? new Color(1f, 0.82f, 0.18f, 0.08f)
+            : ColEntryBg;
+        bg.raycastTarget = false;
+
+        var rt  = go.GetComponent<RectTransform>();
         rt.sizeDelta = new Vector2(0f, EntryH);
 
-        var tmp = go.AddComponent<TextMeshProUGUI>();
-        tmp.text      = text;
-        tmp.fontSize  = 28f;
-        tmp.fontStyle = isBold ? FontStyles.Bold : FontStyles.Normal;
-        tmp.color     = color;
-        tmp.alignment = TextAlignmentOptions.MidlineLeft;
+        var lgo = new GameObject("Text");
+        lgo.transform.SetParent(go.transform, false);
+        var tmp = lgo.AddComponent<TextMeshProUGUI>();
+        tmp.text          = text;
+        tmp.fontSize      = 28f;
+        tmp.fontStyle     = isBold ? FontStyles.Bold : FontStyles.Normal;
+        tmp.color         = col;
+        tmp.alignment     = TextAlignmentOptions.MidlineLeft;
         tmp.raycastTarget = false;
+        var lrt = tmp.rectTransform;
+        lrt.anchorMin = Vector2.zero;
+        lrt.anchorMax = Vector2.one;
+        lrt.offsetMin = new Vector2(20f, 0f);
+        lrt.offsetMax = new Vector2(-20f, 0f);
     }
 
     // ── Ouverture / fermeture ─────────────────────────────────────────────────
 
-    private void OpenDetails()
+    private void OpenPanel()
     {
-        if (ScoreManager.Instance == null) return;
-
-        detailsModal.SetActive(true);
-        SelectTab(0);
+        if (panelRT == null) return;
+        panelRT.gameObject.SetActive(true);
+        panelGroup.blocksRaycasts = true;
+        currentSlide = 0;
+        UpdateDots();
+        StartCoroutine(FadeGroup(panelGroup, 0f, 1f, 0.22f));
+        StartCoroutine(SetupSlideLayout());
     }
 
-    private void CloseDetails()
+    private void ClosePanel()
     {
-        if (detailsModal != null)
-            detailsModal.SetActive(false);
+        StartCoroutine(ClosePanelRoutine());
     }
 
-    // ── Rafraîchissement ──────────────────────────────────────────────────────
+    private IEnumerator ClosePanelRoutine()
+    {
+        panelGroup.blocksRaycasts = false;
+        yield return StartCoroutine(FadeGroup(panelGroup, 1f, 0f, 0.18f));
+        panelRT.gameObject.SetActive(false);
+    }
+
+    // ── Rafraîchissement total ────────────────────────────────────────────────
 
     private void RefreshTotal()
     {
         if (totalScoreLabel == null) return;
-
         int total = ScoreManager.Instance != null ? ScoreManager.Instance.GetTotalScore() : 0;
         totalScoreLabel.text = total.ToString("N0");
     }
 
     // ── Helpers UI ────────────────────────────────────────────────────────────
 
-    private static GameObject MakeText(string name, RectTransform parent,
-        string text, float fontSize, FontStyles style, Color color,
+    private static TextMeshProUGUI Lbl(string name, RectTransform parent, string text,
+        float size, FontStyles style, Color col,
         Vector2 anchorMin, Vector2 anchorMax,
         Vector2 offsetMin = default, Vector2 offsetMax = default,
-        TextAlignmentOptions alignment = TextAlignmentOptions.TopLeft)
+        TextAlignmentOptions align = TextAlignmentOptions.TopLeft)
     {
-        var go         = new GameObject(name);
+        var go  = new GameObject(name);
         go.transform.SetParent(parent, false);
-
-        var tmp        = go.AddComponent<TextMeshProUGUI>();
-        tmp.text       = text;
-        tmp.fontSize   = fontSize;
-        tmp.fontStyle  = style;
-        tmp.color      = color;
-        tmp.alignment  = alignment;
+        var tmp = go.AddComponent<TextMeshProUGUI>();
+        tmp.text          = text;
+        tmp.fontSize      = size;
+        tmp.fontStyle     = style;
+        tmp.color         = col;
+        tmp.alignment     = align;
         tmp.raycastTarget = false;
+        var rt = tmp.rectTransform;
+        rt.anchorMin = anchorMin;
+        rt.anchorMax = anchorMax;
+        rt.offsetMin = offsetMin;
+        rt.offsetMax = offsetMax;
+        return tmp;
+    }
 
-        var rt         = tmp.rectTransform;
-        rt.anchorMin   = anchorMin;
-        rt.anchorMax   = anchorMax;
-        rt.offsetMin   = offsetMin;
-        rt.offsetMax   = offsetMax;
+    private static void Sep(string name, RectTransform parent,
+        Vector2 anchorMin, Vector2 anchorMax,
+        Vector2 offsetMin, Vector2 offsetMax)
+    {
+        var go  = new GameObject(name);
+        go.transform.SetParent(parent, false);
+        var img = go.AddComponent<Image>();
+        img.sprite = SpriteGenerator.CreateWhiteSquare();
+        img.color  = ColSep;
+        img.raycastTarget = false;
+        var rt = img.rectTransform;
+        rt.anchorMin = anchorMin;
+        rt.anchorMax = anchorMax;
+        rt.offsetMin = offsetMin;
+        rt.offsetMax = offsetMax;
+    }
 
-        return go;
+    private static IEnumerator FadeGroup(CanvasGroup g, float from, float to, float dur)
+    {
+        float t = 0f;
+        while (t < dur)
+        {
+            t      += Time.deltaTime;
+            g.alpha = Mathf.Lerp(from, to, Mathf.Clamp01(t / dur));
+            yield return null;
+        }
+        g.alpha = to;
+    }
+}
+
+// ── Drag handler (swipe entre les slides) ─────────────────────────────────────
+
+/// <summary>
+/// Détecte le drag horizontal sur le viewport et notifie <see cref="MenuScorePanel"/>.
+/// Séparé pour respecter la responsabilité unique.
+/// </summary>
+public class SliderDragHandler : MonoBehaviour,
+    UnityEngine.EventSystems.IBeginDragHandler,
+    UnityEngine.EventSystems.IDragHandler,
+    UnityEngine.EventSystems.IEndDragHandler
+{
+    private MenuScorePanel panel;
+    private float          startX;
+    private float          lastDeltaX;
+
+    public void Init(MenuScorePanel owner) => panel = owner;
+
+    public void OnBeginDrag(UnityEngine.EventSystems.PointerEventData e)
+    {
+        startX     = e.position.x;
+        lastDeltaX = 0f;
+    }
+
+    public void OnDrag(UnityEngine.EventSystems.PointerEventData e)
+    {
+        lastDeltaX = e.position.x - startX;
+    }
+
+    public void OnEndDrag(UnityEngine.EventSystems.PointerEventData e)
+    {
+        panel?.OnSwipeEnd(lastDeltaX);
     }
 }
