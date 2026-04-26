@@ -46,11 +46,15 @@ public class MenuMainSetup : MonoBehaviour
 
     private void Start()
     {
+        NeedsManager.EnsureExists();
+        ShopManager.EnsureExists();
+
         BuildBackground2D();
         var canvasRT = BuildCanvas();
         BuildHud(canvasRT);
         BuildDoor(canvasRT);
         BuildGamesButton(canvasRT);
+        BuildQuestsButton(canvasRT);
         EnsureSceneTransition();
     }
 
@@ -170,6 +174,47 @@ public class MenuMainSetup : MonoBehaviour
         var btn           = btnGO.AddComponent<Button>();
         btn.targetGraphic = img;
         btn.onClick.AddListener(panel.Show);
+    }
+
+    // ── Bouton QUÊTES + panneau NeedsPanel ────────────────────────────────────
+
+    private static void BuildQuestsButton(RectTransform canvasRT)
+    {
+        // Panneau quêtes (hors écran, à droite)
+        var needsPanel = MenuNeedsPanel.Create(canvasRT);
+
+        // Bouton "QUÊTES" — bas-gauche
+        var btnGO = new GameObject("QuestsButton");
+        btnGO.transform.SetParent(canvasRT, false);
+
+        var img      = btnGO.AddComponent<Image>();
+        img.sprite   = SpriteGenerator.CreateWhiteSquare();
+        img.color    = ColGamesBtnBg;
+
+        var rt       = img.rectTransform;
+        rt.anchorMin = new Vector2(0f, 0f);
+        rt.anchorMax = new Vector2(0f, 0f);
+        rt.pivot     = new Vector2(0f, 0f);
+        rt.sizeDelta = new Vector2(220f, 80f);
+        rt.anchoredPosition = new Vector2(32f, 200f);
+
+        var labelGO       = new GameObject("Label");
+        labelGO.transform.SetParent(rt, false);
+        var tmp           = labelGO.AddComponent<TMPro.TextMeshProUGUI>();
+        tmp.text          = "QUÊTES";
+        tmp.fontSize      = 34f;
+        tmp.fontStyle     = TMPro.FontStyles.Bold;
+        tmp.color         = ColGamesBtnTxt;
+        tmp.alignment     = TMPro.TextAlignmentOptions.Center;
+        tmp.raycastTarget = false;
+        var lrt           = tmp.rectTransform;
+        lrt.anchorMin     = Vector2.zero;
+        lrt.anchorMax     = Vector2.one;
+        lrt.offsetMin     = lrt.offsetMax = Vector2.zero;
+
+        var btn           = btnGO.AddComponent<Button>();
+        btn.targetGraphic = img;
+        btn.onClick.AddListener(needsPanel.Show);
     }
 
     // ── EventSystem ───────────────────────────────────────────────────────────

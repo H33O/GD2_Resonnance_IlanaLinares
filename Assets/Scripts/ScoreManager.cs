@@ -103,6 +103,18 @@ public class ScoreManager : MonoBehaviour
         OnCoinsAdded?.Invoke(amount, data.totalCoins);
     }
 
+    /// <summary>
+    /// Déduit un montant de pièces du solde du joueur (achat en boutique) et persiste.
+    /// Ne fait rien si le solde est insuffisant.
+    /// </summary>
+    public void SpendCoins(int amount)
+    {
+        if (amount <= 0 || data.totalCoins < amount) return;
+        data.totalCoins -= amount;
+        Save();
+        OnCoinsAdded?.Invoke(-amount, data.totalCoins);
+    }
+
     /// <summary>Retourne le solde actuel de pièces du joueur.</summary>
     public int GetTotalCoins() => data.totalCoins;
 

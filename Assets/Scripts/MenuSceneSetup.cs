@@ -24,6 +24,10 @@ public class MenuSceneSetup : MonoBehaviour
 
     private void Start()
     {
+        // Singletons persistants (DontDestroyOnLoad)
+        NeedsManager.EnsureExists();
+        ShopManager.EnsureExists();
+
         var canvasRT = BuildCanvas();
 
         BuildBackground(canvasRT);
@@ -132,13 +136,14 @@ public class MenuSceneSetup : MonoBehaviour
         // ClockWidget : anchorMin=(1,1), pivot=(1,1), offset=(-32,-48), sizeDelta=(260,110)
         // Bord bas du widget horloge = anchoredPosition.y - sizeDelta.y = -48 - 110 = -158
         // Bouton Quêtes juste en dessous avec un gap de 16
-        const float marginX    = 32f;
+        const float marginX      = 32f;
         const float clockBottomY = -48f - 110f;  // = -158
-        const float gapY       = 16f;
-        const float btnW       = 260f;
-        const float btnH       = 64f;
+        const float gapY         = 16f;
+        const float btnW         = 260f;
+        const float btnH         = 64f;
 
-        var panel = MenuQuestPanel.Create(canvasRT);
+        // Panneau complet Eau / Nourriture / Sommeil + boutique + coffre
+        var panel = MenuNeedsPanel.Create(canvasRT);
 
         var btnGO = new GameObject("QuestButton");
         btnGO.transform.SetParent(canvasRT, false);
