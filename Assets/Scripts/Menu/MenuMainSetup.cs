@@ -59,6 +59,9 @@ public class MenuMainSetup : MonoBehaviour
 
     private void Start()
     {
+        // ── Ordre critique : Score → Level → Quest ────────────────────────────
+        // QuestManager.OnEnable s'abonne à ScoreManager.OnScoreAdded ;
+        // il faut donc que ScoreManager existe AVANT QuestManager.Awake().
         ScoreManager.EnsureExists();
         PlayerLevelManager.EnsureExists();
         QuestManager.EnsureExists();
@@ -164,10 +167,7 @@ public class MenuMainSetup : MonoBehaviour
         dm.TargetScene     = doorTargetScene;
         dm.ButtonLabel     = doorButtonLabel;
         dm.Init(rt);
-
-        // Écouter les nouveaux scores pour débloquer automatiquement
-        if (ScoreManager.Instance != null)
-            ScoreManager.Instance.OnScoreAdded += (_, __) => dm.EvaluateUnlock();
+        // L'abonnement au PlayerLevelManager est géré dans DoorManager.Start()
     }
 
     // ── Porte (bas-centre) ────────────────────────────────────────────────────

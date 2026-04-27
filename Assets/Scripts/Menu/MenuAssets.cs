@@ -34,6 +34,38 @@ public static class MenuAssets
         // Charger JimNightshade automatiquement si aucune font n'est fournie
         if (Font == null)
             Font = LoadJimNightshade();
+
+        // Charger jaugenormal automatiquement si non fourni
+        if (TextBadgeSprite == null)
+            TextBadgeSprite = LoadJaugeNormal();
+    }
+
+    // ── Chargement jaugenormal ────────────────────────────────────────────────
+
+    private static Sprite LoadJaugeNormal()
+    {
+#if UNITY_EDITOR
+        // Charger la texture depuis Assets/sprites/jaugenormal.png
+        var tex = UnityEditor.AssetDatabase.LoadAssetAtPath<Texture2D>(
+            "Assets/sprites/jaugenormal.png");
+        if (tex != null)
+        {
+            // Chercher le sprite principal du même asset
+            var sprites = UnityEditor.AssetDatabase.LoadAllAssetsAtPath(
+                "Assets/sprites/jaugenormal.png");
+            foreach (var obj in sprites)
+            {
+                if (obj is Sprite sp) return sp;
+            }
+            // Aucun sprite importé → créer un sprite depuis la texture brute
+            return Sprite.Create(tex,
+                new Rect(0, 0, tex.width, tex.height),
+                new Vector2(0.5f, 0.5f), 100f,
+                0, SpriteMeshType.FullRect,
+                new Vector4(8, 8, 8, 8));  // 9-slice : 8 px de bordure
+        }
+#endif
+        return null;
     }
 
     // ── Chargement JimNightshade ──────────────────────────────────────────────

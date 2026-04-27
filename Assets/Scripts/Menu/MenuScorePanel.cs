@@ -71,25 +71,36 @@ public class MenuScorePanel : MonoBehaviour
     /// <summary>Appelé par <see cref="MenuMainHud.Init"/>.</summary>
     public void Init(RectTransform canvasRT)
     {
-        PlayerLevelManager.EnsureExists();
+        // PlayerLevelManager est garanti d'exister (créé avant MenuMainHud dans MenuMainSetup)
         BuildWidget(canvasRT);
         BuildPanel(canvasRT);
         RefreshAll(animate: false);
 
+        // Abonnement PlayerLevelManager (existe déjà)
         if (PlayerLevelManager.Instance != null)
         {
             PlayerLevelManager.Instance.OnLevelUp        += OnLevelUp;
             PlayerLevelManager.Instance.OnProgressChanged += OnXPChanged;
         }
-
-        if (QuestManager.Instance != null)
-        {
-            QuestManager.Instance.OnProgressChanged += RefreshQuestList;
-            QuestManager.Instance.OnWaveStarted     += OnWaveStarted;
-        }
+        // ⚠️  QuestManager n'est PAS encore créé ici (BuildHud < QuestManager.EnsureExists)
+        // L'abonnement QuestManager est fait dans Start().
     }
 
-    private void OnXPChanged()   => RefreshAll(animate: true);
+    private void Start()
+    {
+        // QuestManager existe maintenant (créé par MenuMainSetup.Start avant la fin du frame)
+        if (QuestManager.Instance != null)
+        {
+            QuestManager.Instance.OnProgressChanged -= RefreshQuestList;
+            QuestManager.Instance.OnProgressChanged += RefreshQuestList;
+            QuestManager.Instance.OnWaveStarted     -= OnWaveStarted;
+            QuestManager.Instance.OnWaveStarted     += OnWaveStarted;
+        }
+        // Refresh initial après que tout le monde est créé
+        RefreshAll(animate: false);
+    }
+
+    private void OnXPChanged()        => RefreshAll(animate: true);
     private void OnWaveStarted(int _) => RefreshAll(animate: false);
 
     private void OnDestroy()
@@ -127,12 +138,17 @@ public class MenuScorePanel : MonoBehaviour
         rt.anchoredPosition = new Vector2(MarginX, -MarginY);
         _widgetRT        = rt;
 
-        // Label "NIVEAU"
-        MakeLabel("LvlLbl", rt, "NIVEAU",
-            new Vector2(0.06f, 0.62f), new Vector2(0.55f, 1f),
-            22f, ColWidgetLbl, FontStyles.Bold, TextAlignmentOptions.BottomLeft);
+        // ── Rangée "NIV  [chiffre]" côte à côte ──────────────────────────────
+        //
+        // Ancres de la zone de texte : toute la moitié haute du widget
+        // On place un label "NIV" à gauche et la valeur juste à sa droite.
 
-        // Valeur niveau (grand)
+        // "NIV" — étiquette
+        MakeLabel("LvlLbl", rt, "NIV",
+            new Vector2(0.06f, 0.44f), new Vector2(0.38f, 0.90f),
+            26f, ColWidgetLbl, FontStyles.Bold, TextAlignmentOptions.MidlineLeft);
+
+        // Valeur niveau (grand) — positionné à droite du label "NIV"
         var lvlGO    = new GameObject("LvlVal");
         lvlGO.transform.SetParent(rt, false);
         var lvlTmp   = lvlGO.AddComponent<TextMeshProUGUI>();
@@ -144,12 +160,12 @@ public class MenuScorePanel : MonoBehaviour
         lvlTmp.raycastTarget = false;
         MenuAssets.ApplyFont(lvlTmp);
         var lvlRT    = lvlTmp.rectTransform;
-        lvlRT.anchorMin = new Vector2(0.06f, 0.08f);
-        lvlRT.anchorMax = new Vector2(0.52f, 0.66f);
+        lvlRT.anchorMin = new Vector2(0.36f, 0.34f);
+        lvlRT.anchorMax = new Vector2(0.72f, 0.96f);
         lvlRT.offsetMin = lvlRT.offsetMax = Vector2.zero;
         _levelLabel  = lvlTmp;
 
-        // Piste XP — plus haute (30 % de hauteur)
+        // Piste XP — bande en bas du widget
         var trackGO  = new GameObject("XPTrack");
         trackGO.transform.SetParent(rt, false);
         var trackImg = trackGO.AddComponent<Image>();
@@ -158,7 +174,7 @@ public class MenuScorePanel : MonoBehaviour
         trackImg.raycastTarget = false;
         var trackRT  = trackImg.rectTransform;
         trackRT.anchorMin = new Vector2(0.06f, 0.06f);
-        trackRT.anchorMax = new Vector2(0.94f, 0.30f);   // barre plus épaisse
+        trackRT.anchorMax = new Vector2(0.94f, 0.30f);
         trackRT.offsetMin = trackRT.offsetMax = Vector2.zero;
 
         // Remplissage XP
@@ -189,7 +205,7 @@ public class MenuScorePanel : MonoBehaviour
         MenuAssets.ApplyFont(xpTmp);
         var xpRT     = xpTmp.rectTransform;
         xpRT.anchorMin = new Vector2(0.06f, 0.30f);
-        xpRT.anchorMax = new Vector2(0.94f, 0.62f);
+        xpRT.anchorMax = new Vector2(0.94f, 0.50f);
         xpRT.offsetMin = xpRT.offsetMax = Vector2.zero;
         _xpLabel = xpTmp;
         // Pas de Button — widget informatif uniquement
@@ -325,31 +341,46 @@ public class MenuScorePanel : MonoBehaviour
 
     private void BuildQuestScrollView(RectTransform parent)
     {
-        var viewGO   = new GameObject("QuestView");
-        viewGO.transform.SetParent(parent, false);
+        // ── ScrollRect parent ─────────────────────────────────────────────────
+        var scrollGO = new GameObject("QuestScrollRoot");
+        scrollGO.transform.SetParent(parent, false);
+        var scrollRT       = scrollGO.AddComponent<RectTransform>();
+        scrollRT.anchorMin = new Vector2(0.04f, 0.17f);
+        scrollRT.anchorMax = new Vector2(0.96f, 0.618f);
+        scrollRT.offsetMin = scrollRT.offsetMax = Vector2.zero;
+
+        var scrollRect               = scrollGO.AddComponent<ScrollRect>();
+        scrollRect.horizontal        = false;
+        scrollRect.vertical          = true;
+        scrollRect.scrollSensitivity = 40f;
+        scrollRect.movementType      = ScrollRect.MovementType.Clamped;
+        scrollRect.inertia           = true;
+        scrollRect.decelerationRate  = 0.135f;
+
+        // ── Viewport ──────────────────────────────────────────────────────────
+        var viewGO   = new GameObject("QuestViewport");
+        viewGO.transform.SetParent(scrollGO.transform, false);
+
         var viewImg  = viewGO.AddComponent<Image>();
-        viewImg.color = Color.clear;
+        viewImg.sprite = SpriteGenerator.CreateWhiteSquare();
+        viewImg.color  = Color.clear;
         viewImg.raycastTarget = false;
-        var viewMask = viewGO.AddComponent<Mask>();
-        viewMask.showMaskGraphic = false;
+
+        viewGO.AddComponent<Mask>().showMaskGraphic = false;
+
         var viewRT   = viewImg.rectTransform;
-        viewRT.anchorMin = new Vector2(0.04f, 0.17f);
-        viewRT.anchorMax = new Vector2(0.96f, 0.618f);
+        viewRT.anchorMin = Vector2.zero;
+        viewRT.anchorMax = Vector2.one;
         viewRT.offsetMin = viewRT.offsetMax = Vector2.zero;
 
-        var scrollRect                = viewGO.AddComponent<ScrollRect>();
-        scrollRect.horizontal         = false;
-        scrollRect.vertical           = true;
-        scrollRect.scrollSensitivity  = 40f;
-        scrollRect.movementType       = ScrollRect.MovementType.Clamped;
-
+        // ── Liste ─────────────────────────────────────────────────────────────
         var listGO = new GameObject("QuestList");
         listGO.transform.SetParent(viewGO.transform, false);
         var listRT = listGO.AddComponent<RectTransform>();
         listRT.anchorMin = new Vector2(0f, 1f);
         listRT.anchorMax = new Vector2(1f, 1f);
         listRT.pivot     = new Vector2(0.5f, 1f);
-        listRT.offsetMin = listRT.offsetMax = Vector2.zero;
+        listRT.sizeDelta = Vector2.zero;
 
         var vlg = listGO.AddComponent<VerticalLayoutGroup>();
         vlg.spacing              = 8f;
@@ -363,13 +394,10 @@ public class MenuScorePanel : MonoBehaviour
         var csf = listGO.AddComponent<ContentSizeFitter>();
         csf.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
 
-        scrollRect.content  = listRT;
         scrollRect.viewport = viewRT;
+        scrollRect.content  = listRT;
 
         _questListParent = listGO.transform;
-
-        // Forcer un rebuild immédiat pour que le ContentSizeFitter soit actif
-        LayoutRebuilder.ForceRebuildLayoutImmediate(listRT);
     }
 
     private void BuildCloseButton(RectTransform parent)
@@ -473,9 +501,13 @@ public class MenuScorePanel : MonoBehaviour
     {
         if (_questListParent == null || QuestManager.Instance == null) return;
 
-        // Vider la liste
+        // Détacher avant destroy pour que LayoutGroup ne les compte plus
         for (int i = _questListParent.childCount - 1; i >= 0; i--)
-            Destroy(_questListParent.GetChild(i).gameObject);
+        {
+            var ch = _questListParent.GetChild(i);
+            ch.SetParent(null, false);
+            Destroy(ch.gameObject);
+        }
 
         // Reconstruire
         foreach (var def in QuestManager.Instance.ActiveWave)

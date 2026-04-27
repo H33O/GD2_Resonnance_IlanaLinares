@@ -38,11 +38,17 @@ public class DoorManager : MonoBehaviour
     [Tooltip("Libellé affiché sur le bouton de l'overlay.")]
     [SerializeField] public string ButtonLabel = "JOUER";
 
+    // ── Constantes ────────────────────────────────────────────────────────────
+
+    /// <summary>Niveau requis pour déverrouiller la porte.</summary>
+    public const int UnlockLevel = 4;
+
     // ── Constantes UI ─────────────────────────────────────────────────────────
 
     private const float OverlayFadeT  = 0.30f;
     private const float BtnW          = 480f;
     private const float BtnH          = 160f;
+    private const float LockToastDur  = 3.0f;   // durée d'affichage du message de verrou
 
     private static readonly Color ColOverlayDim  = new Color(0f, 0f, 0f, 0.78f);
     private static readonly Color ColBtnLabel    = Color.white;
@@ -55,6 +61,11 @@ public class DoorManager : MonoBehaviour
     private bool        _overlayOpen;
     private bool        _isAnimating;
 
+    // Références du toast "verrouillé"
+    private CanvasGroup      _lockToastGroup;
+    private TMPro.TextMeshProUGUI _lockToastLabel;
+    private Coroutine        _lockToastCoroutine;
+
     // ── Propriété publique ────────────────────────────────────────────────────
 
     /// <summary>Vrai si la porte est déverrouillée.</summary>
@@ -66,6 +77,13 @@ public class DoorManager : MonoBehaviour
     {
         if (Instance != null && Instance != this) { Destroy(gameObject); return; }
         Instance = this;
+    }
+
+    private void Start()
+    {
+        // Ré-évaluer le verrou si le joueur monte de niveau pendant la session
+        if (PlayerLevelManager.Instance != null)
+            PlayerLevelManager.Instance.OnLevelUp += _ => EvaluateUnlock();
     }
 
     private void Update()
@@ -84,25 +102,22 @@ public class DoorManager : MonoBehaviour
     public void Init(RectTransform canvasRT)
     {
         BuildOverlay(canvasRT);
+        BuildLockToast(canvasRT);
         EvaluateUnlock();
     }
 
     // ── Logique de déverrouillage ─────────────────────────────────────────────
 
-    /// <summary>Vérifie si les 3 jeux ont été joués et met à jour l'état du verrou.</summary>
+    /// <summary>
+    /// La porte se déverrouille quand le joueur atteint le niveau <see cref="UnlockLevel"/>.
+    /// </summary>
     public void EvaluateUnlock()
     {
         if (_unlocked) return;
 
-        var sm = ScoreManager.Instance;
-        if (sm == null) return;
-
-        bool allPlayed =
-            sm.GetAllScores(GameType.GameAndWatch).Count  > 0 &&
-            sm.GetAllScores(GameType.BubbleShooter).Count > 0 &&
-            sm.GetAllScores(GameType.BallAndGoal).Count   > 0;
-
-        if (allPlayed) ForceUnlock();
+        int level = PlayerLevelManager.Instance?.Level ?? 1;
+        if (level >= UnlockLevel)
+            ForceUnlock();
     }
 
     /// <summary>Déverrouille la porte immédiatement (appel manuel ou touche D).</summary>
@@ -117,14 +132,114 @@ public class DoorManager : MonoBehaviour
 
     /// <summary>
     /// Appelé par <see cref="MenuDoor"/> lors d'un clic sur la porte.
-    /// Si verrouillée : ne fait rien (MenuDoor gère l'affichage du cadenas).
+    /// Si verrouillée : affiche un message "Atteindre le niveau N pour déverrouiller".
     /// Si déverrouillée : toggle l'overlay intérieur porte.
     /// </summary>
     public void OnDoorClicked()
     {
-        if (!_unlocked) return;
+        if (!_unlocked)
+        {
+            ShowLockToast();
+            return;
+        }
         if (_overlayOpen) CloseOverlay();
         else OpenOverlay();
+    }
+
+    // ── Toast "porte verrouillée" ──────────────────────────────────────────────
+
+    private void BuildLockToast(RectTransform canvasRT)
+    {
+        var go = new GameObject("LockToast");
+        go.transform.SetParent(canvasRT, false);
+
+        var rt       = go.AddComponent<RectTransform>();
+        rt.anchorMin = new Vector2(0.5f, 0.5f);
+        rt.anchorMax = new Vector2(0.5f, 0.5f);
+        rt.pivot     = new Vector2(0.5f, 0.5f);
+        rt.sizeDelta = new Vector2(700f, 160f);
+        rt.anchoredPosition = new Vector2(0f, -380f);
+
+        var bg    = go.AddComponent<Image>();
+        bg.sprite = SpriteGenerator.CreateWhiteSquare();
+        bg.color  = new Color(0.06f, 0.04f, 0.02f, 0.94f);
+        bg.raycastTarget = false;
+
+        _lockToastGroup              = go.AddComponent<CanvasGroup>();
+        _lockToastGroup.alpha        = 0f;
+        _lockToastGroup.blocksRaycasts = false;
+
+        // Icône cadenas (emoji unicode)
+        var iconGO  = new GameObject("Icon");
+        iconGO.transform.SetParent(rt, false);
+        var iconTmp = iconGO.AddComponent<TMPro.TextMeshProUGUI>();
+        iconTmp.text      = "🔒";
+        iconTmp.fontSize  = 48f;
+        iconTmp.color     = ColLockHint;
+        iconTmp.alignment = TMPro.TextAlignmentOptions.MidlineLeft;
+        iconTmp.raycastTarget = false;
+        var iconRT    = iconTmp.rectTransform;
+        iconRT.anchorMin = new Vector2(0.04f, 0f);
+        iconRT.anchorMax = new Vector2(0.16f, 1f);
+        iconRT.offsetMin = iconRT.offsetMax = Vector2.zero;
+
+        // Texte principal
+        var txtGO  = new GameObject("Txt");
+        txtGO.transform.SetParent(rt, false);
+        _lockToastLabel           = txtGO.AddComponent<TMPro.TextMeshProUGUI>();
+        _lockToastLabel.text      = $"Atteindre le niveau {UnlockLevel} pour déverrouiller la porte";
+        _lockToastLabel.fontSize  = 28f;
+        _lockToastLabel.fontStyle = TMPro.FontStyles.Bold;
+        _lockToastLabel.color     = ColLockHint;
+        _lockToastLabel.alignment = TMPro.TextAlignmentOptions.MidlineLeft;
+        _lockToastLabel.enableWordWrapping = true;
+        _lockToastLabel.raycastTarget = false;
+        MenuAssets.ApplyFont(_lockToastLabel);
+        var txtRT    = _lockToastLabel.rectTransform;
+        txtRT.anchorMin = new Vector2(0.17f, 0.08f);
+        txtRT.anchorMax = new Vector2(0.97f, 0.92f);
+        txtRT.offsetMin = txtRT.offsetMax = Vector2.zero;
+    }
+
+    private void ShowLockToast()
+    {
+        // Mise à jour dynamique au cas où le niveau a changé entre deux affichages
+        int level = PlayerLevelManager.Instance?.Level ?? 1;
+        int need  = UnlockLevel - level;
+
+        if (_lockToastLabel != null)
+            _lockToastLabel.text = need <= 0
+                ? $"Atteindre le niveau {UnlockLevel} pour déverrouiller la porte"
+                : $"Il te manque {need} niveau{(need > 1 ? "x" : "")} — atteins le niveau {UnlockLevel} !";
+
+        if (_lockToastCoroutine != null) StopCoroutine(_lockToastCoroutine);
+        _lockToastCoroutine = StartCoroutine(ToastSequence());
+    }
+
+    private IEnumerator ToastSequence()
+    {
+        // Fade in rapide
+        float e = 0f;
+        while (e < 0.18f)
+        {
+            e += Time.deltaTime;
+            _lockToastGroup.alpha = Mathf.Clamp01(e / 0.18f);
+            yield return null;
+        }
+        _lockToastGroup.alpha = 1f;
+
+        // Pause
+        yield return new WaitForSeconds(LockToastDur);
+
+        // Fade out
+        e = 0f;
+        while (e < 0.35f)
+        {
+            e += Time.deltaTime;
+            _lockToastGroup.alpha = 1f - Mathf.Clamp01(e / 0.35f);
+            yield return null;
+        }
+        _lockToastGroup.alpha = 0f;
     }
 
     // ── Construction de l'overlay ─────────────────────────────────────────────

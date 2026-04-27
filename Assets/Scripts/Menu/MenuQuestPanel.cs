@@ -21,23 +21,41 @@ public class MenuQuestPanel : MonoBehaviour
 
     // ── Palette ───────────────────────────────────────────────────────────────
 
-    private static readonly Color ColBg           = new Color(0.06f, 0.05f, 0.08f, 0.98f);
-    private static readonly Color ColWhite        = Color.white;
-    private static readonly Color ColWhiteDim     = Color.white;
-    private static readonly Color ColSep          = new Color(1f, 1f, 1f, 0.18f);
-    private static readonly Color ColRowBg        = new Color(1f, 1f, 1f, 0.06f);
-    private static readonly Color ColRowDone      = new Color(0.15f, 0.55f, 0.20f, 0.22f);
-    private static readonly Color ColAccentSimple = new Color(1.00f, 0.82f, 0.18f, 1.00f);
-    private static readonly Color ColAccentXP     = new Color(0.40f, 0.80f, 1.00f, 1.00f);
-    private static readonly Color ColAccentDone   = new Color(0.30f, 0.95f, 0.45f, 1.00f);
-    private static readonly Color ColTrack        = new Color(1f, 1f, 1f, 0.12f);
-    private static readonly Color ColFillSimple   = new Color(1.00f, 0.82f, 0.18f, 1.00f);
-    private static readonly Color ColFillXP       = new Color(0.40f, 0.80f, 1.00f, 1.00f);
-    private static readonly Color ColFillDone     = new Color(0.30f, 0.95f, 0.45f, 1.00f);
-    private static readonly Color ColDone         = new Color(0.30f, 0.95f, 0.45f, 1.00f);
-    private static readonly Color ColGold         = new Color(1.00f, 0.82f, 0.18f, 1.00f);
-    private static readonly Color ColBlue         = new Color(0.40f, 0.80f, 1.00f, 1.00f);
-    private static readonly Color ColLevelTag     = new Color(0.40f, 0.80f, 1.00f, 0.22f);
+    private static readonly Color ColBg            = new Color(0.04f, 0.03f, 0.06f, 0.97f);
+    private static readonly Color ColWhite         = Color.white;
+    private static readonly Color ColWhiteDim      = new Color(1f, 1f, 1f, 0.75f);
+    private static readonly Color ColSep           = new Color(1f, 1f, 1f, 0.15f);
+
+    // Carte quête simple → bordure orange
+    private static readonly Color ColBorderSimple  = new Color(0.95f, 0.42f, 0.04f, 1.00f);  // orange vif
+    // Carte quête complexe → bordure bleue/violette
+    private static readonly Color ColBorderComplex = new Color(0.35f, 0.65f, 1.00f, 1.00f);  // bleu clair
+    // Carte terminée → bordure verte
+    private static readonly Color ColBorderDone    = new Color(0.20f, 0.90f, 0.35f, 1.00f);
+
+    // Fond de la carte (semi-transparent sombre, laisse le sprite transparaître)
+    private static readonly Color ColCardBgSimple  = new Color(0.25f, 0.10f, 0.02f, 0.82f);
+    private static readonly Color ColCardBgComplex = new Color(0.05f, 0.08f, 0.22f, 0.82f);
+    private static readonly Color ColCardBgDone    = new Color(0.04f, 0.20f, 0.06f, 0.82f);
+
+    private static readonly Color ColTitleSimple   = Color.white;
+    private static readonly Color ColTitleComplex  = new Color(0.75f, 0.90f, 1.00f, 1.00f);
+    private static readonly Color ColTitleDone     = new Color(0.30f, 0.95f, 0.45f, 1.00f);
+
+    private static readonly Color ColDesc          = new Color(1f, 1f, 1f, 0.78f);
+    private static readonly Color ColDescDone      = new Color(0.30f, 0.95f, 0.45f, 0.80f);
+
+    private static readonly Color ColGold          = new Color(1.00f, 0.82f, 0.18f, 1.00f);
+    private static readonly Color ColBlue          = new Color(0.40f, 0.80f, 1.00f, 1.00f);
+    private static readonly Color ColDone          = new Color(0.30f, 0.95f, 0.45f, 1.00f);
+
+    private static readonly Color ColTrack         = new Color(1f, 1f, 1f, 0.14f);
+    private static readonly Color ColFillSimple    = new Color(0.95f, 0.55f, 0.05f, 1.00f);
+    private static readonly Color ColFillComplex   = new Color(0.40f, 0.70f, 1.00f, 1.00f);
+    private static readonly Color ColFillDone      = new Color(0.20f, 0.90f, 0.35f, 1.00f);
+
+    private static readonly Color ColBadgeBg       = new Color(0.22f, 0.38f, 0.80f, 0.30f);
+    private const  float          BorderPx          = 5f;   // épaisseur de la bordure simulée
 
     // ── État ──────────────────────────────────────────────────────────────────
 
@@ -48,6 +66,7 @@ public class MenuQuestPanel : MonoBehaviour
     private Transform       _listParent;
     private TextMeshProUGUI _waveLabel;
     private TextMeshProUGUI _minScoreLabel;
+    private Image           _returnBtnImg;    // mis à jour dans Start() avec le sprite
 
     private readonly List<(Image fill, float target)> _fills = new List<(Image, float)>();
 
@@ -82,61 +101,132 @@ public class MenuQuestPanel : MonoBehaviour
 
     private void Build(RectTransform root)
     {
-        // Fond
+        // ── Fond ──────────────────────────────────────────────────────────────
         Img("Bg", root, ColBg, stretch: true).raycastTarget = true;
 
-        // Titre
-        Lbl("Titre", root, "JOURNAL DES QUÊTES",
-            new Vector2(0f, 0.91f), new Vector2(1f, 0.97f),
-            48f, ColWhite, FontStyles.Bold);
+        // ── Titre ─────────────────────────────────────────────────────────────
+        Lbl("Titre", root, "QUÊTES",
+            new Vector2(0f, 0.920f), new Vector2(1f, 0.975f),
+            52f, ColWhite, FontStyles.Bold);
 
-        // Vague
+        // ── Sous-titre vague ───────────────────────────────────────────────────
         _waveLabel = Lbl("Vague", root, "",
-            new Vector2(0f, 0.873f), new Vector2(1f, 0.912f),
-            22f, ColWhiteDim, FontStyles.Normal);
+            new Vector2(0f, 0.883f), new Vector2(1f, 0.922f),
+            21f, ColWhiteDim, FontStyles.Normal);
 
-        // Score minimum
+        // ── Score minimum ──────────────────────────────────────────────────────
         _minScoreLabel = Lbl("MinScore", root, "",
-            new Vector2(0f, 0.840f), new Vector2(1f, 0.874f),
-            19f, ColWhiteDim, FontStyles.Normal);
+            new Vector2(0f, 0.852f), new Vector2(1f, 0.885f),
+            18f, ColWhiteDim, FontStyles.Normal);
 
-        // Séparateur
+        // ── Séparateur ────────────────────────────────────────────────────────
         var sep = Img("Sep", root, ColSep).rectTransform;
-        sep.anchorMin = new Vector2(0.04f, 0.837f);
-        sep.anchorMax = new Vector2(0.96f, 0.839f);
+        sep.anchorMin = new Vector2(0.04f, 0.849f);
+        sep.anchorMax = new Vector2(0.96f, 0.851f);
         sep.sizeDelta = Vector2.zero;
 
-        // ScrollView de la liste
+        // ── ScrollView des cartes de quêtes ───────────────────────────────────
         BuildScrollView(root,
-            new Vector2(0.03f, 0.10f),
-            new Vector2(0.97f, 0.835f));
+            new Vector2(0.03f, 0.115f),
+            new Vector2(0.97f, 0.848f));
+
+        // ── Bouton RETOUR (bas de la slide, style photo) ──────────────────────
+        BuildReturnButton(root);
+    }
+
+    private void BuildReturnButton(RectTransform root)
+    {
+        var go = new GameObject("BtnRetour");
+        go.transform.SetParent(root, false);
+
+        var rt       = go.AddComponent<RectTransform>();
+        rt.anchorMin = new Vector2(0.12f, 0.020f);
+        rt.anchorMax = new Vector2(0.88f, 0.108f);
+        rt.offsetMin = rt.offsetMax = Vector2.zero;
+
+        // Fond avec le sprite jaugenormal si disponible, sinon couleur unie
+        var img    = go.AddComponent<Image>();
+        if (MenuAssets.TextBadgeSprite != null)
+        {
+            img.sprite = MenuAssets.TextBadgeSprite;
+            img.type   = Image.Type.Sliced;
+            img.color  = Color.white;
+        }
+        else
+        {
+            img.sprite = SpriteGenerator.CreateWhiteSquare();
+            img.color  = new Color(0.22f, 0.14f, 0.04f, 0.95f);
+        }
+
+        // Icône + texte
+        var lgo  = new GameObject("Label");
+        lgo.transform.SetParent(rt, false);
+        var tmp  = lgo.AddComponent<TextMeshProUGUI>();
+        tmp.text      = "⬛ RETOUR";
+        tmp.fontSize  = 26f;
+        tmp.fontStyle = FontStyles.Bold;
+        tmp.color     = new Color(1.00f, 0.82f, 0.18f, 1f);   // or, comme la photo
+        tmp.alignment = TextAlignmentOptions.Center;
+        tmp.raycastTarget = false;
+        MenuAssets.ApplyFont(tmp);
+        var lrt  = tmp.rectTransform;
+        lrt.anchorMin = Vector2.zero;
+        lrt.anchorMax = Vector2.one;
+        lrt.offsetMin = lrt.offsetMax = Vector2.zero;
+
+        var btn           = go.AddComponent<Button>();
+        btn.targetGraphic = img;
+        var colors        = btn.colors;
+        colors.highlightedColor = new Color(1f, 0.90f, 0.50f, 1f);
+        colors.pressedColor     = new Color(0.75f, 0.55f, 0.10f, 1f);
+        btn.colors = colors;
+        btn.onClick.AddListener(Hide);
+
+        _returnBtnImg = img;   // référence pour mise à jour du sprite dans Start()
     }
 
     private void BuildScrollView(RectTransform root, Vector2 ancMin, Vector2 ancMax)
     {
-        // Viewport (conteneur masqué)
-        var viewGO = new GameObject("Viewport");
-        viewGO.transform.SetParent(root, false);
+        // ── ScrollRect parent ──────────────────────────────────────────────────
+        // Le ScrollRect DOIT être le parent du viewport.
+        // Hiérarchie correcte : [ScrollRoot+ScrollRect] → [Viewport+Mask+Image] → [List+VLG+CSF]
 
+        var scrollGO = new GameObject("ScrollRoot");
+        scrollGO.transform.SetParent(root, false);
+
+        var scrollRT       = scrollGO.AddComponent<RectTransform>();
+        scrollRT.anchorMin = ancMin;
+        scrollRT.anchorMax = ancMax;
+        scrollRT.offsetMin = scrollRT.offsetMax = Vector2.zero;
+
+        var sr               = scrollGO.AddComponent<ScrollRect>();
+        sr.horizontal        = false;
+        sr.vertical          = true;
+        sr.scrollSensitivity = 55f;
+        sr.movementType      = ScrollRect.MovementType.Clamped;
+        sr.inertia           = true;
+        sr.decelerationRate  = 0.135f;
+
+        // ── Viewport (enfant du ScrollRect) ───────────────────────────────────
+
+        var viewGO = new GameObject("Viewport");
+        viewGO.transform.SetParent(scrollGO.transform, false);
+
+        // L'Image est requise par Mask
         var maskImg  = viewGO.AddComponent<Image>();
-        maskImg.color = Color.clear;
+        maskImg.sprite = SpriteGenerator.CreateWhiteSquare();
+        maskImg.color  = Color.clear;
         maskImg.raycastTarget = false;
+
         viewGO.AddComponent<Mask>().showMaskGraphic = false;
 
         var viewRT       = maskImg.rectTransform;
-        viewRT.anchorMin = ancMin;
-        viewRT.anchorMax = ancMax;
+        viewRT.anchorMin = Vector2.zero;
+        viewRT.anchorMax = Vector2.one;
         viewRT.offsetMin = viewRT.offsetMax = Vector2.zero;
 
-        // ScrollRect sur le viewport
-        var sr               = viewGO.AddComponent<ScrollRect>();
-        sr.horizontal        = false;
-        sr.vertical          = true;
-        sr.scrollSensitivity = 45f;
-        sr.movementType      = ScrollRect.MovementType.Clamped;
-        sr.viewport          = viewRT;
+        // ── Conteneur de la liste (enfant du Viewport) ────────────────────────
 
-        // Conteneur du contenu (ancré en haut, grandit vers le bas)
         var listGO = new GameObject("List");
         listGO.transform.SetParent(viewGO.transform, false);
 
@@ -144,195 +234,270 @@ public class MenuQuestPanel : MonoBehaviour
         listRT.anchorMin = new Vector2(0f, 1f);
         listRT.anchorMax = new Vector2(1f, 1f);
         listRT.pivot     = new Vector2(0.5f, 1f);
-        listRT.offsetMin = listRT.offsetMax = Vector2.zero;
+        listRT.sizeDelta = Vector2.zero;
 
         var vlg = listGO.AddComponent<VerticalLayoutGroup>();
-        vlg.spacing              = 10f;
-        vlg.padding              = new RectOffset(0, 0, 6, 12);
+        vlg.spacing              = 12f;
+        vlg.padding              = new RectOffset(8, 8, 8, 16);
         vlg.childControlWidth    = true;
         vlg.childControlHeight   = false;
         vlg.childForceExpandWidth  = true;
         vlg.childForceExpandHeight = false;
 
-        var csf             = listGO.AddComponent<ContentSizeFitter>();
-        csf.verticalFit     = ContentSizeFitter.FitMode.PreferredSize;
+        var csf         = listGO.AddComponent<ContentSizeFitter>();
+        csf.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
 
-        sr.content = listRT;
+        // ── Brancher le ScrollRect ────────────────────────────────────────────
+
+        sr.viewport = viewRT;
+        sr.content  = listRT;
 
         _listParent = listGO.transform;
     }
 
     // ── Reconstruction de la liste ────────────────────────────────────────────
 
-    /// <summary>
-    /// Vide et reconstruit toutes les lignes de quêtes.
-    /// Appelle <see cref="ForceLayoutRebuild"/> via coroutine pour que le
-    /// <see cref="ContentSizeFitter"/> calcule les hauteurs correctement.
-    /// </summary>
     private void RebuildList()
     {
-        // Vider
+        // Détacher les enfants existants avant de les détruire.
+        // Destroy() est asynchrone — on détache d'abord pour que LayoutGroup
+        // ne les compte plus dans le même frame.
         for (int i = _listParent.childCount - 1; i >= 0; i--)
-            Destroy(_listParent.GetChild(i).gameObject);
+        {
+            var child = _listParent.GetChild(i);
+            child.SetParent(null, false);
+            Destroy(child.gameObject);
+        }
         _fills.Clear();
 
         if (QuestManager.Instance == null)
         {
-            if (_waveLabel    != null) _waveLabel.text    = "Système de quêtes indisponible";
+            if (_waveLabel     != null) _waveLabel.text     = "Système de quêtes indisponible";
             if (_minScoreLabel != null) _minScoreLabel.text = "";
             return;
         }
 
-        // Mise à jour des labels d'en-tête
+        // En-têtes
         int done  = QuestManager.Instance.CompletedCount();
         int total = QuestManager.Instance.ActiveWave.Count;
-        if (_waveLabel    != null)
-            _waveLabel.text    = $"Vague {QuestManager.Instance.WaveIndex + 1}   ·   {done} / {total} complétées";
+        if (_waveLabel != null)
+            _waveLabel.text = $"Vague {QuestManager.Instance.WaveIndex + 1}   ·   {done} / {total} complétées";
         if (_minScoreLabel != null)
             _minScoreLabel.text = $"Score minimum requis : {QuestManager.Instance.GetMinScore()} pts";
 
-        // Construire une ligne par quête
+        if (total == 0)
+        {
+            // Aucune quête — afficher un message de remplacement
+            AddTMP("Empty", _listParent,
+                "Aucune quête disponible.\nJoue pour débloquer la prochaine vague !",
+                22f, FontStyles.Normal, ColWhiteDim,
+                Vector2.zero, Vector2.one, TextAlignmentOptions.Center);
+            return;
+        }
+
+        // Lignes de quêtes
         foreach (var def in QuestManager.Instance.ActiveWave)
         {
             var prog  = QuestManager.Instance.GetProgress(def.Id);
-            bool done1  = prog.Completed;
             float ratio = prog.GetRatio(def);
-
-            var fill = BuildRow(def, prog, done1);
+            var fill  = BuildRow(def, prog, prog.Completed);
             _fills.Add((fill, ratio));
         }
 
-        // Forcer le layout immédiatement (frame actuelle)
-        if (_listParent != null)
-        {
-            var rt = _listParent.GetComponent<RectTransform>();
-            if (rt != null)
-                LayoutRebuilder.ForceRebuildLayoutImmediate(rt);
-        }
+        // Forcer le recalcul du layout
+        var listRT = _listParent.GetComponent<RectTransform>();
+        if (listRT != null)
+            LayoutRebuilder.ForceRebuildLayoutImmediate(listRT);
     }
 
     private Image BuildRow(QuestDefinition def, QuestProgress prog, bool isDone)
     {
         bool isXP = def.IsComplex;
 
-        Color accentCol = isDone ? ColAccentDone : (isXP ? ColAccentXP  : ColAccentSimple);
-        Color fillCol   = isDone ? ColFillDone   : (isXP ? ColFillXP    : ColFillSimple);
-        Color titleCol  = isDone ? ColDone        : ColWhite;
-        Color progCol   = isDone ? ColDone        : ColWhiteDim;
+        Color borderCol  = isDone ? ColBorderDone  : (isXP ? ColBorderComplex : ColBorderSimple);
+        Color cardBgCol  = isDone ? ColCardBgDone  : (isXP ? ColCardBgComplex : ColCardBgSimple);
+        Color titleCol   = isDone ? ColTitleDone   : (isXP ? ColTitleComplex  : ColTitleSimple);
+        Color descCol    = isDone ? ColDescDone    : ColDesc;
+        Color fillCol    = isDone ? ColFillDone    : (isXP ? ColFillComplex   : ColFillSimple);
+        Color rewardCol  = isDone ? ColDone        : ColGold;
 
-        float rowH = isXP ? 130f : 110f;
+        // Hauteur de la carte : plus haute pour les quêtes complexes
+        float rowH = isXP ? 148f : 128f;
 
-        // ── Fond de ligne ──────────────────────────────────────────────────────
-        var rowGO = new GameObject($"Row_{def.Id}");
-        rowGO.transform.SetParent(_listParent, false);
+        // ── Couche 1 : Bordure (rectangle plein de la couleur de bordure) ─────
+        var borderGO  = new GameObject($"Row_{def.Id}");
+        borderGO.transform.SetParent(_listParent, false);
 
-        var rowImg = rowGO.AddComponent<Image>();
-        rowImg.sprite = SpriteGenerator.CreateWhiteSquare();
-        rowImg.color  = isDone ? ColRowDone : ColRowBg;
-        rowImg.raycastTarget = false;
+        var borderImg = borderGO.AddComponent<Image>();
+        borderImg.sprite = SpriteGenerator.CreateWhiteSquare();
+        borderImg.color  = borderCol;
+        borderImg.raycastTarget = true;   // reçoit les événements scroll
 
-        var le = rowGO.AddComponent<LayoutElement>();
+        var le = borderGO.AddComponent<LayoutElement>();
         le.preferredHeight = rowH;
         le.flexibleWidth   = 1f;
 
-        var rowRT = rowImg.rectTransform;
+        var borderRT = borderImg.rectTransform;
 
-        // Accent gauche (bande colorée verticale)
-        var ac  = new GameObject("Acc");
-        ac.transform.SetParent(rowGO.transform, false);
-        var acI = ac.AddComponent<Image>();
-        acI.sprite = SpriteGenerator.CreateWhiteSquare();
-        acI.color  = accentCol;
-        acI.raycastTarget = false;
-        var acRT  = acI.rectTransform;
-        acRT.anchorMin = Vector2.zero;
-        acRT.anchorMax = new Vector2(0.014f, 1f);
-        acRT.offsetMin = acRT.offsetMax = Vector2.zero;
+        // ── Couche 2 : Fond de la carte (inset de BorderPx) ──────────────────
+        var cardGO   = new GameObject("Card");
+        cardGO.transform.SetParent(borderGO.transform, false);
 
-        // Titre de la quête
-        AddTMP("T", rowGO.transform,
-            isDone ? $"✓  {def.Title}" : def.Title,
+        // Fond avec le sprite jaugenormal si disponible
+        var cardImg  = cardGO.AddComponent<Image>();
+        bool hasBadgeSprite = MenuAssets.TextBadgeSprite != null;
+        if (hasBadgeSprite)
+        {
+            cardImg.sprite = MenuAssets.TextBadgeSprite;
+            cardImg.type   = Image.Type.Sliced;
+            cardImg.color  = Color.white;   // laisse le sprite s'exprimer
+        }
+        else
+        {
+            cardImg.sprite = SpriteGenerator.CreateWhiteSquare();
+            cardImg.color  = cardBgCol;
+        }
+        cardImg.raycastTarget = false;
+
+        var cardRT   = cardImg.rectTransform;
+        cardRT.anchorMin = Vector2.zero;
+        cardRT.anchorMax = Vector2.one;
+        // Inset = épaisseur de la bordure simulée
+        cardRT.offsetMin = new Vector2( BorderPx,  BorderPx);
+        cardRT.offsetMax = new Vector2(-BorderPx, -BorderPx);
+
+        // Overlay de teinte (semi-transparent sombre) par dessus le sprite
+        if (hasBadgeSprite)
+        {
+            var tintGO  = new GameObject("Tint");
+            tintGO.transform.SetParent(cardGO.transform, false);
+            var tintImg = tintGO.AddComponent<Image>();
+            tintImg.sprite = SpriteGenerator.CreateWhiteSquare();
+            tintImg.color  = cardBgCol;
+            tintImg.raycastTarget = false;
+            var tintRT = tintImg.rectTransform;
+            tintRT.anchorMin = Vector2.zero;
+            tintRT.anchorMax = Vector2.one;
+            tintRT.offsetMin = tintRT.offsetMax = Vector2.zero;
+        }
+
+        // ── Zone de texte : zone intérieure de la carte ───────────────────────
+        Transform textParent = cardGO.transform;
+
+        // Titre de la quête (ligne 1)
+        string titleText = isDone ? $"✓  {def.Title}" : def.Title;
+        AddTMP("Title", textParent, titleText,
             24f, FontStyles.Bold, titleCol,
-            new Vector2(0.04f, isXP ? 0.60f : 0.52f), new Vector2(0.74f, 1f));
+            new Vector2(0.04f, isXP ? 0.64f : 0.60f),
+            new Vector2(isXP ? 0.72f : 0.78f, 0.97f));
 
-        // Récompense pièces (haut-droite)
-        string coinsText = isDone ? "✓" : $"+{def.RewardCoins}";
-        AddTMP("R", rowGO.transform,
-            coinsText,
-            26f, FontStyles.Bold, isDone ? ColDone : ColGold,
-            new Vector2(0.74f, isXP ? 0.58f : 0.50f), new Vector2(0.97f, 1f),
-            TextAlignmentOptions.MidlineRight);
+        // Description / objectif (ligne 2) — wrap activé
+        var descTmp = AddTMP("Desc", textParent, def.Description,
+            16f, FontStyles.Normal, descCol,
+            new Vector2(0.04f, isXP ? 0.38f : 0.30f),
+            new Vector2(0.96f, isXP ? 0.65f : 0.62f));
+        descTmp.enableWordWrapping = true;
+        descTmp.overflowMode = TextOverflowModes.Ellipsis;
 
-        // Badge "+N XP · NIVEAU" (quêtes complexes non terminées uniquement)
+        // Récompense pièces (coin) — haut droite
+        if (!isDone)
+        {
+            AddTMP("Coins", textParent,
+                $"+{def.RewardCoins} 🪙",
+                20f, FontStyles.Bold, rewardCol,
+                new Vector2(isXP ? 0.73f : 0.79f, 0.65f),
+                new Vector2(0.97f, 0.97f),
+                TextAlignmentOptions.MidlineRight);
+        }
+
+        // Badge XP "NIVEAU +1" — quêtes complexes uniquement
         if (isXP && !isDone)
         {
-            // Fond du badge
-            var badgeGO = new GameObject("XPBadge");
-            badgeGO.transform.SetParent(rowGO.transform, false);
+            var badgeGO  = new GameObject("XPBadge");
+            badgeGO.transform.SetParent(textParent, false);
             var badgeImg = badgeGO.AddComponent<Image>();
             badgeImg.sprite = SpriteGenerator.CreateWhiteSquare();
-            badgeImg.color  = ColLevelTag;
+            badgeImg.color  = ColBadgeBg;
             badgeImg.raycastTarget = false;
-            var badgeRT = badgeImg.rectTransform;
-            badgeRT.anchorMin = new Vector2(0.04f, 0.56f);
-            badgeRT.anchorMax = new Vector2(0.70f, 0.78f);
+            var badgeRT  = badgeImg.rectTransform;
+            badgeRT.anchorMin = new Vector2(0.04f, 0.64f);
+            badgeRT.anchorMax = new Vector2(0.72f, 0.82f);
             badgeRT.offsetMin = badgeRT.offsetMax = Vector2.zero;
 
             AddTMP("XP", badgeGO.transform,
                 $"+{def.RewardXP} XP  ·  NIVEAU +1",
-                17f, FontStyles.Bold, ColBlue,
+                14f, FontStyles.Bold, ColBlue,
                 Vector2.zero, Vector2.one,
                 TextAlignmentOptions.Center);
         }
 
-        // Piste de progression (fond gris)
-        var trackGO = new GameObject("Track");
-        trackGO.transform.SetParent(rowGO.transform, false);
-        var trackI  = trackGO.AddComponent<Image>();
-        trackI.sprite = SpriteGenerator.CreateWhiteSquare();
-        trackI.color  = ColTrack;
-        trackI.raycastTarget = false;
-        var trackRT = trackI.rectTransform;
-        trackRT.anchorMin = new Vector2(0.04f, 0.08f);
-        trackRT.anchorMax = new Vector2(0.70f, 0.28f);
-        trackRT.offsetMin = new Vector2(4f, 0f);
-        trackRT.offsetMax = Vector2.zero;
+        // ── Jauge de progression ──────────────────────────────────────────────
 
-        // Jauge de remplissage (Image.Filled Horizontal)
-        var fillGO = new GameObject("Fill");
+        // Piste (fond sombre)
+        var trackGO  = new GameObject("Track");
+        trackGO.transform.SetParent(textParent, false);
+        var trackImg = trackGO.AddComponent<Image>();
+        trackImg.sprite = SpriteGenerator.CreateWhiteSquare();
+        trackImg.color  = ColTrack;
+        trackImg.raycastTarget = false;
+        var trackRT  = trackImg.rectTransform;
+        trackRT.anchorMin = new Vector2(0.04f, 0.06f);
+        trackRT.anchorMax = new Vector2(0.75f, 0.22f);
+        trackRT.offsetMin = trackRT.offsetMax = Vector2.zero;
+
+        // Remplissage
+        var fillGO   = new GameObject("Fill");
         fillGO.transform.SetParent(trackGO.transform, false);
-        var fillI  = fillGO.AddComponent<Image>();
+        var fillI    = fillGO.AddComponent<Image>();
         fillI.sprite     = SpriteGenerator.CreateWhiteSquare();
         fillI.color      = fillCol;
         fillI.type       = Image.Type.Filled;
         fillI.fillMethod = Image.FillMethod.Horizontal;
-        fillI.fillAmount = 0f;   // animé dans AnimateFills()
+        fillI.fillAmount = 0f;
         fillI.raycastTarget = false;
-        var fillRT = fillI.rectTransform;
+        var fillRT   = fillI.rectTransform;
         fillRT.anchorMin = Vector2.zero;
         fillRT.anchorMax = Vector2.one;
         fillRT.offsetMin = fillRT.offsetMax = Vector2.zero;
 
-        // Label progression (bas-gauche) : "X / N sessions"
+        // Label progression (droite de la jauge)
         int display = Mathf.Min(prog.Count, def.RequiredCount);
-        AddTMP("P", rowGO.transform,
-            isDone ? "Terminée ✓" : $"{display} / {def.RequiredCount} sessions",
-            18f, FontStyles.Normal, progCol,
-            new Vector2(0.04f, 0.04f), new Vector2(0.60f, 0.40f),
-            TextAlignmentOptions.MidlineLeft);
+        string progressText = isDone
+            ? "TERMINÉE ✓"
+            : $"{display} / {def.RequiredCount}";
+
+        AddTMP("Prog", textParent, progressText,
+            16f, isDone ? FontStyles.Bold : FontStyles.Normal,
+            isDone ? ColDone : ColWhiteDim,
+            new Vector2(0.76f, 0.04f),
+            new Vector2(0.97f, 0.26f),
+            TextAlignmentOptions.MidlineRight);
 
         return fillI;
     }
 
     // ── Lifecycle ─────────────────────────────────────────────────────────────
 
+    private void Start()
+    {
+        // S'abonner ici (Start) : à ce moment QuestManager.Instance est garanti
+        // d'exister car MenuMainSetup.Start() l'a créé avant d'appeler BuildQuestsButton().
+        SubscribeToEvents();
+
+        // Appliquer le sprite jaugenormal sur le bouton RETOUR maintenant que
+        // MenuAssets.Init() a été appelé (il est garanti d'avoir eu lieu avant Start)
+        if (_returnBtnImg != null && MenuAssets.TextBadgeSprite != null)
+        {
+            _returnBtnImg.sprite = MenuAssets.TextBadgeSprite;
+            _returnBtnImg.type   = Image.Type.Sliced;
+            _returnBtnImg.color  = Color.white;
+        }
+    }
+
     private void OnEnable()
     {
-        if (QuestManager.Instance != null)
-        {
-            QuestManager.Instance.OnProgressChanged += OnQuestProgressChanged;
-            QuestManager.Instance.OnWaveStarted     += OnWaveStarted;
-        }
+        // Ré-abonnement si réactivation
+        SubscribeToEvents();
     }
 
     private void OnDisable()
@@ -342,6 +507,16 @@ public class MenuQuestPanel : MonoBehaviour
             QuestManager.Instance.OnProgressChanged -= OnQuestProgressChanged;
             QuestManager.Instance.OnWaveStarted     -= OnWaveStarted;
         }
+    }
+
+    private void SubscribeToEvents()
+    {
+        if (QuestManager.Instance == null) return;
+        // Éviter les doublons d'abonnement
+        QuestManager.Instance.OnProgressChanged -= OnQuestProgressChanged;
+        QuestManager.Instance.OnProgressChanged += OnQuestProgressChanged;
+        QuestManager.Instance.OnWaveStarted     -= OnWaveStarted;
+        QuestManager.Instance.OnWaveStarted     += OnWaveStarted;
     }
 
     /// <summary>

@@ -102,6 +102,105 @@ public class QuestManager : MonoBehaviour
     private const int    BaseXPComplex       = 60;
     private const float  CoinScaleFactor     = 0.25f; // +25% par vague complétée
 
+    // ── Catalogue de quêtes concrètes ─────────────────────────────────────────
+
+    // Chaque entrée : (titre, description, GameType, countBase, isComplex)
+    // countBase sera scalé selon la vague / le niveau au moment de la génération.
+    private static readonly (string title, string descTpl, GameType game, int baseCount, bool complex)[]
+    QuestCatalog =
+    {
+        // ── Simples — Game & Watch ─────────────────────────────────────────────
+        ("Entraînement G&W",
+         "Joue {N} fois à Game & Watch et récolte {coins} pièces.",
+         GameType.GameAndWatch, 3, false),
+
+        ("Retour en forme",
+         "Fais {N} parties de Game & Watch pour te remettre dans le bain.",
+         GameType.GameAndWatch, 4, false),
+
+        ("Collectionneur de sessions",
+         "Lance Game & Watch {N} fois d'affilée et empoche {coins} pièces.",
+         GameType.GameAndWatch, 5, false),
+
+        // ── Simples — Bubble Shooter ───────────────────────────────────────────
+        ("Bulles en série",
+         "Joue {N} fois au Bubble Shooter et gagne {coins} pièces.",
+         GameType.BubbleShooter, 3, false),
+
+        ("Tir précis",
+         "Lance {N} parties de Bubble Shooter pour affiner ta visée.",
+         GameType.BubbleShooter, 4, false),
+
+        ("Chasseur de bulles",
+         "Complète {N} sessions au Bubble Shooter et récolte ta mise.",
+         GameType.BubbleShooter, 5, false),
+
+        // ── Simples — Ball & Goal ──────────────────────────────────────────────
+        ("Mise en jambes",
+         "Joue {N} fois à Ball & Goal pour échauffer tes réflexes.",
+         GameType.BallAndGoal, 3, false),
+
+        ("Buteur du dimanche",
+         "Marque lors de {N} parties de Ball & Goal et récolte {coins} pièces.",
+         GameType.BallAndGoal, 4, false),
+
+        ("Constance",
+         "Termine {N} sessions de Ball & Goal et empoche ta récompense.",
+         GameType.BallAndGoal, 5, false),
+
+        // ── Complexes — Game & Watch ───────────────────────────────────────────
+        ("Maître du rythme",
+         "Joue {N} fois à Game & Watch avec un score ≥ {minScore} — tu monteras de niveau !",
+         GameType.GameAndWatch, 5, true),
+
+        ("Vétéran du G&W",
+         "Enchaîne {N} sessions de Game & Watch sans baisser ta garde (score ≥ {minScore}).",
+         GameType.GameAndWatch, 7, true),
+
+        ("Légende du G&W",
+         "Domine Game & Watch {N} fois de suite avec performance maximale.",
+         GameType.GameAndWatch, 10, true),
+
+        // ── Complexes — Bubble Shooter ─────────────────────────────────────────
+        ("Sniper de bulles",
+         "Réalise {N} parties parfaites au Bubble Shooter (score ≥ {minScore}) et monte de niveau.",
+         GameType.BubbleShooter, 5, true),
+
+        ("Éclateur pro",
+         "Complète {N} sessions au Bubble Shooter avec un haut niveau de score.",
+         GameType.BubbleShooter, 7, true),
+
+        ("L'impitoyable",
+         "Éclate {N} vagues de bulles avec un score ≥ {minScore} — le niveau t'attend.",
+         GameType.BubbleShooter, 10, true),
+
+        // ── Complexes — Ball & Goal ────────────────────────────────────────────
+        ("Attaquant élite",
+         "Marque dans {N} parties de Ball & Goal (score ≥ {minScore}) pour grimper d'un niveau.",
+         GameType.BallAndGoal, 5, true),
+
+        ("Finisseur implacable",
+         "Boucle {N} sessions de Ball & Goal avec des performances de haut rang.",
+         GameType.BallAndGoal, 7, true),
+
+        ("Champion toutes catégories",
+         "Domine Ball & Goal lors de {N} parties consécutives à score élevé.",
+         GameType.BallAndGoal, 10, true),
+
+        // ── Complexes — Polyvalent ─────────────────────────────────────────────
+        ("Joueur universel",
+         "Joue {N} fois à n'importe quel mini-jeu (score ≥ {minScore}) et passe au niveau supérieur.",
+         (GameType)(-1), 6, true),
+
+        ("Explorateur de mondes",
+         "Parcours les 3 univers de jeu ({N} parties au total) pour débloquer ton évolution.",
+         (GameType)(-1), 8, true),
+
+        ("Le Complet",
+         "Complète {N} sessions tous jeux confondus avec un score ≥ {minScore}.",
+         (GameType)(-1), 12, true),
+    };
+
     // ── Événements ────────────────────────────────────────────────────────────
 
     /// <summary>Déclenché quand une quête vient d'être complétée. Arg : la définition.</summary>
@@ -150,16 +249,32 @@ public class QuestManager : MonoBehaviour
             GenerateWave();
     }
 
+    private void Start()
+    {
+        // S'abonner ici (Start) pour garantir que ScoreManager.Instance existe déjà.
+        // QuestManager.Awake() peut s'exécuter avant ScoreManager.Awake() si l'ordre
+        // de création des GameObjects n'est pas maîtrisé.
+        SubscribeToScoreManager();
+    }
+
     private void OnEnable()
     {
-        if (ScoreManager.Instance != null)
-            ScoreManager.Instance.OnScoreAdded += HandleScoreAdded;
+        // Ré-abonnement si le composant est re-activé (ex : retour de scène)
+        SubscribeToScoreManager();
     }
 
     private void OnDisable()
     {
         if (ScoreManager.Instance != null)
             ScoreManager.Instance.OnScoreAdded -= HandleScoreAdded;
+    }
+
+    private void SubscribeToScoreManager()
+    {
+        if (ScoreManager.Instance == null) return;
+        // Désabonner d'abord pour éviter les doublons
+        ScoreManager.Instance.OnScoreAdded -= HandleScoreAdded;
+        ScoreManager.Instance.OnScoreAdded += HandleScoreAdded;
     }
 
     // ── Callback niveau ───────────────────────────────────────────────────────
@@ -278,65 +393,54 @@ public class QuestManager : MonoBehaviour
     }
 
     /// <summary>
-    /// Construit la liste complète des modèles de quêtes possibles.
-    /// Chaque modèle est unique (Id unique par vague).
+    /// Construit la liste complète des modèles de quêtes possibles à partir du catalogue.
+    /// Chaque modèle a un Id unique par vague (index_waveIdx).
+    ///
+    /// Scaling :
+    ///   – count    = baseCount + waveIdx / 2  (arrondi bas), plafonné à 15
+    ///   – coins    *= 1 + CoinScaleFactor × waveIdx
+    ///   – xp       = BaseXPComplex, fixe (c'est l'XP vers le level up)
     /// </summary>
     private List<QuestDefinition> BuildTemplates(int level, int waveIdx)
     {
-        int baseCount  = Mathf.Clamp(3 + waveIdx / 2, 3, 12);
         float coinMult = 1f + CoinScaleFactor * waveIdx;
+        int   minScore = GetMinScore();
 
-        int SimpleCoins(int b)  => Mathf.RoundToInt(b * coinMult);
-        int ComplexCoins(int b) => Mathf.RoundToInt(b * coinMult * 1.5f);
-        int ComplexCount()      => Mathf.Clamp(Mathf.CeilToInt(baseCount * 1.5f), 4, 20);
-        int minScore            = GetMinScore();
+        var list = new List<QuestDefinition>();
 
-        return new List<QuestDefinition>
+        for (int i = 0; i < QuestCatalog.Length; i++)
         {
-            // ── Quêtes simples (pièces uniquement) ─────────────────────────
-            Quest($"gaw_{waveIdx}_s",
-                "Game & Watch ×" + baseCount,
-                $"Joue {baseCount} fois à Game & Watch (score ≥ {minScore}).",
-                GameType.GameAndWatch, baseCount,
-                SimpleCoins(BaseCoinsSimple), 0, isComplex: false),
+            var (title, descTpl, game, baseCount, complex) = QuestCatalog[i];
 
-            Quest($"bubble_{waveIdx}_s",
-                "Bulles ×" + baseCount,
-                $"Joue {baseCount} fois au Bubble Shooter (score ≥ {minScore}).",
-                GameType.BubbleShooter, baseCount,
-                SimpleCoins(BaseCoinsSimple), 0, isComplex: false),
+            // Scaling du count selon la vague
+            int count = Mathf.Clamp(baseCount + waveIdx / 2, baseCount, 15);
 
-            Quest($"ball_{waveIdx}_s",
-                "Ball & Goal ×" + baseCount,
-                $"Joue {baseCount} fois à Ball & Goal (score ≥ {minScore}).",
-                GameType.BallAndGoal, baseCount,
-                SimpleCoins(BaseCoinsSimple), 0, isComplex: false),
+            // Récompenses
+            int coins = complex
+                ? Mathf.RoundToInt(BaseCoinsComplex * coinMult * 1.5f)
+                : Mathf.RoundToInt(BaseCoinsSimple  * coinMult);
+            int xp = complex ? BaseXPComplex : 0;
 
-            // ── Quêtes complexes (pièces + XP → potentiel level up) ────────
-            Quest($"gaw_{waveIdx}_c",
-                "Expert Game & Watch",
-                $"Joue {ComplexCount()} fois à Game & Watch (score ≥ {minScore}).",
-                GameType.GameAndWatch, ComplexCount(),
-                ComplexCoins(BaseCoinsComplex), BaseXPComplex, isComplex: true),
+            // Interpolation de la description
+            string desc = descTpl
+                .Replace("{N}",       count.ToString())
+                .Replace("{coins}",   coins.ToString())
+                .Replace("{minScore}", minScore.ToString());
 
-            Quest($"bubble_{waveIdx}_c",
-                "Expert Bulles",
-                $"Joue {ComplexCount()} fois au Bubble Shooter (score ≥ {minScore}).",
-                GameType.BubbleShooter, ComplexCount(),
-                ComplexCoins(BaseCoinsComplex), BaseXPComplex, isComplex: true),
+            list.Add(new QuestDefinition
+            {
+                Id            = $"q{i}_{waveIdx}",
+                Title         = title,
+                Description   = desc,
+                TargetGame    = game,
+                RequiredCount = count,
+                RewardCoins   = coins,
+                RewardXP      = xp,
+                IsComplex     = complex,
+            });
+        }
 
-            Quest($"ball_{waveIdx}_c",
-                "Expert Ball & Goal",
-                $"Joue {ComplexCount()} fois à Ball & Goal (score ≥ {minScore}).",
-                GameType.BallAndGoal, ComplexCount(),
-                ComplexCoins(BaseCoinsComplex), BaseXPComplex, isComplex: true),
-
-            Quest($"any_{waveIdx}_c",
-                "Joueur Polyvalent",
-                $"Joue {ComplexCount()} fois à n'importe quel mini-jeu (score ≥ {minScore}).",
-                (GameType)(-1), ComplexCount(),
-                ComplexCoins(BaseCoinsComplex), BaseXPComplex, isComplex: true),
-        };
+        return list;
     }
 
     private static QuestDefinition Quest(string id, string title, string desc,
