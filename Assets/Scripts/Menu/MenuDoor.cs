@@ -7,8 +7,8 @@ using TMPro;
 /// Widget "Porte" du menu principal.
 ///
 /// - Affiche le sprite de porte centré bas-écran.
-/// - Verrouillée : sprite cadenas centré + tooltip au clic.
-/// - Déverrouillée : clic → <see cref="DoorManager.OnDoorClicked"/> (overlay intérieur).
+/// - Verrouillée : sprite cadenas + badge "Atteindre le niveau 4".
+/// - Déverrouillée : cadenas disparaît, porte pulse dorée, clic → <see cref="DoorManager"/>.
 /// </summary>
 public class MenuDoor : MonoBehaviour
 {
@@ -18,28 +18,34 @@ public class MenuDoor : MonoBehaviour
     private const float DoorH       = 900f;
     private const float DoorOffsetY = 120f;
 
-    // Cadenas — positionné au centre vertical haut de la porte
     private const float LockW = 200f;
     private const float LockH = 200f;
 
-    // Tooltip
     private const float TooltipW    = 780f;
     private const float TooltipH    = 200f;
-    private const float TooltipDur  = 2.8f;   // durée d'affichage en secondes
-    private const float TooltipFade = 0.30f;  // durée du fondu
+    private const float TooltipDur  = 2.8f;
+    private const float TooltipFade = 0.30f;
+
+    // ── Pulse dorée ───────────────────────────────────────────────────────────
+
+    private const float PulsePeriod  = 1.6f;
+    private const float PulseMaxGlow = 0.55f;
 
     // ── Références runtime ────────────────────────────────────────────────────
 
+    private Image           _doorImage;
     private Image           _lockImage;
     private RectTransform   _tooltipRT;
     private CanvasGroup     _tooltipGroup;
     private bool            _tooltipShowing;
+    private bool            _pulsingGold;
+    private Coroutine       _pulseCoroutine;
 
-    // ── Sprites (assignés depuis MenuSceneSetup) ──────────────────────────────
+    // ── Sprites ───────────────────────────────────────────────────────────────
 
     public Sprite DoorSprite { get; set; }
 
-    // ── Initialisation ────────────────────────────────────────────────────────
+    // ── Init ──────────────────────────────────────────────────────────────────
 
     /// <summary>Construit la porte dans le <paramref name="canvasRT"/> fourni.</summary>
     public void Init(RectTransform canvasRT)
@@ -57,60 +63,59 @@ public class MenuDoor : MonoBehaviour
         var go = new GameObject("Door");
         go.transform.SetParent(parent, false);
 
-        var img          = go.AddComponent<Image>();
-        img.sprite       = DoorSprite;
-        img.color        = Color.white;
-        img.preserveAspect = true;
-        img.raycastTarget = true;
+        _doorImage              = go.AddComponent<Image>();
+        _doorImage.sprite       = DoorSprite;
+        _doorImage.color        = Color.white;
+        _doorImage.preserveAspect = true;
+        _doorImage.raycastTarget  = true;
 
         if (DoorSprite == null)
-            img.color = new Color(1f, 1f, 1f, 0f);
+            _doorImage.color = new Color(1f, 1f, 1f, 0f);
 
-        var rt              = img.rectTransform;
+        var rt              = _doorImage.rectTransform;
         rt.anchorMin        = new Vector2(0.5f, 0f);
         rt.anchorMax        = new Vector2(0.5f, 0f);
         rt.pivot            = new Vector2(0.5f, 0f);
         rt.sizeDelta        = new Vector2(DoorW, DoorH);
         rt.anchoredPosition = new Vector2(0f, DoorOffsetY);
 
-        var btn                  = go.AddComponent<Button>();
-        btn.targetGraphic        = img;
-        var colors               = btn.colors;
-        colors.highlightedColor  = new Color(1f, 1f, 1f, 0.85f);
-        colors.pressedColor      = new Color(0.8f, 0.8f, 0.8f, 1f);
-        colors.fadeDuration      = 0.08f;
-        btn.colors               = colors;
+        var btn                 = go.AddComponent<Button>();
+        btn.targetGraphic       = _doorImage;
+        var colors              = btn.colors;
+        colors.highlightedColor = new Color(1f, 1f, 1f, 0.85f);
+        colors.pressedColor     = new Color(0.8f, 0.8f, 0.8f, 1f);
+        colors.fadeDuration     = 0.08f;
+        btn.colors              = colors;
         btn.onClick.AddListener(OnClick);
 
         return rt;
     }
 
-    // ── Sprite cadenas ────────────────────────────────────────────────────────
+    // ── Cadenas ───────────────────────────────────────────────────────────────
 
     private void BuildLockImage(RectTransform doorRT)
     {
         var go  = new GameObject("LockImage");
         go.transform.SetParent(doorRT, false);
 
-        _lockImage               = go.AddComponent<Image>();
-        _lockImage.sprite        = MenuAssets.LockSprite;
-        _lockImage.color         = Color.white;
+        _lockImage                = go.AddComponent<Image>();
+        _lockImage.sprite         = MenuAssets.LockSprite;
+        _lockImage.color          = Color.white;
         _lockImage.preserveAspect = true;
-        _lockImage.raycastTarget = false;
+        _lockImage.raycastTarget  = false;
 
-        // Si pas de sprite, fallback invisible
         if (MenuAssets.LockSprite == null)
             _lockImage.color = new Color(1f, 1f, 1f, 0f);
 
         var rt        = _lockImage.rectTransform;
-        rt.anchorMin  = new Vector2(0.5f, 0.5f);
-        rt.anchorMax  = new Vector2(0.5f, 0.5f);
+        rt.anchorMin  = new Vector2(0.5f, 0.62f);
+        rt.anchorMax  = new Vector2(0.5f, 0.62f);
         rt.pivot      = new Vector2(0.5f, 0.5f);
         rt.sizeDelta  = new Vector2(LockW, LockH);
         rt.anchoredPosition = Vector2.zero;
     }
 
-    // ── Tooltip "Finissez les 3 mini jeux…" ──────────────────────────────────
+    // ── Tooltip ───────────────────────────────────────────────────────────────
 
     private void BuildTooltip(RectTransform canvasRT)
     {
@@ -129,17 +134,15 @@ public class MenuDoor : MonoBehaviour
         _tooltipGroup.blocksRaycasts = false;
         _tooltipGroup.interactable  = false;
 
-        // Fond
         var bg          = go.AddComponent<Image>();
         bg.sprite       = SpriteGenerator.CreateWhiteSquare();
         bg.color        = new Color(0.06f, 0.04f, 0.10f, 0.92f);
         bg.raycastTarget = false;
 
-        // Texte
         var txtGO  = new GameObject("TooltipText");
         txtGO.transform.SetParent(go.transform, false);
         var tmp    = txtGO.AddComponent<TextMeshProUGUI>();
-        tmp.text   = "Finissez les 3 mini jeux\npour voir ce qu'il y a derrière la porte";
+        tmp.text   = $"Atteins le niveau {DoorManager.UnlockLevel} pour ouvrir la porte";
         tmp.fontSize    = 32f;
         tmp.fontStyle   = FontStyles.Bold;
         tmp.color       = Color.white;
@@ -147,22 +150,59 @@ public class MenuDoor : MonoBehaviour
         tmp.raycastTarget = false;
         MenuAssets.ApplyFont(tmp);
 
-        var trt         = tmp.rectTransform;
-        trt.anchorMin   = Vector2.zero;
-        trt.anchorMax   = Vector2.one;
-        trt.offsetMin   = new Vector2(24f, 16f);
-        trt.offsetMax   = new Vector2(-24f, -16f);
+        var trt       = tmp.rectTransform;
+        trt.anchorMin = Vector2.zero;
+        trt.anchorMax = Vector2.one;
+        trt.offsetMin = new Vector2(24f, 16f);
+        trt.offsetMax = new Vector2(-24f, -16f);
 
         _tooltipRT = rt;
     }
 
     // ── Rafraîchissement visuel ───────────────────────────────────────────────
 
-    /// <summary>Affiche/masque le cadenas selon l'état courant de <see cref="DoorManager"/>.</summary>
+    /// <summary>
+    /// Affiche/masque le cadenas.
+    /// Déclenche la pulse dorée si la porte vient d'être déverrouillée.
+    /// </summary>
     public void RefreshLockVisual()
     {
         bool locked = DoorManager.Instance == null || !DoorManager.Instance.IsUnlocked;
+
         if (_lockImage != null) _lockImage.gameObject.SetActive(locked);
+
+        if (!locked && !_pulsingGold)
+            StartGoldPulse();
+    }
+
+    // ── Pulse dorée ───────────────────────────────────────────────────────────
+
+    /// <summary>Démarre la pulsation dorée infinie sur le sprite de la porte.</summary>
+    public void StartGoldPulse()
+    {
+        if (_pulsingGold) return;
+        _pulsingGold = true;
+        if (_pulseCoroutine != null) StopCoroutine(_pulseCoroutine);
+        _pulseCoroutine = StartCoroutine(GoldPulseLoop());
+    }
+
+    private IEnumerator GoldPulseLoop()
+    {
+        float t = 0f;
+        while (_pulsingGold)
+        {
+            t += Time.deltaTime;
+            float phase = Mathf.PingPong(t / PulsePeriod, 1f);
+            float glow  = Mathf.SmoothStep(0f, PulseMaxGlow, phase);
+
+            if (_doorImage != null)
+                _doorImage.color = new Color(1f, 1f - glow * 0.35f, 1f - glow, 1f);
+
+            yield return null;
+        }
+
+        if (_doorImage != null)
+            _doorImage.color = Color.white;
     }
 
     // ── Clic ──────────────────────────────────────────────────────────────────
@@ -176,7 +216,6 @@ public class MenuDoor : MonoBehaviour
 
         if (!DoorManager.Instance.IsUnlocked)
         {
-            // Afficher le tooltip "Finissez les 3 mini jeux…"
             StopAllCoroutines();
             StartCoroutine(ShowTooltip());
             return;
@@ -192,13 +231,8 @@ public class MenuDoor : MonoBehaviour
         if (_tooltipGroup == null) yield break;
         _tooltipShowing = true;
 
-        // Fade in
         yield return StartCoroutine(FadeTooltip(0f, 1f, TooltipFade));
-
-        // Maintien
         yield return new WaitForSeconds(TooltipDur);
-
-        // Fade out
         yield return StartCoroutine(FadeTooltip(1f, 0f, TooltipFade));
 
         _tooltipShowing = false;

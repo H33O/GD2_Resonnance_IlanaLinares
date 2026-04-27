@@ -21,11 +21,17 @@ public class MenuGameSelectPanel : MonoBehaviour
     public string SceneGame2 = "Minijeu-Bulles";
     [Tooltip("Nom exact de la scène dans les Build Settings")]
     public string SceneGame3 = "TiltBall";
+    [Tooltip("Nom exact de la scène dans les Build Settings")]
+    public string SceneGame4 = "GameAndWatch";
+    [Tooltip("Nom exact de la scène dans les Build Settings")]
+    public string SceneGame5 = "TiltBall";
 
     [Header("Labels affichés sur les boutons")]
     public string LabelGame1 = "GAME AND WATCH";
     public string LabelGame2 = "BUBBLE SHOOTER";
     public string LabelGame3 = "TILT BALL";
+    public string LabelGame4 = "GAME AND WATCH BUBBLE";
+    public string LabelGame5 = "TILT";
 
     // ── Timings ───────────────────────────────────────────────────────────────
 
@@ -34,8 +40,8 @@ public class MenuGameSelectPanel : MonoBehaviour
 
     // ── Dimensions des boutons ────────────────────────────────────────────────
 
-    private const float BtnH    = 180f;   // hauteur fixe de chaque bouton
-    private const float BtnGap  = 20f;    // espace entre boutons
+    private const float BtnH    = 140f;   // hauteur fixe de chaque bouton
+    private const float BtnGap  = 16f;    // espace entre boutons
     private const float BtnW    = 880f;   // largeur de la zone boutons
 
     // ── Palette ───────────────────────────────────────────────────────────────
@@ -45,6 +51,8 @@ public class MenuGameSelectPanel : MonoBehaviour
     private static readonly Color ColAccentTxt  = new Color(0.06f, 0.04f, 0.10f, 1f);
     private static readonly Color ColSecondBtn  = new Color(0.14f, 0.12f, 0.18f, 1f);
     private static readonly Color ColSecondTxt  = Color.white;
+    private static readonly Color ColBeigeBtn   = new Color(0.93f, 0.87f, 0.72f, 1f);
+    private static readonly Color ColBeigeTxt   = new Color(0.10f, 0.07f, 0.03f, 1f);
     private static readonly Color ColOutline    = new Color(1f, 1f, 1f, 0.20f);
     private static readonly Color ColSeparator  = new Color(1f, 1f, 1f, 0.14f);
     private static readonly Color ColBackBtn    = new Color(1f, 1f, 1f, 0.06f);
@@ -93,19 +101,18 @@ public class MenuGameSelectPanel : MonoBehaviour
 
         // Titre
         MakeLabel("SelectTitle", root, "JEUX",
-            anchorMin: new Vector2(0f, 0.84f), anchorMax: new Vector2(1f, 0.93f),
+            anchorMin: new Vector2(0f, 0.88f), anchorMax: new Vector2(1f, 0.95f),
             size: 58f, color: ColTitle, bold: true);
 
         // Séparateur
         var sepImg      = MakeImage("Sep", root, ColSeparator);
         var sepRT       = sepImg.rectTransform;
-        sepRT.anchorMin = new Vector2(0.08f, 0.833f);
-        sepRT.anchorMax = new Vector2(0.92f, 0.833f);
+        sepRT.anchorMin = new Vector2(0.08f, 0.875f);
+        sepRT.anchorMax = new Vector2(0.92f, 0.875f);
         sepRT.sizeDelta = new Vector2(0f, 2f);
 
-        // Zone boutons : centrée horizontalement, taille fixe
-        // Hauteur totale = 3 boutons + 2 gaps
-        float zoneH = BtnH * 3f + BtnGap * 2f;
+        // Zone boutons : 5 jeux
+        float zoneH = BtnH * 5f + BtnGap * 4f;
 
         var zone   = new GameObject("BtnZone");
         zone.transform.SetParent(root, false);
@@ -114,7 +121,7 @@ public class MenuGameSelectPanel : MonoBehaviour
         zoneRT.anchorMax = new Vector2(0.5f, 0.5f);
         zoneRT.pivot     = new Vector2(0.5f, 0.5f);
         zoneRT.sizeDelta = new Vector2(BtnW, zoneH);
-        zoneRT.anchoredPosition = new Vector2(0f, 20f);
+        zoneRT.anchoredPosition = new Vector2(0f, 10f);
 
         // VerticalLayoutGroup pour empiler les boutons proprement
         var vlg = zone.AddComponent<VerticalLayoutGroup>();
@@ -134,6 +141,13 @@ public class MenuGameSelectPanel : MonoBehaviour
 
         MakeGameBtn(zoneRT, "Btn_Game3", LabelGame3, ColSecondBtn, ColSecondTxt,
             () => LoadGame(SceneGame3, LabelGame3));
+
+        // Boutons beiges : GAME AND WATCH BUBBLE & TILT
+        MakeGameBtn(zoneRT, "Btn_Game4", LabelGame4, ColBeigeBtn, ColBeigeTxt,
+            () => LoadGame(SceneGame4, LabelGame4));
+
+        MakeGameBtn(zoneRT, "Btn_Game5", LabelGame5, ColBeigeBtn, ColBeigeTxt,
+            () => LoadGame(SceneGame5, LabelGame5));
     }
 
     // ── Helpers UI ────────────────────────────────────────────────────────────

@@ -14,7 +14,7 @@ public enum GameType
 
 /// <summary>
 /// Structure de données sérialisable contenant tous les scores de chaque mini-jeu
-/// et le solde de pièces du joueur.
+/// et le total d'XP du joueur.
 /// </summary>
 [System.Serializable]
 public class GameScoreData
@@ -23,8 +23,11 @@ public class GameScoreData
     public List<int> bubbleShooterScores = new List<int>();
     public List<int> ballGoalScores      = new List<int>();
 
-    /// <summary>Solde total de pièces (monnaie) persistant entre les sessions.</summary>
-    public int totalCoins = 0;
+    /// <summary>XP totale accumulée (ex-pièces). Conserve le champ JSON pour la rétro-compatibilité.</summary>
+    [UnityEngine.SerializeField] public int totalXP = 0;
+
+    // Alias de migration : si une ancienne sauvegarde avait totalCoins, on lit mais on n'écrit plus
+    [System.NonSerialized] public bool migrated;
 }
 
 /// <summary>
@@ -49,8 +52,8 @@ public class ScoreManager : MonoBehaviour
     /// <summary>Déclenché chaque fois qu'un score est ajouté (arg : type, score ajouté).</summary>
     public event System.Action<GameType, int> OnScoreAdded;
 
-    /// <summary>Déclenché chaque fois que des pièces sont ajoutées (arg : montant ajouté, nouveau solde total).</summary>
-    public event System.Action<int, int> OnCoinsAdded;
+    /// <summary>Déclenché chaque fois que de l'XP est ajoutée (arg : montant ajouté, total XP).</summary>
+    public event System.Action<int, int> OnXPAdded;
 
     // ── Données ───────────────────────────────────────────────────────────────
 
@@ -76,7 +79,7 @@ public class ScoreManager : MonoBehaviour
 
     /// <summary>
     /// Enregistre un score pour le type de jeu donné, persiste immédiatement
-    /// et convertit une fraction du score en pièces (1 pièce par tranche de 10 pts).
+    /// et convertit une fraction du score en XP (1 XP par tranche de 10 pts, minimum 1).
     /// </summary>
     public void AddScore(GameType type, int score)
     {
@@ -84,17 +87,17 @@ public class ScoreManager : MonoBehaviour
 
         GetList(type).Add(score);
 
-        // Conversion score → pièces : 1 pièce toutes les 10 pts, minimum 1 pièce
-        int coinsEarned = Mathf.Max(1, score / 10);
-        AddCoins(coinsEarned);
+        // Conversion score → XP : 1 XP toutes les 10 pts, minimum 1
+        int xpEarned = Mathf.Max(1, score / 10);
+        AddXP(xpEarned);
 
         Save();
         OnScoreAdded?.Invoke(type, score);
     }
 
     /// <summary>
-    /// Enregistre un score sans créditer de pièces.
-    /// Utiliser quand les pièces seront créditées séparément (ex. animation au menu).
+    /// Enregistre un score sans créditer d'XP.
+    /// Utiliser quand l'XP sera créditée séparément (ex. animation au menu).
     /// </summary>
     public void AddScoreOnly(GameType type, int score)
     {
@@ -105,30 +108,21 @@ public class ScoreManager : MonoBehaviour
     }
 
     /// <summary>
-    /// Ajoute directement un montant de pièces au solde du joueur et persiste.
+    /// Ajoute directement un montant d'XP au joueur, persiste et propage au <see cref="PlayerLevelManager"/>.
     /// </summary>
-    public void AddCoins(int amount)
+    public void AddXP(int amount)
     {
         if (amount <= 0) return;
-        data.totalCoins += amount;
+        data.totalXP += amount;
         Save();
-        OnCoinsAdded?.Invoke(amount, data.totalCoins);
+        OnXPAdded?.Invoke(amount, data.totalXP);
+
+        // Propager au gestionnaire de niveau
+        PlayerLevelManager.Instance?.AddXP(amount);
     }
 
-    /// <summary>
-    /// Déduit un montant de pièces du solde du joueur (achat en boutique) et persiste.
-    /// Ne fait rien si le solde est insuffisant.
-    /// </summary>
-    public void SpendCoins(int amount)
-    {
-        if (amount <= 0 || data.totalCoins < amount) return;
-        data.totalCoins -= amount;
-        Save();
-        OnCoinsAdded?.Invoke(-amount, data.totalCoins);
-    }
-
-    /// <summary>Retourne le solde actuel de pièces du joueur.</summary>
-    public int GetTotalCoins() => data.totalCoins;
+    /// <summary>Retourne le total d'XP accumulée.</summary>
+    public int GetTotalXP() => data.totalXP;
 
     /// <summary>
     /// Retourne tous les scores enregistrés pour le type de jeu donné, du plus ancien au plus récent.

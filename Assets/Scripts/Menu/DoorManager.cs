@@ -126,6 +126,10 @@ public class DoorManager : MonoBehaviour
         if (_unlocked) return;
         _unlocked = true;
         Debug.Log("[DoorManager] Porte déverrouillée !");
+
+        // Notifier MenuDoor pour la pulse dorée + disparition du cadenas
+        var door = FindFirstObjectByType<MenuDoor>();
+        door?.RefreshLockVisual();
     }
 
     // ── API publique : ouvrir / fermer l'overlay ──────────────────────────────
@@ -133,7 +137,7 @@ public class DoorManager : MonoBehaviour
     /// <summary>
     /// Appelé par <see cref="MenuDoor"/> lors d'un clic sur la porte.
     /// Si verrouillée : affiche un message "Atteindre le niveau N pour déverrouiller".
-    /// Si déverrouillée : toggle l'overlay intérieur porte.
+    /// Si déverrouillée : charge directement la scène cible sans passer par l'overlay.
     /// </summary>
     public void OnDoorClicked()
     {
@@ -142,8 +146,7 @@ public class DoorManager : MonoBehaviour
             ShowLockToast();
             return;
         }
-        if (_overlayOpen) CloseOverlay();
-        else OpenOverlay();
+        LoadTargetScene();
     }
 
     // ── Toast "porte verrouillée" ──────────────────────────────────────────────

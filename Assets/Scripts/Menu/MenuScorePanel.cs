@@ -88,20 +88,11 @@ public class MenuScorePanel : MonoBehaviour
 
     private void Start()
     {
-        // QuestManager existe maintenant (créé par MenuMainSetup.Start avant la fin du frame)
-        if (QuestManager.Instance != null)
-        {
-            QuestManager.Instance.OnProgressChanged -= RefreshQuestList;
-            QuestManager.Instance.OnProgressChanged += RefreshQuestList;
-            QuestManager.Instance.OnWaveStarted     -= OnWaveStarted;
-            QuestManager.Instance.OnWaveStarted     += OnWaveStarted;
-        }
         // Refresh initial après que tout le monde est créé
         RefreshAll(animate: false);
     }
 
     private void OnXPChanged()        => RefreshAll(animate: true);
-    private void OnWaveStarted(int _) => RefreshAll(animate: false);
 
     private void OnDestroy()
     {
@@ -109,11 +100,6 @@ public class MenuScorePanel : MonoBehaviour
         {
             PlayerLevelManager.Instance.OnLevelUp        -= OnLevelUp;
             PlayerLevelManager.Instance.OnProgressChanged -= OnXPChanged;
-        }
-        if (QuestManager.Instance != null)
-        {
-            QuestManager.Instance.OnProgressChanged -= RefreshQuestList;
-            QuestManager.Instance.OnWaveStarted     -= OnWaveStarted;
         }
     }
 
@@ -488,127 +474,12 @@ public class MenuScorePanel : MonoBehaviour
             if (_panelLevelLabel != null) _panelLevelLabel.text = lm.Level.ToString();
             if (_panelXPLabel    != null) _panelXPLabel.text    = $"{lm.CurrentXP} / {lm.XPToNextLevel} XP";
             if (_panelXPFill     != null) _panelXPFill.fillAmount = lm.XPRatio;
-            if (_waveLabel       != null && QuestManager.Instance != null)
-                _waveLabel.text = $"Vague {QuestManager.Instance.WaveIndex + 1} — {QuestManager.Instance.CompletedCount()}/{QuestManager.Instance.ActiveWave.Count} quêtes terminées";
-            if (_minScoreLabel   != null && QuestManager.Instance != null)
-                _minScoreLabel.text = $"Score minimum requis : {QuestManager.Instance.GetMinScore()} pts";
-
-            RefreshQuestList();
         }
     }
 
     private void RefreshQuestList()
     {
-        if (_questListParent == null || QuestManager.Instance == null) return;
-
-        // Détacher avant destroy pour que LayoutGroup ne les compte plus
-        for (int i = _questListParent.childCount - 1; i >= 0; i--)
-        {
-            var ch = _questListParent.GetChild(i);
-            ch.SetParent(null, false);
-            Destroy(ch.gameObject);
-        }
-
-        // Reconstruire
-        foreach (var def in QuestManager.Instance.ActiveWave)
-        {
-            var prog    = QuestManager.Instance.GetProgress(def.Id);
-            bool done   = prog.Completed;
-            int display = Mathf.Min(prog.Count, def.RequiredCount);
-
-            var rowGO  = new GameObject($"QRow_{def.Id}");
-            rowGO.transform.SetParent(_questListParent, false);
-
-            var rowImg = rowGO.AddComponent<Image>();
-            rowImg.sprite = SpriteGenerator.CreateWhiteSquare();
-            rowImg.color  = done
-                ? new Color(0.15f, 0.55f, 0.20f, 0.18f)
-                : new Color(1f,    1f,    1f,    0.05f);
-            rowImg.raycastTarget = false;
-
-            var rowLE = rowGO.AddComponent<LayoutElement>();
-            rowLE.preferredHeight = 88f;
-            rowLE.flexibleWidth   = 1f;
-
-            var rowRT = rowImg.rectTransform;
-
-            // Accent gauche
-            var acGO  = new GameObject("Acc");
-            acGO.transform.SetParent(rowGO.transform, false);
-            var acImg = acGO.AddComponent<Image>();
-            acImg.sprite = SpriteGenerator.CreateWhiteSquare();
-            acImg.color  = done ? ColQuestDone : (def.IsComplex ? ColQuestComplex : ColXPFill);
-            acImg.raycastTarget = false;
-            var acRT   = acImg.rectTransform;
-            acRT.anchorMin = Vector2.zero;
-            acRT.anchorMax = new Vector2(0.012f, 1f);
-            acRT.offsetMin = acRT.offsetMax = Vector2.zero;
-
-            // Titre
-            var tGO  = new GameObject("T");
-            tGO.transform.SetParent(rowGO.transform, false);
-            var tTmp = tGO.AddComponent<TextMeshProUGUI>();
-            tTmp.text      = done ? $"✓  {def.Title}" : def.Title;
-            tTmp.fontSize  = 24f;
-            tTmp.fontStyle = FontStyles.Bold;
-            tTmp.color     = done ? ColQuestDone : (def.IsComplex ? ColQuestComplex : ColQuestPend);
-            tTmp.alignment = TextAlignmentOptions.MidlineLeft;
-            tTmp.raycastTarget = false;
-            MenuAssets.ApplyFont(tTmp);
-            var tRT  = tTmp.rectTransform;
-            tRT.anchorMin = new Vector2(0.04f, 0.52f);
-            tRT.anchorMax = new Vector2(0.78f, 1f);
-            tRT.offsetMin = tRT.offsetMax = Vector2.zero;
-
-            // Récompense
-            var rGO  = new GameObject("R");
-            rGO.transform.SetParent(rowGO.transform, false);
-            var rTmp = rGO.AddComponent<TextMeshProUGUI>();
-            rTmp.text     = done ? "✓" : $"+{def.RewardCoins}";
-            rTmp.fontSize = 26f;
-            rTmp.fontStyle = FontStyles.Bold;
-            rTmp.color    = done ? ColQuestDone : ColWaveVal;
-            rTmp.alignment = TextAlignmentOptions.MidlineRight;
-            rTmp.raycastTarget = false;
-            MenuAssets.ApplyFont(rTmp);
-            var rRT   = rTmp.rectTransform;
-            rRT.anchorMin = new Vector2(0.78f, 0.50f);
-            rRT.anchorMax = new Vector2(0.97f, 1f);
-            rRT.offsetMin = rRT.offsetMax = Vector2.zero;
-
-            // XP (si complexe)
-            if (def.IsComplex && !done)
-            {
-                var xpRowGO  = new GameObject("XPR");
-                xpRowGO.transform.SetParent(rowGO.transform, false);
-                var xpRowTmp = xpRowGO.AddComponent<TextMeshProUGUI>();
-                xpRowTmp.text     = $"+{def.RewardXP} XP";
-                xpRowTmp.fontSize = 18f;
-                xpRowTmp.color    = ColXPVal;
-                xpRowTmp.alignment = TextAlignmentOptions.MidlineRight;
-                xpRowTmp.raycastTarget = false;
-                MenuAssets.ApplyFont(xpRowTmp);
-                var xpRowRT   = xpRowTmp.rectTransform;
-                xpRowRT.anchorMin = new Vector2(0.78f, 0f);
-                xpRowRT.anchorMax = new Vector2(0.97f, 0.52f);
-                xpRowRT.offsetMin = xpRowRT.offsetMax = Vector2.zero;
-            }
-
-            // Progression
-            var pGO  = new GameObject("P");
-            pGO.transform.SetParent(rowGO.transform, false);
-            var pTmp = pGO.AddComponent<TextMeshProUGUI>();
-            pTmp.text     = done ? "Terminée" : $"{display} / {def.RequiredCount}";
-            pTmp.fontSize = 19f;
-            pTmp.color    = done ? ColQuestDone : ColXPLbl;
-            pTmp.alignment = TextAlignmentOptions.MidlineLeft;
-            pTmp.raycastTarget = false;
-            MenuAssets.ApplyFont(pTmp);
-            var pRT   = pTmp.rectTransform;
-            pRT.anchorMin = new Vector2(0.04f, 0f);
-            pRT.anchorMax = new Vector2(0.60f, 0.50f);
-            pRT.offsetMin = pRT.offsetMax = Vector2.zero;
-        }
+        // QuestManager supprimé — méthode conservée pour éviter les erreurs de référence résiduelle.
     }
 
     // ── Level-up feedback ─────────────────────────────────────────────────────

@@ -27,13 +27,11 @@ public static class MenuAssets
                             Sprite lockSprite = null, Sprite textBadgeSprite = null)
     {
         ButtonSprite    = buttonSprite;
-        Font            = font;
         LockSprite      = lockSprite;
         TextBadgeSprite = textBadgeSprite;
 
-        // Charger JimNightshade automatiquement si aucune font n'est fournie
-        if (Font == null)
-            Font = LoadJimNightshade();
+        // JimNightshade est toujours prioritaire — on ignore la font passée en paramètre
+        Font = LoadJimNightshade();
 
         // Charger jaugenormal automatiquement si non fourni
         if (TextBadgeSprite == null)

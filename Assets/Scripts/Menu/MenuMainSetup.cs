@@ -48,7 +48,7 @@ public class MenuMainSetup : MonoBehaviour
     [SerializeField] public Sprite doorButtonSprite;
 
     [Tooltip("Nom de la scène chargée depuis l'overlay intérieur porte.")]
-    [SerializeField] public string doorTargetScene = "CircleArena";
+    [SerializeField] public string doorTargetScene = "ParryGame";
 
     [Tooltip("Libellé affiché sur le bouton de l'overlay intérieur porte.")]
     [SerializeField] public string doorButtonLabel = "JOUER";
@@ -59,14 +59,10 @@ public class MenuMainSetup : MonoBehaviour
 
     private void Start()
     {
-        // ── Ordre critique : Score → Level → Quest ────────────────────────────
-        // QuestManager.OnEnable s'abonne à ScoreManager.OnScoreAdded ;
-        // il faut donc que ScoreManager existe AVANT QuestManager.Awake().
+        // ── Ordre critique : Score → Level ────────────────────────────────────
         ScoreManager.EnsureExists();
         PlayerLevelManager.EnsureExists();
-        QuestManager.EnsureExists();
 
-        // Initialiser les assets partagés (font JimNightshade + sprite bouton)
         MenuAssets.Init(doorButtonSprite);
 
         BuildBackground2D();
@@ -75,16 +71,10 @@ public class MenuMainSetup : MonoBehaviour
         BuildDoorManager(canvasRT);
         BuildDoor(canvasRT);
         BuildGamesButton(canvasRT);
-        BuildQuestsButton(canvasRT);
-        QuestCompletionOverlay.Create(canvasRT);
-        MenuCoinReceiver.Create(canvasRT);
+        MenuXPReceiver.Create(canvasRT);
         EnsureSceneTransition();
 
-        // Brancher l'overlay "Quête validée" sur le QuestManager
-        if (QuestManager.Instance != null)
-            QuestManager.Instance.OnQuestCompleted += QuestCompletionOverlay.Show;
-
-        // Brancher le feedback "Niveau +1" sur le PlayerLevelManager
+        // Feedback "Niveau +1"
         if (PlayerLevelManager.Instance != null)
             PlayerLevelManager.Instance.OnLevelUp += lvl => LevelUpToast.Show(canvasRT, lvl);
     }
@@ -228,52 +218,6 @@ public class MenuMainSetup : MonoBehaviour
         {
             gamesOpen = !gamesOpen;
             if (gamesOpen) panel.Show(); else panel.Hide();
-        });
-    }
-
-    // ── Bouton QUÊTES + panneau QuestPanel ────────────────────────────────────
-
-    private static void BuildQuestsButton(RectTransform canvasRT)
-    {
-        // Panneau quêtes (hors écran, à droite)
-        var questPanel = MenuQuestPanel.Create(canvasRT);
-
-        // Bouton "QUÊTES" — bas-gauche
-        var btnGO = new GameObject("QuestsButton");
-        btnGO.transform.SetParent(canvasRT, false);
-
-        var img      = btnGO.AddComponent<Image>();
-        img.sprite   = SpriteGenerator.CreateWhiteSquare();
-        img.color    = ColGamesBtnBg;
-
-        var rt       = img.rectTransform;
-        rt.anchorMin = new Vector2(0f, 0f);
-        rt.anchorMax = new Vector2(0f, 0f);
-        rt.pivot     = new Vector2(0f, 0f);
-        rt.sizeDelta = new Vector2(220f, 80f);
-        rt.anchoredPosition = new Vector2(32f, 200f);
-
-        var labelGO       = new GameObject("Label");
-        labelGO.transform.SetParent(rt, false);
-        var tmp           = labelGO.AddComponent<TMPro.TextMeshProUGUI>();
-        tmp.text          = "QUÊTES";
-        tmp.fontSize      = 34f;
-        tmp.fontStyle     = TMPro.FontStyles.Bold;
-        tmp.color         = ColGamesBtnTxt;
-        tmp.alignment     = TMPro.TextAlignmentOptions.Center;
-        tmp.raycastTarget = false;
-        var lrt           = tmp.rectTransform;
-        lrt.anchorMin     = Vector2.zero;
-        lrt.anchorMax     = Vector2.one;
-        lrt.offsetMin     = lrt.offsetMax = Vector2.zero;
-
-        bool open = false;
-        var btn   = btnGO.AddComponent<Button>();
-        btn.targetGraphic = img;
-        btn.onClick.AddListener(() =>
-        {
-            open = !open;
-            if (open) questPanel.Show(); else questPanel.Hide();
         });
     }
 

@@ -8,7 +8,7 @@ EditorBuildSettings:
   - enabled: 1
     path: Assets/Scenes/Menu.unity
     guid: adb363c603e2a8a40a115f6b6d826646
-  - enabled: 1
+  - enabled: 0
     path: Assets/Scenes/Overworld.unity
     guid: 00804a0f8ecd70f4299ef9322c297990
   - enabled: 1
@@ -17,6 +17,12 @@ EditorBuildSettings:
   - enabled: 1
     path: Assets/Scenes/Minijeu-Bulles.unity
     guid: 201f4fcf805769441a6c7137cc66143f
+  - enabled: 1
+    path: Assets/Scenes/TiltBall.unity
+    guid: 140da889eb24b564590c078cff7b40ca
+  - enabled: 1
+    path: Assets/Scenes/ParryGame.unity
+    guid: 9a34b8eedd0549e45ba4c3080618f8e1
   m_configObjects:
     com.unity.input.settings.actions: {fileID: -944628639613478452, guid: 2bcd2660ca9b64942af0de543d8d7100, type: 3}
   m_UseUCBPForAssetBundles: 0

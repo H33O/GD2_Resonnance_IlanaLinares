@@ -5,9 +5,6 @@ TextureImporter:
   - first:
       213: 657194322272297727
     second: personnage_0
-  - first:
-      213: 6046477657406863927
-    second: personnage_1
   externalObjects: {}
   serializedVersion: 13
   mipmaps:
@@ -119,10 +116,10 @@ TextureImporter:
       name: personnage_0
       rect:
         serializedVersion: 2
-        x: 399
-        y: 877
-        width: 238
-        height: 385
+        x: 265
+        y: 340
+        width: 540
+        height: 1265
       alignment: 0
       pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -133,28 +130,6 @@ TextureImporter:
       bones: []
       spriteID: ff2a17f01c2de1900800000000000000
       internalID: 657194322272297727
-      vertices: []
-      indices: 
-      edges: []
-      weights: []
-    - serializedVersion: 2
-      name: personnage_1
-      rect:
-        serializedVersion: 2
-        x: 628
-        y: 1131
-        width: 34
-        height: 58
-      alignment: 0
-      pivot: {x: 0, y: 0}
-      border: {x: 0, y: 0, z: 0, w: 0}
-      customData: 
-      outline: []
-      physicsShape: []
-      tessellationDetail: -1
-      bones: []
-      spriteID: 73a7210d46769e350800000000000000
-      internalID: 6046477657406863927
       vertices: []
       indices: 
       edges: []
@@ -174,7 +149,6 @@ TextureImporter:
       entries: []
     nameFileIdTable:
       personnage_0: 657194322272297727
-      personnage_1: 6046477657406863927
   mipmapLimitGroupName: 
   pSDRemoveMatte: 0
   userData: 

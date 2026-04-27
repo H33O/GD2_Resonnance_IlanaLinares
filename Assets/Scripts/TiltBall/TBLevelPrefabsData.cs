@@ -66,6 +66,16 @@ public class TBLevelPrefabsData : ScriptableObject
     public Color wallColor = new Color(0.88f, 0.88f, 0.92f, 1f);
 
     [Header("Fond")]
-    [Tooltip("Couleur de fond de la caméra.")]
+    [Tooltip("Sprite de fond du jeu (fond jeu.png). Null → couleur unie.")]
+    public Sprite backgroundSprite;
+
+    [Tooltip("Couleur de fond de la caméra (utilisée si backgroundSprite est null).")]
     public Color backgroundColor = new Color(0.06f, 0.06f, 0.10f, 1f);
+
+    [Header("UI — Typographie & Jauge")]
+    [Tooltip("Police JimNightshade SDF. Assigner 'JimNightshade-Regular SDF'.")]
+    public TMPro.TMP_FontAsset uiFont;
+
+    [Tooltip("Sprite de jauge utilisé comme fond des panneaux et barres UI (jaugenormal.png).")]
+    public Sprite jaugeSprite;
 }

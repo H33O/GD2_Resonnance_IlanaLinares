@@ -4,7 +4,7 @@ using UnityEngine.UI;
 using TMPro;
 
 /// <summary>
-/// Widget de fin de partie : DEFEAT + score + pièces gagnées + bouton menu.
+/// Widget de fin de partie : DEFEAT + score + XP gagnée + retour menu auto.
 ///
 /// Usage : attacher ce composant à un GameObject vide dans chaque scène de mini-jeu.
 /// Il s'abonne à <see cref="GameManager.OnGameOver"/> et gère la transition vers le Menu.
@@ -12,10 +12,10 @@ using TMPro;
 /// Le flow complet :
 ///   1. GameOver déclenché → fond sombre slide-in, "DEFEAT" en rouge
 ///   2. Score animé (count-up)
-///   3. Pièces gagnées animées
-///   4. Bouton "MENU" cliquable + countdown auto
+///   3. XP gagnée animée
+///   4. Countdown auto → retour Menu
 ///   5. Écriture dans <see cref="GameEndData"/> → transition via <see cref="SceneTransition"/>
-///   6. Au menu, <see cref="MenuCoinReceiver"/> récupère les données et crédite les pièces
+///   6. Au menu, <see cref="MenuXPReceiver"/> récupère les données et crédite l'XP
 /// </summary>
 public class GameEndScreen : MonoBehaviour
 {
@@ -38,8 +38,8 @@ public class GameEndScreen : MonoBehaviour
     private static readonly Color ColSub         = new Color(1.00f, 1.00f, 1.00f, 1.00f);   // blanc pur
     private static readonly Color ColScoreLbl    = new Color(1.00f, 1.00f, 1.00f, 1.00f);   // blanc pur
     private static readonly Color ColScoreVal    = new Color(1.00f, 0.82f, 0.18f, 1.00f);
-    private static readonly Color ColCoinsLbl    = new Color(1.00f, 1.00f, 1.00f, 1.00f);   // blanc pur
-    private static readonly Color ColCoinsVal    = new Color(0.30f, 0.95f, 0.45f, 1.00f);
+    private static readonly Color ColCoinsLbl    = new Color(1.00f, 1.00f, 1.00f, 1.00f);
+    private static readonly Color ColCoinsVal    = new Color(0.55f, 0.85f, 1.00f, 1.00f);   // bleu XP
     private static readonly Color ColSep         = new Color(1.00f, 1.00f, 1.00f, 0.10f);
     private static readonly Color ColHint        = new Color(1.00f, 1.00f, 1.00f, 0.70f);   // blanc lisible
     private static readonly Color ColDivider     = new Color(0.80f, 0.10f, 0.10f, 0.50f);
@@ -71,10 +71,10 @@ public class GameEndScreen : MonoBehaviour
             GameManager.Instance.OnGameOver.RemoveListener(Trigger);
     }
 
-    // ── Conversion score → pièces ─────────────────────────────────────────────
+    // ── Conversion score → XP ─────────────────────────────────────────────────
 
-    /// <summary>1 pièce par tranche de 5 points, minimum 1 si score > 0.</summary>
-    private static int ScoreToCoins(int score)
+    /// <summary>1 XP par tranche de 5 points, minimum 1 si score > 0.</summary>
+    private static int ScoreToXP(int score)
     {
         if (score <= 0) return 0;
         return Mathf.Max(1, score / 5);
@@ -89,19 +89,19 @@ public class GameEndScreen : MonoBehaviour
         fired = true;
 
         int score = GameManager.Instance != null ? GameManager.Instance.CurrentScore : 0;
-        int coins = ScoreToCoins(score);
+        int xp    = ScoreToXP(score);
 
         ScoreManager.EnsureExists();
         ScoreManager.Instance.AddScoreOnly(gameType, score);
 
-        GameEndData.Set(score, coins, gameType);
+        GameEndData.Set(score, xp, gameType);
 
-        StartCoroutine(RunScreen(score, coins));
+        StartCoroutine(RunScreen(score, xp));
     }
 
     // ── Séquence principale ───────────────────────────────────────────────────
 
-    private IEnumerator RunScreen(int score, int coins)
+    private IEnumerator RunScreen(int score, int xp)
     {
         // Activer et fade-in
         rootCanvas.gameObject.SetActive(true);
@@ -111,11 +111,11 @@ public class GameEndScreen : MonoBehaviour
         // 1. Count-up score
         yield return StartCoroutine(CountUp(scoreValLabel, 0, score, 1.10f, isCoin: false));
 
-        // 2. Pause + count-up pièces
+        // 2. Pause + count-up XP
         yield return new WaitForSecondsRealtime(0.45f);
-        yield return StartCoroutine(CountUp(coinsValLabel, 0, coins, 0.75f, isCoin: true));
+        yield return StartCoroutine(CountUp(coinsValLabel, 0, xp, 0.75f, isCoin: true));
 
-        // 3. Countdown auto-retour (pas de bouton — le joueur re-clique sur "Game")
+        // 3. Countdown auto-retour
         float elapsed = 0f;
         while (elapsed < autoReturnSec)
         {
@@ -205,11 +205,11 @@ public class GameEndScreen : MonoBehaviour
             new Vector2(0.08f, 0.44f), new Vector2(0.50f, 0.63f),
             86f, ColScoreVal, FontStyles.Bold);
 
-        // ── Section PIÈCES ───────────────────────────────────────────────────
-        Label(card, "CoinsLbl", "PIÈCES",
+        // ── Section XP ────────────────────────────────────────────────────────
+        Label(card, "CoinsLbl", "XP",
             new Vector2(0.52f, 0.60f), new Vector2(0.95f, 0.72f),
             26f, ColCoinsLbl, FontStyles.Bold);
-        coinsValLabel = Label(card, "CoinsVal", "0 🪙",
+        coinsValLabel = Label(card, "CoinsVal", "+0 ⭐",
             new Vector2(0.52f, 0.44f), new Vector2(0.95f, 0.63f),
             72f, new Color(0.55f, 0.55f, 0.55f, 1f), FontStyles.Bold);
 
@@ -386,9 +386,9 @@ public class GameEndScreen : MonoBehaviour
             t += Time.unscaledDeltaTime;
             float e = 1f - Mathf.Pow(1f - Mathf.Clamp01(t / dur), 4f);  // EaseOutQuart
             int   v = Mathf.RoundToInt(Mathf.Lerp(from, to, e));
-            lbl.text = isCoin ? $"+{v} 🪙" : v.ToString("N0");
+            lbl.text = isCoin ? $"+{v} ⭐" : v.ToString("N0");
             yield return null;
         }
-        lbl.text = isCoin ? $"+{to} 🪙" : to.ToString("N0");
+        lbl.text = isCoin ? $"+{to} ⭐" : to.ToString("N0");
     }
 }

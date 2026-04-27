@@ -68,7 +68,7 @@ public class MenuCoinReceiver : MonoBehaviour
         if (!GameEndData.HasPending) return;
 
         int      score    = GameEndData.FinalScore;
-        int      coins    = GameEndData.CoinsEarned;
+        int      coins    = GameEndData.XPEarned;
         GameType gameType = GameEndData.GameType;
         GameEndData.Consume();
 
@@ -142,7 +142,7 @@ public class MenuCoinReceiver : MonoBehaviour
         yield return new WaitForSeconds(TransferDur * 0.30f);
 
         ScoreManager.EnsureExists();
-        ScoreManager.Instance.AddCoins(coins);
+        ScoreManager.Instance.AddXP(coins);
 
         yield return new WaitForSeconds(TransferDur * 0.70f);
     }
@@ -299,11 +299,11 @@ public class MenuCoinReceiver : MonoBehaviour
             new Vector2(0.04f, 0.02f), new Vector2(0.46f, 0.40f),
             64f, ColScoreVal, FontStyles.Bold);
 
-        // Labels pièces
-        Lbl(rt, "CoinsLbl", "PIÈCES GAGNÉES",
+        // Labels XP
+        Lbl(rt, "CoinsLbl", "XP GAGNÉ",
             new Vector2(0.54f, 0.35f), new Vector2(0.97f, 0.65f),
             20f, ColLbl, FontStyles.Normal);
-        var coinsVal = Lbl(rt, "CoinsVal", "0 🪙",
+        var coinsVal = Lbl(rt, "CoinsVal", "0 ✦",
             new Vector2(0.54f, 0.02f), new Vector2(0.97f, 0.40f),
             56f, ColCoinsVal, FontStyles.Bold);
 
@@ -437,9 +437,9 @@ public class MenuCoinReceiver : MonoBehaviour
             t += Time.unscaledDeltaTime;
             float e = 1f - Mathf.Pow(1f - Mathf.Clamp01(t / dur), 4f);
             int   v = Mathf.RoundToInt(Mathf.Lerp(from, to, e));
-            lbl.text = isCoin ? $"+{v} 🪙" : v.ToString("N0");
+            lbl.text = isCoin ? $"+{v} ✦" : v.ToString("N0");
             yield return null;
         }
-        lbl.text = isCoin ? $"+{to} 🪙" : to.ToString("N0");
+        lbl.text = isCoin ? $"+{to} ✦ XP" : to.ToString("N0");
     }
 }

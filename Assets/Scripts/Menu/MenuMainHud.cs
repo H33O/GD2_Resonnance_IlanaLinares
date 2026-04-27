@@ -38,7 +38,6 @@ public class MenuMainHud : MonoBehaviour
         ScoreManager.EnsureExists();
         BuildScorePanel(canvasRT);
         BuildClockWidget(canvasRT);
-        CoinWalletWidget.Create(canvasRT);
     }
 
     // ── Update ────────────────────────────────────────────────────────────────

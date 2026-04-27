@@ -23,6 +23,12 @@ public class UIManager : MonoBehaviour
     [SerializeField] private float popupRiseDuration = 0.8f;
     [SerializeField] private float popupRiseDistance = 60f;
 
+    /// <summary>
+    /// Police JimNightshade partagée pour tous les feedbacks dynamiques.
+    /// Priorité : perfectFont (assigné dans l'Inspector), sinon speedUpFont.
+    /// </summary>
+    private TMP_FontAsset FeedbackFont => perfectFont != null ? perfectFont : speedUpFont;
+
     private void Awake()
     {
         Instance = this;
@@ -113,6 +119,7 @@ public class UIManager : MonoBehaviour
         tmp.color     = new Color(1f, 0.85f, 0.2f, 1f);
         tmp.fontStyle = FontStyles.Bold;
         tmp.alignment = TextAlignmentOptions.Left;
+        if (FeedbackFont != null) tmp.font = FeedbackFont;
 
         Vector2 startPos = rt.anchoredPosition;
         float elapsed = 0f;
@@ -187,7 +194,7 @@ public class UIManager : MonoBehaviour
         tmp.fontStyle = FontStyles.Bold;
         tmp.color     = SpeedColor;
         tmp.alignment = TextAlignmentOptions.Center;
-        if (speedUpFont != null) tmp.font = speedUpFont;
+        if (FeedbackFont != null) tmp.font = FeedbackFont;
 
         // ── Animation (unscaled) ──────────────────────────────────────────────
         float holdDuration = 1.4f;
@@ -277,7 +284,7 @@ public class UIManager : MonoBehaviour
         tmp.fontStyle = FontStyles.Bold;
         tmp.color     = PerfectColor;
         tmp.alignment = TextAlignmentOptions.Center;
-        if (perfectFont != null) tmp.font = perfectFont;
+        if (FeedbackFont != null) tmp.font = FeedbackFont;
 
         // ── Animation glitch + scale + fade ──────────────────────────────────
         float totalDuration = 1.3f;

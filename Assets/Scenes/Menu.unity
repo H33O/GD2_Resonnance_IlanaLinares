@@ -293,7 +293,7 @@ MonoBehaviour:
   doorButtonLabel: JOUER
   buttonSprite: {fileID: -5966942925417321714, guid: 9ed0a603228752a49a8f36fc2f7569bc, type: 3}
   michromatFont: {fileID: 11400000, guid: fa42bccc98f5c1e4ca813a28bf662889, type: 2}
-  lockSprite: {fileID: -2927975263678327522, guid: e820415ab923577428c9af067c41c09d, type: 3}
+  lockSprite: {fileID: -179247353374294728, guid: 5a91c67837300294a8501908c600cc1d, type: 3}
   textBadgeSprite: {fileID: 0}
   gaugeWaterSprite: {fileID: -3013260602387043843, guid: fb5cb8b6210dde84290c29d32116f5bd, type: 3}
   gaugeFoodSprite: {fileID: 5392905154764431386, guid: 205a9958c1323d84f848ed603a8f916c, type: 3}

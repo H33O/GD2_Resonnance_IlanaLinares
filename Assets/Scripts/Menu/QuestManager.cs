@@ -60,9 +60,10 @@ public class QuestProgress
 [Serializable]
 public class QuestSaveData
 {
-    public List<QuestProgress>   Progresses   = new List<QuestProgress>();
-    public List<QuestDefinition> ActiveWave   = new List<QuestDefinition>();
-    public int                   WaveIndex    = 0;   // nombre de vagues complétées
+    public List<QuestProgress>   Progresses        = new List<QuestProgress>();
+    public List<QuestDefinition> ActiveWave        = new List<QuestDefinition>();
+    public int                   WaveIndex         = 0;   // nombre de vagues complétées
+    public QuestProgress         ParentQuestProgress = new QuestProgress();
 }
 
 /// <summary>
@@ -101,6 +102,24 @@ public class QuestManager : MonoBehaviour
     private const int    BaseXPSimple        = 20;
     private const int    BaseXPComplex       = 60;
     private const float  CoinScaleFactor     = 0.25f; // +25% par vague complétée
+
+    // ── Quête parentière (fixe, lancée dès le premier démarrage) ─────────────
+
+    /// <summary>Identifiant fixe de la quête parentière — ne change jamais.</summary>
+    public const string ParentQuestId = "parent_gaw_80pts_x3";
+
+    /// <summary>Définition immuable de la quête parentière.</summary>
+    public static readonly QuestDefinition ParentQuestDefinition = new QuestDefinition
+    {
+        Id            = ParentQuestId,
+        Title         = "Maîtrise du Game & Watch",
+        Description   = "Fais 3 fois le Game & Watch en atteignant 80 points.",
+        TargetGame    = GameType.GameAndWatch,
+        RequiredCount = 3,
+        RewardCoins   = 200,
+        RewardXP      = 0,
+        IsComplex     = false,
+    };
 
     // ── Catalogue de quêtes concrètes ─────────────────────────────────────────
 
@@ -227,6 +246,9 @@ public class QuestManager : MonoBehaviour
     /// <summary>Indice de la vague actuelle (commence à 0).</summary>
     public int WaveIndex => _save.WaveIndex;
 
+    /// <summary>Progression persistée de la quête parentière.</summary>
+    public QuestProgress ParentQuestProgress => _save.ParentQuestProgress;
+
     /// <summary>
     /// Score minimum requis pour valider une session de jeu dans une quête.
     /// Augmente de <see cref="MinScorePerLevel"/> points par niveau joueur.
@@ -245,6 +267,13 @@ public class QuestManager : MonoBehaviour
         Instance = this;
         DontDestroyOnLoad(gameObject);
         Load();
+
+        // Garantir que la progression parentière est toujours initialisée
+        if (_save.ParentQuestProgress == null)
+            _save.ParentQuestProgress = new QuestProgress { Id = ParentQuestId };
+        else if (string.IsNullOrEmpty(_save.ParentQuestProgress.Id))
+            _save.ParentQuestProgress.Id = ParentQuestId;
+
         if (_save.ActiveWave.Count == 0)
             GenerateWave();
     }
@@ -291,7 +320,25 @@ public class QuestManager : MonoBehaviour
 
     private void HandleScoreAdded(GameType type, int score)
     {
-        // Session invalide si score inférieur au minimum requis
+        // ── Quête parentière (score fixe 80, indépendante du niveau) ──────────
+        if (type == GameType.GameAndWatch && score >= 80)
+        {
+            var pProg = _save.ParentQuestProgress;
+            if (!pProg.Completed)
+            {
+                pProg.Count++;
+                if (pProg.Count >= ParentQuestDefinition.RequiredCount)
+                {
+                    pProg.Completed = true;
+                    PlayerLevelManager.Instance?.AddXP(ParentQuestDefinition.RewardXP);
+                    OnQuestCompleted?.Invoke(ParentQuestDefinition);
+                }
+                Save();
+                OnProgressChanged?.Invoke();
+            }
+        }
+
+        // Session invalide si score inférieur au minimum requis (quêtes de vague)
         if (score < GetMinScore()) return;
 
         bool anyCompleted = false;
@@ -334,13 +381,10 @@ public class QuestManager : MonoBehaviour
     {
         prog.Completed = true;
 
-        // Récompense pièces (toujours)
-        ScoreManager.EnsureExists();
-        ScoreManager.Instance.AddCoins(def.RewardCoins);
-
-        // Récompense XP uniquement pour les quêtes complexes → potentiel level up
-        if (def.IsComplex && def.RewardXP > 0)
-            PlayerLevelManager.Instance?.AddXP(def.RewardXP);
+        // Récompense XP (utilise RewardXP, ou RewardCoins pour rétro-compat)
+        int xpReward = def.RewardXP > 0 ? def.RewardXP : def.RewardCoins;
+        if (xpReward > 0)
+            PlayerLevelManager.Instance?.AddXP(xpReward);
 
         OnQuestCompleted?.Invoke(def);
     }

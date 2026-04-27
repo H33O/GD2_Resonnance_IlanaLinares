@@ -52,13 +52,13 @@ public class MenuSceneSetup : MonoBehaviour
     [SerializeField] public Sprite textBadgeSprite;
 
     [Header("Jauges — Sprites")]
-    [Tooltip("Sprite de la jauge Eau (jaugesoif.png).")]
+    [Tooltip("Sprite de la jauge Eau (jaugesoif.png). (Réservé pour usage futur.)")]
     [SerializeField] public Sprite gaugeWaterSprite;
 
-    [Tooltip("Sprite de la jauge Nourriture (jaugemanger.png).")]
+    [Tooltip("Sprite de la jauge Nourriture (jaugemanger.png). (Réservé pour usage futur.)")]
     [SerializeField] public Sprite gaugeFoodSprite;
 
-    [Tooltip("Sprite de la jauge Sommeil (jaugesommeil.png).")]
+    [Tooltip("Sprite de la jauge Sommeil (jaugesommeil.png). (Réservé pour usage futur.)")]
     [SerializeField] public Sprite gaugeSleepSprite;
 
     // ── Init ──────────────────────────────────────────────────────────────────
@@ -76,8 +76,12 @@ public class MenuSceneSetup : MonoBehaviour
         ShopManager.EnsureExists();
         ScoreManager.EnsureExists();
 
-        // Assets partagés pour tous les builders
-        MenuAssets.Init(buttonSprite, michromatFont, lockSprite);
+        // Charger le fond jeu automatiquement si aucun sprite n'est assigné
+        if (backgroundSprite == null)
+            backgroundSprite = LoadFondJeu();
+
+        // Assets partagés pour tous les builders — JimNightshade prioritaire via MenuAssets.Init
+        MenuAssets.Init(buttonSprite, null, lockSprite);
 
         var canvasRT = BuildCanvas();
 
@@ -87,7 +91,28 @@ public class MenuSceneSetup : MonoBehaviour
         BuildDoorManager(canvasRT);   // DoorManager avant MenuDoor
         BuildDoor(canvasRT);
         BuildGamesButton(canvasRT);
-        BuildQuestButton(canvasRT);
+    }
+
+    // ── Chargement fond jeu ───────────────────────────────────────────────────
+
+    private static Sprite LoadFondJeu()
+    {
+#if UNITY_EDITOR
+        var tex = UnityEditor.AssetDatabase.LoadAssetAtPath<Texture2D>(
+            "Assets/sprites/fond jeu.png");
+        if (tex != null)
+        {
+            var objs = UnityEditor.AssetDatabase.LoadAllAssetsAtPath(
+                "Assets/sprites/fond jeu.png");
+            foreach (var obj in objs)
+                if (obj is Sprite sp) return sp;
+
+            return Sprite.Create(tex,
+                new Rect(0, 0, tex.width, tex.height),
+                new Vector2(0.5f, 0.5f), 100f);
+        }
+#endif
+        return Resources.Load<Sprite>("fond jeu");
     }
 
     // ── Canvas ────────────────────────────────────────────────────────────────
@@ -238,52 +263,6 @@ public class MenuSceneSetup : MonoBehaviour
         colors.pressedColor     = new Color(0.4f, 0.4f, 0.4f, 1.00f);
         colors.fadeDuration     = 0.08f;
         btn.colors = colors;
-        btn.onClick.AddListener(panel.Show);
-    }
-
-    // ── Bouton QUÊTES + panneau quêtes ────────────────────────────────────────
-
-    private void BuildQuestButton(RectTransform canvasRT)
-    {
-        const float marginX      = 32f;
-        const float clockBottomY = -48f - 110f;
-        const float gapY         = 16f;
-        const float btnW         = 260f;
-        const float btnH         = 64f;
-
-        var panel = MenuNeedsPanel.Create(canvasRT, gaugeWaterSprite, gaugeFoodSprite, gaugeSleepSprite);
-
-        var btnGO = new GameObject("QuestButton");
-        btnGO.transform.SetParent(canvasRT, false);
-
-        var img    = btnGO.AddComponent<Image>();
-        img.sprite = SpriteGenerator.CreateWhiteSquare();
-        img.color  = new Color(1f, 1f, 1f, 0.08f);
-        MenuAssets.ApplyButtonSprite(img);
-
-        var rt            = img.rectTransform;
-        rt.anchorMin      = new Vector2(1f, 1f);
-        rt.anchorMax      = new Vector2(1f, 1f);
-        rt.pivot          = new Vector2(1f, 1f);
-        rt.sizeDelta      = new Vector2(btnW, btnH);
-        rt.anchoredPosition = new Vector2(-marginX, clockBottomY - gapY);
-
-        var lgo  = new GameObject("Label");
-        lgo.transform.SetParent(rt, false);
-        var tmp  = lgo.AddComponent<TMPro.TextMeshProUGUI>();
-        tmp.text      = "QUÊTES";
-        tmp.fontSize  = 28f;
-        tmp.fontStyle = TMPro.FontStyles.Bold;
-        tmp.color     = new Color(1f, 1f, 1f, 0.70f);
-        tmp.alignment = TMPro.TextAlignmentOptions.Center;
-        tmp.raycastTarget = false;
-        var lrt  = tmp.rectTransform;
-        lrt.anchorMin = Vector2.zero;
-        lrt.anchorMax = Vector2.one;
-        lrt.offsetMin = lrt.offsetMax = Vector2.zero;
-
-        var btn           = btnGO.AddComponent<Button>();
-        btn.targetGraphic = img;
         btn.onClick.AddListener(panel.Show);
     }
 

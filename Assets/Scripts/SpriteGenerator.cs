@@ -329,6 +329,72 @@ public static class SpriteGenerator
 
 
     /// <summary>
+    /// Retourne un sprite triangle d'avertissement ⚠ procédural (mis en cache).
+    /// Blanc opaque — la couleur est appliquée par le SpriteRenderer.
+    /// </summary>
+    public static Sprite CreateWarningTriangle(int size = 64)
+    {
+        int cacheKey = size + 999_000; // distinct key
+        if (RingCache.TryGetValue(cacheKey, out var cached) && cached != null)
+            return cached;
+
+        var tex    = new Texture2D(size, size, TextureFormat.RGBA32, false);
+        tex.filterMode = FilterMode.Bilinear;
+        var pixels = new Color[size * size];
+        float cx   = size * 0.5f;
+        float h    = size * 0.88f;
+        float base2 = size * 0.90f;
+
+        // Triangle vertices (bottom-left, bottom-right, top-center)
+        var v0 = new Vector2(cx - base2 * 0.5f, size * 0.06f);
+        var v1 = new Vector2(cx + base2 * 0.5f, size * 0.06f);
+        var v2 = new Vector2(cx,                size * 0.06f + h);
+
+        float border = size * 0.10f;
+
+        for (int y = 0; y < size; y++)
+        for (int x = 0; x < size; x++)
+        {
+            var p = new Vector2(x + 0.5f, y + 0.5f);
+
+            // Barycentric coords to determine if inside triangle
+            float d0 = SignedEdge(p, v0, v1);
+            float d1 = SignedEdge(p, v1, v2);
+            float d2 = SignedEdge(p, v2, v0);
+
+            bool inside = d0 >= 0 && d1 >= 0 && d2 >= 0;
+            float sdf   = inside ? Mathf.Min(d0, Mathf.Min(d1, d2)) : -1f;
+            float alpha = inside ? Mathf.Clamp01(sdf + 1f) : 0f;
+
+            // Hollow out interior (keep only a thick border + exclamation mark)
+            if (inside && sdf > border)
+            {
+                // Exclamation mark dot
+                float dotDist = Vector2.Distance(p, new Vector2(cx, size * 0.15f));
+                bool  isDot   = dotDist < size * 0.07f;
+
+                // Exclamation mark stem
+                bool isStem = Mathf.Abs(p.x - cx) < size * 0.06f
+                           && p.y > size * 0.24f && p.y < size * 0.62f;
+
+                alpha = (isDot || isStem) ? 1f : 0f;
+            }
+
+            pixels[y * size + x] = new Color(1f, 1f, 1f, alpha);
+        }
+
+        tex.SetPixels(pixels);
+        tex.Apply(false, true);
+
+        var sprite = Sprite.Create(tex, new Rect(0, 0, size, size), new Vector2(0.5f, 0.5f), size);
+        RingCache[cacheKey] = sprite;
+        return sprite;
+    }
+
+    private static float SignedEdge(Vector2 p, Vector2 a, Vector2 b)
+        => (p.x - a.x) * (b.y - a.y) - (p.y - a.y) * (b.x - a.x);
+
+    /// <summary>
     /// Retourne le matériau additif partagé utilisé par tous les LineRenderer d'éclairs.
     /// Un seul objet Material pour l'ensemble du projet.
     /// </summary>

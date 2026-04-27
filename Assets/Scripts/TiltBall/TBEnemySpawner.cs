@@ -14,12 +14,15 @@ public class TBEnemySpawner : MonoBehaviour
     public const int ActivationLevel = 3;   // Premier niveau avec spawner actif
 
     // Intervalle (secondes) entre chaque spawn, diminue avec les niveaux
-    private const float SpawnIntervalBase = 5.0f;
-    private const float SpawnIntervalMin  = 1.8f;
+    private const float SpawnIntervalBase = 2.5f;   // était 5.0 — spawn nettement plus rapide
+    private const float SpawnIntervalMin  = 0.7f;   // était 1.8 — pression max très élevée
 
     // Nombre max d'ennemis sur l'écran à la fois (augmente avec le niveau)
-    private const int MaxEnemiesBase = 3;
-    private const int MaxEnemiesMax  = 10;
+    private const int MaxEnemiesBase = 4;    // était 3
+    private const int MaxEnemiesMax  = 14;   // était 10
+
+    // Délai initial avant le premier spawn (réduit pour entrer dans l'action plus vite)
+    private const float InitialDelay = 1.2f;  // était 2.0
 
     // ── État ──────────────────────────────────────────────────────────────────
 
@@ -73,14 +76,12 @@ public class TBEnemySpawner : MonoBehaviour
 
     private IEnumerator SpawnRoutine()
     {
-        // Délai initial pour laisser le niveau s'initialiser
-        yield return new WaitForSeconds(2.0f);
+        yield return new WaitForSeconds(InitialDelay);
 
         while (true)
         {
             yield return new WaitForSeconds(spawnInterval);
 
-            // Compte les ennemis vivants (tag Obstacle + composant TBEnemyController)
             int liveCount = CountLiveEnemies();
             if (liveCount < maxEnemies)
                 SpawnOne();
@@ -113,7 +114,7 @@ public class TBEnemySpawner : MonoBehaviour
         sr.sortingOrder = 2;
 
         go.transform.position   = pos;
-        go.transform.localScale = new Vector3(0.75f, 0.75f, 1f);
+        go.transform.localScale = new Vector3(0.18f, 0.18f, 1f);
 
         var rb            = go.AddComponent<Rigidbody2D>();
         rb.gravityScale   = 0f;
@@ -122,7 +123,7 @@ public class TBEnemySpawner : MonoBehaviour
 
         var col       = go.AddComponent<CircleCollider2D>();
         col.isTrigger = true;
-        col.radius    = 0.5f;
+        col.radius    = 0.22f;
 
         go.AddComponent<TBEnemyController>();
     }

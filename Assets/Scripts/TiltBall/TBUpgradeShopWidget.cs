@@ -37,14 +37,11 @@ public class TBUpgradeShopWidget : MonoBehaviour
     private GameObject    selfRoot;
     private TextMeshProUGUI scoreLabel;
 
-    // ── Labels des boutons d'achat (mis à jour après chaque achat) ────────────
+    // ── Référence aux labels de coût (mis à jour après chaque achat) ─────────
 
-    private Button          btnAlly;
-    private TextMeshProUGUI btnAllyLabel;
-    private Button          btnWeapon;
-    private TextMeshProUGUI btnWeaponLabel;
-    private Button          btnBarrier;
-    private TextMeshProUGUI btnBarrierLabel;
+    private TextMeshProUGUI allyStatusLabel;
+    private TextMeshProUGUI barrierStatusLabel;
+    private TextMeshProUGUI weaponStatusLabel;
 
     // ── API statique ──────────────────────────────────────────────────────────
 
@@ -103,7 +100,7 @@ public class TBUpgradeShopWidget : MonoBehaviour
         // Séparateur
         MakeSep("Sep0", panel, new Vector2(0.05f, 0.81f), new Vector2(0.95f, 0.82f));
 
-        // Trois cartes d'amélioration
+        // Trois cartes d'amélioration — centrées, sans bouton à droite
         bool allyLocked    = !TBUpgradeData.IsAllyUnlocked(levelIndex);
         bool barrierLocked = !TBUpgradeData.IsBarrierUnlocked(levelIndex);
         bool weaponLocked  = !TBUpgradeData.IsWeaponUnlocked(levelIndex);
@@ -121,21 +118,21 @@ public class TBUpgradeShopWidget : MonoBehaviour
         BuildUpgradeCard(panel, "ALLIÉ", allyDesc,
             $"{TBUpgradeData.CostAlly} pts  ({upgrades.AllyCount}/{TBUpgradeData.MaxAllies})",
             new Vector2(0.03f, 0.56f), new Vector2(0.97f, 0.80f),
-            out btnAlly, out btnAllyLabel, OnBuyAlly, allyLocked);
+            out allyStatusLabel, OnBuyAlly, allyLocked);
 
         MakeSep("Sep1", panel, new Vector2(0.05f, 0.54f), new Vector2(0.95f, 0.55f));
 
         BuildUpgradeCard(panel, "BARRIÈRE", barrierDesc,
             $"{TBUpgradeData.CostBarrier} pts  ({upgrades.BarrierCount}/{TBUpgradeData.MaxBarriers})",
             new Vector2(0.03f, 0.30f), new Vector2(0.97f, 0.53f),
-            out btnBarrier, out btnBarrierLabel, OnBuyBarrier, barrierLocked);
+            out barrierStatusLabel, OnBuyBarrier, barrierLocked);
 
         MakeSep("Sep2", panel, new Vector2(0.05f, 0.28f), new Vector2(0.95f, 0.29f));
 
         BuildUpgradeCard(panel, "ARME", weaponDesc,
             $"{TBUpgradeData.CostWeapon} pts",
             new Vector2(0.03f, 0.06f), new Vector2(0.97f, 0.27f),
-            out btnWeapon, out btnWeaponLabel, OnBuyWeapon, weaponLocked);
+            out weaponStatusLabel, OnBuyWeapon, weaponLocked);
 
         // Un seul bouton Continuer — sous le panneau
         var btnContGO = new GameObject("BtnContinue");
@@ -146,15 +143,16 @@ public class TBUpgradeShopWidget : MonoBehaviour
         btnContRT.offsetMin = btnContRT.offsetMax = Vector2.zero;
 
         var btnContImg   = btnContGO.AddComponent<Image>();
-        btnContImg.color  = ColBtnCont;
-        btnContImg.sprite = SpriteGenerator.CreateWhiteSquare();
+        btnContImg.color = ColBtnCont;
+        TBUIStyle.ApplyJauge(btnContImg, ColBtnCont);
 
         var btnContBtn   = btnContGO.AddComponent<Button>();
         btnContBtn.targetGraphic = btnContImg;
         btnContBtn.onClick.AddListener(OnContinue);
 
-        MakeTmp("Label", btnContRT, "CONTINUER →", 52f, ColBtnContTxt, FontStyles.Bold,
+        var contLbl = MakeTmp("Label", btnContRT, "CONTINUER →", 52f, ColBtnContTxt, FontStyles.Bold,
             Vector2.zero, Vector2.one);
+        _ = contLbl; // used via MakeTmp which applies font
 
         RefreshButtons();
         StartCoroutine(FadeIn());
@@ -162,37 +160,70 @@ public class TBUpgradeShopWidget : MonoBehaviour
 
     // ── Carte d'amélioration ──────────────────────────────────────────────────
 
+    /// <summary>
+    /// Carte centrée : titre + description + statut/coût sur toute la largeur.
+    /// Le bouton d'achat est intégré dans la carte (pas de carré à droite).
+    /// </summary>
     private void BuildUpgradeCard(RectTransform parent,
         string title, string description, string costLabel,
         Vector2 anchorMin, Vector2 anchorMax,
-        out Button outBtn, out TextMeshProUGUI outBtnLabel,
+        out TextMeshProUGUI outStatusLabel,
         Action onClick, bool levelLocked = false)
     {
         var zone = MakeZone($"Card_{title}", parent, anchorMin, anchorMax);
 
-        // Nom de l'amélioration
-        MakeLabel($"Title_{title}", zone, title, 42f,
+        // Fond de carte discret
+        var cardBg = zone.gameObject.AddComponent<Image>();
+        cardBg.color = new Color(1f, 1f, 1f, 0.04f);
+        TBUIStyle.ApplyJauge(cardBg, new Color(1f, 1f, 1f, 0.04f));
+        cardBg.raycastTarget = false;
+
+        // Nom de l'amélioration — centré en haut
+        MakeLabel($"Title_{title}", zone, title, 40f,
             levelLocked ? ColBtnOwnedTxt : Color.white,
             FontStyles.Bold,
-            new Vector2(0f, 0.60f), new Vector2(0.62f, 1f));
+            new Vector2(0f, 0.62f), new Vector2(1f, 1f));
 
-        // Description / info de déblocage
-        MakeTmp($"Desc_{title}", zone, description, 26f, ColDesc, FontStyles.Normal,
-            new Vector2(0f, 0.10f), new Vector2(0.62f, 0.62f)).alignment = TextAlignmentOptions.TopLeft;
+        // Description — centrée au milieu
+        var descTmp = MakeTmp($"Desc_{title}", zone, description, 24f, ColDesc, FontStyles.Normal,
+            new Vector2(0.04f, 0.30f), new Vector2(0.96f, 0.65f));
+        descTmp.alignment = TextAlignmentOptions.Center;
 
-        // Bouton Acheter (côté droit)
-        var btnLabel = MakeButton($"Btn_{title}", zone,
-            levelLocked ? "🔒" : costLabel,
-            new Vector2(0.64f, 0.08f), new Vector2(1.00f, 0.92f),
-            levelLocked ? ColBtnOwned : ColBtnBuy,
-            levelLocked ? ColBtnOwnedTxt : ColBtnBuyTxt,
-            26f, levelLocked ? (Action)null : onClick);
+        // Statut / coût — centré en bas, cliquable
+        var statusGO  = new GameObject($"Status_{title}");
+        statusGO.transform.SetParent(zone, false);
+        var statusImg = statusGO.AddComponent<Image>();
+        statusImg.color = levelLocked ? ColBtnOwned : ColBtnBuy;
+        TBUIStyle.ApplyJauge(statusImg, levelLocked ? ColBtnOwned : ColBtnBuy);
+        var statusRT      = statusImg.rectTransform;
+        statusRT.anchorMin = new Vector2(0.15f, 0.04f);
+        statusRT.anchorMax = new Vector2(0.85f, 0.30f);
+        statusRT.offsetMin = statusRT.offsetMax = Vector2.zero;
 
-        outBtn      = zone.GetComponentInChildren<Button>();
-        outBtnLabel = btnLabel;
+        var statusLblGO  = new GameObject("Label");
+        statusLblGO.transform.SetParent(statusGO.transform, false);
+        var statusTmp     = statusLblGO.AddComponent<TextMeshProUGUI>();
+        statusTmp.text    = levelLocked ? "🔒 " + costLabel : costLabel;
+        statusTmp.fontSize = 22f;
+        statusTmp.color   = levelLocked ? ColBtnOwnedTxt : ColBtnBuyTxt;
+        statusTmp.fontStyle = FontStyles.Bold;
+        statusTmp.alignment = TextAlignmentOptions.Center;
+        statusTmp.enableWordWrapping = false;
+        statusTmp.raycastTarget = false;
+        TBUIStyle.ApplyFont(statusTmp);
+        var statusLblRT   = statusTmp.rectTransform;
+        statusLblRT.anchorMin = Vector2.zero;
+        statusLblRT.anchorMax = Vector2.one;
+        statusLblRT.offsetMin = statusLblRT.offsetMax = Vector2.zero;
 
-        if (levelLocked && outBtn != null)
-            outBtn.interactable = false;
+        outStatusLabel = statusTmp;
+
+        if (!levelLocked)
+        {
+            var btn = statusGO.AddComponent<Button>();
+            btn.targetGraphic = statusImg;
+            btn.onClick.AddListener(() => onClick?.Invoke());
+        }
     }
 
     // ── Achats ────────────────────────────────────────────────────────────────
@@ -227,7 +258,7 @@ public class TBUpgradeShopWidget : MonoBehaviour
         onContinue?.Invoke();
     }
 
-    // ── Mise à jour des boutons ───────────────────────────────────────────────
+    // ── Mise à jour des statuts ───────────────────────────────────────────────
 
     private void RefreshButtons()
     {
@@ -240,37 +271,41 @@ public class TBUpgradeShopWidget : MonoBehaviour
         bool barrierLocked = !TBUpgradeData.IsBarrierUnlocked(levelIndex);
         bool weaponLocked  = !TBUpgradeData.IsWeaponUnlocked(levelIndex);
 
-        RefreshBtn(btnAlly,    btnAllyLabel,
+        RefreshStatus(allyStatusLabel,
             allyLocked || upgrades.AllyCount >= TBUpgradeData.MaxAllies,
             !allyLocked && score < TBUpgradeData.CostAlly,
-            allyLocked ? "🔒" : $"{TBUpgradeData.CostAlly} pts\n({upgrades.AllyCount}/{TBUpgradeData.MaxAllies})");
+            allyLocked    ? "🔒 Bloqué"
+            : upgrades.AllyCount >= TBUpgradeData.MaxAllies ? "MAX"
+            : $"{TBUpgradeData.CostAlly} pts  ({upgrades.AllyCount}/{TBUpgradeData.MaxAllies})");
 
-        RefreshBtn(btnBarrier, btnBarrierLabel,
+        RefreshStatus(barrierStatusLabel,
             barrierLocked || upgrades.BarrierCount >= TBUpgradeData.MaxBarriers,
             !barrierLocked && score < TBUpgradeData.CostBarrier,
-            barrierLocked ? "🔒" : $"{TBUpgradeData.CostBarrier} pts\n({upgrades.BarrierCount}/{TBUpgradeData.MaxBarriers})");
+            barrierLocked ? "🔒 Bloqué"
+            : upgrades.BarrierCount >= TBUpgradeData.MaxBarriers ? "MAX"
+            : $"{TBUpgradeData.CostBarrier} pts  ({upgrades.BarrierCount}/{TBUpgradeData.MaxBarriers})");
 
-        RefreshBtn(btnWeapon,  btnWeaponLabel,
+        RefreshStatus(weaponStatusLabel,
             weaponLocked || upgrades.HasWeapon,
             !weaponLocked && score < TBUpgradeData.CostWeapon,
-            weaponLocked ? "🔒" : upgrades.HasWeapon ? "ACQUIS" : $"{TBUpgradeData.CostWeapon} pts");
+            weaponLocked  ? "🔒 Bloqué"
+            : upgrades.HasWeapon ? "ACQUIS"
+            : $"{TBUpgradeData.CostWeapon} pts");
     }
 
-    private static void RefreshBtn(Button btn, TextMeshProUGUI label, bool owned, bool tooExpensive, string text)
+    private static void RefreshStatus(TextMeshProUGUI label, bool owned, bool tooExpensive, string text)
     {
-        if (btn == null) return;
-
+        if (label == null) return;
         bool disabled = owned || tooExpensive;
-        btn.interactable = !disabled;
 
-        var img = btn.GetComponent<Image>();
+        var btn = label.transform.parent?.GetComponent<Button>();
+        if (btn != null) btn.interactable = !disabled;
+
+        var img = label.transform.parent?.GetComponent<Image>();
         if (img != null) img.color = disabled ? ColBtnOwned : ColBtnBuy;
 
-        if (label != null)
-        {
-            label.text  = text;
-            label.color = disabled ? ColBtnOwnedTxt : ColBtnBuyTxt;
-        }
+        label.text  = text;
+        label.color = disabled ? ColBtnOwnedTxt : ColBtnBuyTxt;
     }
 
     private static string ScoreText()
@@ -301,7 +336,7 @@ public class TBUpgradeShopWidget : MonoBehaviour
         go.transform.SetParent(parent, false);
         var img = go.AddComponent<Image>();
         img.color = col;
-        img.sprite = SpriteGenerator.CreateWhiteSquare();
+        TBUIStyle.ApplyJauge(img, col);
         var rt    = img.rectTransform;
         rt.anchorMin = aMin; rt.anchorMax = aMax;
         rt.offsetMin = rt.offsetMax = Vector2.zero;
@@ -313,7 +348,7 @@ public class TBUpgradeShopWidget : MonoBehaviour
         go.transform.SetParent(parent, false);
         var img = go.AddComponent<Image>();
         img.color  = col;
-        img.sprite = SpriteGenerator.CreateWhiteSquare();
+        TBUIStyle.ApplyJauge(img, col);
         var rt     = img.rectTransform;
         rt.anchorMin = aMin; rt.anchorMax = aMax;
         rt.offsetMin = rt.offsetMax = Vector2.zero;
@@ -335,8 +370,8 @@ public class TBUpgradeShopWidget : MonoBehaviour
         var go  = new GameObject(name);
         go.transform.SetParent(parent, false);
         var img = go.AddComponent<Image>();
-        img.color  = ColSep;
-        img.sprite = SpriteGenerator.CreateWhiteSquare();
+        img.color = ColSep;
+        TBUIStyle.ApplyJauge(img, ColSep);
         var rt     = img.rectTransform;
         rt.anchorMin = aMin; rt.anchorMax = aMax;
         rt.offsetMin = rt.offsetMax = Vector2.zero;
@@ -361,45 +396,10 @@ public class TBUpgradeShopWidget : MonoBehaviour
         tmp.alignment   = TextAlignmentOptions.Center;
         tmp.enableWordWrapping = true;
         tmp.raycastTarget = false;
+        TBUIStyle.ApplyFont(tmp);
         var rt          = tmp.rectTransform;
         rt.anchorMin    = aMin; rt.anchorMax = aMax;
         rt.offsetMin    = rt.offsetMax = Vector2.zero;
-        return tmp;
-    }
-
-    /// <summary>Crée un bouton et retourne le TextMeshPro du label.</summary>
-    private static TextMeshProUGUI MakeButton(string name, RectTransform parent, string label,
-        Vector2 aMin, Vector2 aMax,
-        Color bgColor, Color txtColor, float fontSize, Action onClick)
-    {
-        var go  = new GameObject(name);
-        go.transform.SetParent(parent, false);
-        var img   = go.AddComponent<Image>();
-        img.color = bgColor;
-        img.sprite = SpriteGenerator.CreateWhiteSquare();
-        var rt    = img.rectTransform;
-        rt.anchorMin = aMin; rt.anchorMax = aMax;
-        rt.offsetMin = rt.offsetMax = Vector2.zero;
-
-        var btn = go.AddComponent<Button>();
-        btn.targetGraphic = img;
-        btn.onClick.AddListener(() => onClick?.Invoke());
-
-        var lgo = new GameObject("Label");
-        lgo.transform.SetParent(go.transform, false);
-        var tmp        = lgo.AddComponent<TextMeshProUGUI>();
-        tmp.text       = label;
-        tmp.fontSize   = fontSize;
-        tmp.color      = txtColor;
-        tmp.fontStyle  = FontStyles.Bold;
-        tmp.alignment  = TextAlignmentOptions.Center;
-        tmp.enableWordWrapping = true;
-        tmp.raycastTarget = false;
-        var lrt        = tmp.rectTransform;
-        lrt.anchorMin  = Vector2.zero;
-        lrt.anchorMax  = Vector2.one;
-        lrt.offsetMin  = new Vector2(8f, 4f);
-        lrt.offsetMax  = new Vector2(-8f, -4f);
         return tmp;
     }
 }

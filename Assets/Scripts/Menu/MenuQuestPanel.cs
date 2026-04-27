@@ -68,6 +68,10 @@ public class MenuQuestPanel : MonoBehaviour
     private TextMeshProUGUI _minScoreLabel;
     private Image           _returnBtnImg;    // mis à jour dans Start() avec le sprite
 
+    // Quête parentière — références pour mise à jour sans rebuild complet
+    private Image           _parentFillImg;
+    private TextMeshProUGUI _parentProgLabel;
+
     private readonly List<(Image fill, float target)> _fills = new List<(Image, float)>();
 
     // ── Factory ───────────────────────────────────────────────────────────────
@@ -119,19 +123,132 @@ public class MenuQuestPanel : MonoBehaviour
             new Vector2(0f, 0.852f), new Vector2(1f, 0.885f),
             18f, ColWhiteDim, FontStyles.Normal);
 
-        // ── Séparateur ────────────────────────────────────────────────────────
+        // ── Séparateur principal ───────────────────────────────────────────────
         var sep = Img("Sep", root, ColSep).rectTransform;
         sep.anchorMin = new Vector2(0.04f, 0.849f);
         sep.anchorMax = new Vector2(0.96f, 0.851f);
         sep.sizeDelta = Vector2.zero;
 
-        // ── ScrollView des cartes de quêtes ───────────────────────────────────
+        // ── Quête parentière ───────────────────────────────────────────────────
+        BuildParentQuestSection(root);
+
+        // ── ScrollView des cartes de quêtes — repositionnée sous la section parentière
         BuildScrollView(root,
             new Vector2(0.03f, 0.115f),
-            new Vector2(0.97f, 0.848f));
+            new Vector2(0.97f, 0.715f));    // ancMax.y abaissé de 0.848 → 0.715
 
         // ── Bouton RETOUR (bas de la slide, style photo) ──────────────────────
         BuildReturnButton(root);
+    }
+
+    // ── Quête parentière ──────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Construit la section quête parentière entre le séparateur et la scroll view.
+    /// Zone : anchorY [0.716 .. 0.848]
+    /// </summary>
+    private void BuildParentQuestSection(RectTransform root)
+    {
+        var def   = QuestManager.ParentQuestDefinition;
+        var prog  = QuestManager.Instance?.ParentQuestProgress ?? new QuestProgress { Id = QuestManager.ParentQuestId };
+        bool done = prog.Completed;
+
+        // Étiquette "QUÊTE PARENTIÈRE"
+        Lbl("ParentLabel", root, "— QUÊTE PARENTIÈRE —",
+            new Vector2(0.04f, 0.830f), new Vector2(0.96f, 0.852f),
+            14f, new Color(1f, 0.75f, 0.20f, 0.85f), FontStyles.Bold);
+
+        // Carte parentière (zone [0.716 .. 0.828])
+        var cardSection = new GameObject("ParentCard");
+        cardSection.transform.SetParent(root, false);
+        var cardRT       = cardSection.AddComponent<RectTransform>();
+        cardRT.anchorMin = new Vector2(0.03f, 0.718f);
+        cardRT.anchorMax = new Vector2(0.97f, 0.828f);
+        cardRT.offsetMin = cardRT.offsetMax = Vector2.zero;
+
+        // Bordure
+        Color borderCol = done
+            ? ColBorderDone
+            : new Color(1.00f, 0.80f, 0.15f, 1f);   // or/jaune — couleur unique parentière
+
+        var borderImg = cardSection.AddComponent<Image>();
+        borderImg.sprite = SpriteGenerator.CreateWhiteSquare();
+        borderImg.color  = borderCol;
+        borderImg.raycastTarget = false;
+
+        // Fond intérieur
+        var bgGO  = new GameObject("Bg");
+        bgGO.transform.SetParent(cardRT, false);
+        var bgImg = bgGO.AddComponent<Image>();
+        bgImg.sprite = SpriteGenerator.CreateWhiteSquare();
+        bgImg.color  = done
+            ? ColCardBgDone
+            : new Color(0.12f, 0.10f, 0.02f, 0.88f);
+        bgImg.raycastTarget = false;
+        var bgInnerRT = bgImg.rectTransform;
+        bgInnerRT.anchorMin = Vector2.zero;
+        bgInnerRT.anchorMax = Vector2.one;
+        bgInnerRT.offsetMin = new Vector2(BorderPx,  BorderPx);
+        bgInnerRT.offsetMax = new Vector2(-BorderPx, -BorderPx);
+
+        Transform textParent = bgGO.transform;
+
+        // Titre
+        string titleText = done ? $"✓  {def.Title}" : def.Title;
+        Color  titleCol  = done ? ColTitleDone : new Color(1f, 0.90f, 0.40f, 1f);
+        AddTMP("Title", textParent, titleText,
+            22f, FontStyles.Bold, titleCol,
+            new Vector2(0.03f, 0.56f), new Vector2(0.80f, 0.97f));
+
+        // Récompense pièces
+        if (!done)
+        {
+            AddTMP("Coins", textParent, $"+{def.RewardCoins} 🪙",
+                18f, FontStyles.Bold, ColGold,
+                new Vector2(0.80f, 0.56f), new Vector2(0.97f, 0.97f),
+                TextAlignmentOptions.MidlineRight);
+        }
+
+        // Description courte
+        AddTMP("Desc", textParent, def.Description,
+            14f, FontStyles.Normal, done ? ColDescDone : ColDesc,
+            new Vector2(0.03f, 0.30f), new Vector2(0.97f, 0.58f));
+
+        // Piste de jauge
+        var trackGO  = new GameObject("Track");
+        trackGO.transform.SetParent(textParent, false);
+        var trackImg = trackGO.AddComponent<Image>();
+        trackImg.sprite = SpriteGenerator.CreateWhiteSquare();
+        trackImg.color  = ColTrack;
+        trackImg.raycastTarget = false;
+        var trackRT  = trackImg.rectTransform;
+        trackRT.anchorMin = new Vector2(0.03f, 0.06f);
+        trackRT.anchorMax = new Vector2(0.72f, 0.26f);
+        trackRT.offsetMin = trackRT.offsetMax = Vector2.zero;
+
+        // Remplissage de jauge
+        var fillGO  = new GameObject("Fill");
+        fillGO.transform.SetParent(trackGO.transform, false);
+        _parentFillImg = fillGO.AddComponent<Image>();
+        _parentFillImg.sprite     = SpriteGenerator.CreateWhiteSquare();
+        _parentFillImg.color      = done ? ColFillDone : new Color(1f, 0.80f, 0.15f, 1f);
+        _parentFillImg.type       = Image.Type.Filled;
+        _parentFillImg.fillMethod = Image.FillMethod.Horizontal;
+        _parentFillImg.fillAmount = prog.GetRatio(def);
+        _parentFillImg.raycastTarget = false;
+        var fillRT = _parentFillImg.rectTransform;
+        fillRT.anchorMin = Vector2.zero;
+        fillRT.anchorMax = Vector2.one;
+        fillRT.offsetMin = fillRT.offsetMax = Vector2.zero;
+
+        // Label progression "0/3"
+        int display = Mathf.Min(prog.Count, def.RequiredCount);
+        string progText = done ? "TERMINÉE ✓" : $"{display} / {def.RequiredCount}";
+        _parentProgLabel = AddTMP("Prog", textParent, progText,
+            15f, done ? FontStyles.Bold : FontStyles.Normal,
+            done ? ColDone : ColWhiteDim,
+            new Vector2(0.73f, 0.04f), new Vector2(0.97f, 0.28f),
+            TextAlignmentOptions.MidlineRight);
     }
 
     private void BuildReturnButton(RectTransform root)
@@ -277,6 +394,9 @@ public class MenuQuestPanel : MonoBehaviour
             return;
         }
 
+        // Rafraîchir la jauge de la quête parentière sans rebuild
+        RefreshParentQuestCard();
+
         // En-têtes
         int done  = QuestManager.Instance.CompletedCount();
         int total = QuestManager.Instance.ActiveWave.Count;
@@ -308,6 +428,35 @@ public class MenuQuestPanel : MonoBehaviour
         var listRT = _listParent.GetComponent<RectTransform>();
         if (listRT != null)
             LayoutRebuilder.ForceRebuildLayoutImmediate(listRT);
+    }
+
+    /// <summary>
+    /// Met à jour uniquement les éléments dynamiques de la carte parentière
+    /// (jauge + label) sans reconstruire toute la section.
+    /// </summary>
+    private void RefreshParentQuestCard()
+    {
+        if (QuestManager.Instance == null) return;
+
+        var def   = QuestManager.ParentQuestDefinition;
+        var prog  = QuestManager.Instance.ParentQuestProgress;
+        bool done = prog.Completed;
+
+        if (_parentFillImg != null)
+        {
+            _parentFillImg.fillAmount = prog.GetRatio(def);
+            _parentFillImg.color = done
+                ? ColFillDone
+                : new Color(1f, 0.80f, 0.15f, 1f);
+        }
+
+        if (_parentProgLabel != null)
+        {
+            int display = Mathf.Min(prog.Count, def.RequiredCount);
+            _parentProgLabel.text      = done ? "TERMINÉE ✓" : $"{display} / {def.RequiredCount}";
+            _parentProgLabel.fontStyle = done ? FontStyles.Bold : FontStyles.Normal;
+            _parentProgLabel.color     = done ? ColDone : ColWhiteDim;
+        }
     }
 
     private Image BuildRow(QuestDefinition def, QuestProgress prog, bool isDone)
@@ -545,6 +694,17 @@ public class MenuQuestPanel : MonoBehaviour
         RebuildList();
         if (_fills.Count > 0)
             StartCoroutine(AnimateFills());
+        AnimateParentFill();
+    }
+
+    /// <summary>Anime la jauge de la carte parentière depuis 0 jusqu'à sa valeur cible.</summary>
+    private void AnimateParentFill()
+    {
+        if (_parentFillImg == null || QuestManager.Instance == null) return;
+        var def   = QuestManager.ParentQuestDefinition;
+        var prog  = QuestManager.Instance.ParentQuestProgress;
+        float target = prog.GetRatio(def);
+        StartCoroutine(AnimateFill(_parentFillImg, 0f, target, FillAnimDur, 0f));
     }
 
     // ── Show / Hide ───────────────────────────────────────────────────────────
@@ -565,6 +725,7 @@ public class MenuQuestPanel : MonoBehaviour
         {
             _isAnimating = false;
             StartCoroutine(AnimateFills());
+            AnimateParentFill();
         }));
     }
 

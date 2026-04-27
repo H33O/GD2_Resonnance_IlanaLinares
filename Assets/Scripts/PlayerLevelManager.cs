@@ -21,9 +21,8 @@ public class PlayerLevelData
 ///   Level 3 → 4 : 200 XP
 ///   … +50 XP par palier
 ///
-/// Les quêtes octroient l'XP via <see cref="AddXP(int)"/>.
-/// Le gain de niveau déclenche <see cref="OnLevelUp"/>, ce qui met
-/// à jour la difficulté des quêtes via <see cref="QuestManager"/>.
+/// L'XP est accordée directement via <see cref="AddXP(int)"/>.
+/// Le gain de niveau déclenche <see cref="OnLevelUp"/>.
 /// </summary>
 public class PlayerLevelManager : MonoBehaviour
 {
@@ -100,9 +99,6 @@ public class PlayerLevelManager : MonoBehaviour
 
         Save();
         OnProgressChanged?.Invoke();
-
-        if (leveledUp)
-            QuestManager.Instance?.OnPlayerLevelChanged(_data.Level);
     }
 
     // ── Persistance ───────────────────────────────────────────────────────────

@@ -5,12 +5,12 @@ using UnityEngine.UI;
 using TMPro;
 
 /// <summary>
-/// Widget centré en haut du menu affichant le solde de pièces persistant du joueur.
+/// Widget centré en haut du menu affichant le total d'XP du joueur.
 ///
 /// Feedbacks visuels :
-///   - Jetons animés qui volent depuis le bord droit vers le widget (1 jeton par pièce, plafonné)
-///   - Pulse de l'icône pièce + du montant à chaque réception
-///   - Flash doré du fond du widget
+///   - Étoiles animées qui volent depuis le bord droit vers le widget
+///   - Pulse de l'icône + du montant à chaque réception
+///   - Flash bleu du fond du widget
 ///   - Compteur qui s'incrémente progressivement (roll-up)
 ///
 /// Référence de résolution : 1080 × 1920 (portrait 9:16).
@@ -112,37 +112,29 @@ public class CoinWalletWidget : MonoBehaviour
         widgetRT.sizeDelta      = new Vector2(WidgetW, WidgetH);
         widgetRT.anchoredPosition = new Vector2(0f, -MarginTop);
 
-        // Icône pièce (disque doré)
-        var iconGO  = new GameObject("CoinIcon");
+        // Icône XP (étoile ★)
+        var iconGO  = new GameObject("XPIcon");
         iconGO.transform.SetParent(bgGO.transform, false);
 
-        var iconImg = iconGO.AddComponent<Image>();
-        iconImg.sprite = SpriteGenerator.CreateWhiteSquare();
-        iconImg.color  = ColCoin;
-        iconImg.raycastTarget = false;
+        var iconTmp = iconGO.AddComponent<TextMeshProUGUI>();
+        iconTmp.text          = "★";
+        iconTmp.fontSize      = 38f;
+        iconTmp.fontStyle     = FontStyles.Bold;
+        iconTmp.color         = ColCoin;
+        iconTmp.alignment     = TextAlignmentOptions.Midline;
+        iconTmp.raycastTarget = false;
+        MenuAssets.ApplyFont(iconTmp);
 
-        iconRT = iconImg.rectTransform;
-        iconRT.anchorMin = new Vector2(0f, 0.5f);
-        iconRT.anchorMax = new Vector2(0f, 0.5f);
+        iconRT = iconTmp.rectTransform;
+        iconRT.anchorMin = new Vector2(0f, 0f);
+        iconRT.anchorMax = new Vector2(0.22f, 1f);
         iconRT.pivot     = new Vector2(0f, 0.5f);
-        iconRT.sizeDelta = new Vector2(42f, 42f);
-        iconRT.anchoredPosition = new Vector2(20f, 0f);
+        iconRT.offsetMin = new Vector2(10f, 0f);
+        iconRT.offsetMax = Vector2.zero;
 
-        // Reflet sur l'icône pièce
-        var glintGO = new GameObject("CoinGlint");
-        glintGO.transform.SetParent(iconGO.transform, false);
-        var glintImg = glintGO.AddComponent<Image>();
-        glintImg.sprite = SpriteGenerator.CreateWhiteSquare();
-        glintImg.color  = new Color(1f, 1f, 1f, 0.35f);
-        glintImg.raycastTarget = false;
-        var glintRT = glintImg.rectTransform;
-        glintRT.anchorMin = new Vector2(0.5f, 0.55f);
-        glintRT.anchorMax = new Vector2(0.85f, 0.90f);
-        glintRT.offsetMin = glintRT.offsetMax = Vector2.zero;
-
-        // Label "PIÈCES"
-        MakeLabel("CoinsLabel", bgGO.transform,
-            "PIÈCES",
+        // Label "XP"
+        MakeLabel("XPLabel", bgGO.transform,
+            "XP",
             anchorMin: new Vector2(0.22f, 0.55f), anchorMax: new Vector2(0.95f, 1f),
             size: 18f, color: ColLabel);
 
@@ -169,10 +161,10 @@ public class CoinWalletWidget : MonoBehaviour
 
         // Abonnement au ScoreManager
         if (ScoreManager.Instance != null)
-            ScoreManager.Instance.OnCoinsAdded += OnCoinsAdded;
+            ScoreManager.Instance.OnXPAdded += OnXPAdded;
 
-        // Initialiser l'affichage avec le solde actuel
-        int current    = ScoreManager.Instance != null ? ScoreManager.Instance.GetTotalCoins() : 0;
+        // Initialiser l'affichage avec le total XP actuel
+        int current    = ScoreManager.Instance != null ? ScoreManager.Instance.GetTotalXP() : 0;
         displayedCoins = current;
         targetCoins    = current;
         RefreshLabel();
@@ -183,19 +175,19 @@ public class CoinWalletWidget : MonoBehaviour
     private void OnEnable()
     {
         if (ScoreManager.Instance != null)
-            ScoreManager.Instance.OnCoinsAdded += OnCoinsAdded;
+            ScoreManager.Instance.OnXPAdded += OnXPAdded;
     }
 
     private void OnDisable()
     {
         if (ScoreManager.Instance != null)
-            ScoreManager.Instance.OnCoinsAdded -= OnCoinsAdded;
+            ScoreManager.Instance.OnXPAdded -= OnXPAdded;
     }
 
     private void OnDestroy()
     {
         if (ScoreManager.Instance != null)
-            ScoreManager.Instance.OnCoinsAdded -= OnCoinsAdded;
+            ScoreManager.Instance.OnXPAdded -= OnXPAdded;
     }
 
     private void Update()
@@ -213,21 +205,18 @@ public class CoinWalletWidget : MonoBehaviour
         }
     }
 
-    // ── Réception de pièces ───────────────────────────────────────────────────
+    // ── Réception d'XP ────────────────────────────────────────────────────────
 
-    private void OnCoinsAdded(int amount, int newTotal)
+    private void OnXPAdded(int amount, int newTotal)
     {
-        // Guard : le widget peut être détruit avant que ScoreManager n'ait fini d'émettre
         if (this == null) return;
 
         targetCoins = newTotal;
         isRollingUp = true;
 
-        // Jetons volants
         int tokenCount = Mathf.Clamp(amount, 1, MaxCoinTokens);
         StartCoroutine(LaunchTokens(tokenCount));
 
-        // Pulse + Flash
         StopCoroutine(nameof(PulseIcon));
         StopCoroutine(nameof(FlashBackground));
         StartCoroutine(PulseIcon());

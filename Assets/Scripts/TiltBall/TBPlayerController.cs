@@ -3,26 +3,26 @@ using UnityEngine;
 using UnityEngine.InputSystem;
 
 /// <summary>
-/// Déplacement continu du joueur piloté par le swipe (TBSwipeInput)
+/// Déplacement du joueur case par case piloté par le swipe (TBSwipeInput)
 /// ou le clavier WASD / flèches en éditeur.
 ///
-/// Le joueur est stoppé par les murs via le moteur physique (Rigidbody2D Dynamic).
+/// Un swipe = une case dans la direction de l'axe dominant.
+/// Le déplacement est interpolé visuellement sur MoveInterval secondes.
+/// Le joueur est bloqué par les murs et obstacles (CanMoveTo via Physics2D).
 /// Les triggers (trou, clé, ennemi) sont détectés par OnTriggerEnter2D.
 /// </summary>
 [RequireComponent(typeof(Rigidbody2D))]
 [RequireComponent(typeof(SpriteRenderer))]
 public class TBPlayerController : MonoBehaviour
 {
-    // ── Vitesse ───────────────────────────────────────────────────────────────
-
-    private const float MoveSpeed = 6.5f;   // unités monde / seconde
-
     // ── État ──────────────────────────────────────────────────────────────────
 
     private Rigidbody2D    rb;
     private SpriteRenderer sr;
     private bool           isDead;
     private bool           isEnteringHole;
+    private bool           isMoving;
+    private Vector2        gridPos;
 
     public bool IsAlive => !isDead && !isEnteringHole;
 
@@ -32,52 +32,59 @@ public class TBPlayerController : MonoBehaviour
     {
         rb              = GetComponent<Rigidbody2D>();
         sr              = GetComponent<SpriteRenderer>();
-        rb.bodyType     = RigidbodyType2D.Dynamic;
+        rb.bodyType     = RigidbodyType2D.Kinematic;
         rb.gravityScale = 0f;
-        rb.linearDamping        = 8f;
-        rb.angularDamping       = 0f;
         rb.constraints  = RigidbodyConstraints2D.FreezeRotation;
         rb.collisionDetectionMode = CollisionDetectionMode2D.Continuous;
     }
 
-    private void FixedUpdate()
+    private void Start()
     {
-        if (!IsAlive)
-        {
-            rb.linearVelocity = Vector2.zero;
-            return;
-        }
+        gridPos     = SnapToGrid(rb.position);
+        rb.position = gridPos;
+    }
+
+    private void Update()
+    {
+        if (!IsAlive || isMoving) return;
 
         Vector2 dir = ReadInput();
-        rb.linearVelocity = dir * MoveSpeed;
+        if (dir == Vector2.zero) return;
 
-        // Clamp la position dans les limites du monde — s'adapte au double slide
-        const float ColliderRadius = 0.42f;
-        float limX = TBSceneSetup.HalfW  - TBSceneSetup.WallThickness - ColliderRadius;
-        float limY = TBGrid.MaxY;   // mis à jour par TBSceneSetup selon le niveau
+        Vector2 target = gridPos + dir * TBGrid.StepSize;
+        if (!CanMoveTo(target)) return;
 
-        Vector2 pos     = rb.position;
-        Vector2 clamped = new Vector2(
-            Mathf.Clamp(pos.x, -limX, limX),
-            Mathf.Clamp(pos.y, -limY, limY));
+        gridPos = target;
+        StartCoroutine(SlideTo(gridPos));
+    }
 
-        if (clamped != pos)
+    // ── Déplacement interpolé ─────────────────────────────────────────────────
+
+    private IEnumerator SlideTo(Vector2 target)
+    {
+        isMoving = true;
+
+        Vector2 start    = rb.position;
+        float   elapsed  = 0f;
+        float   duration = TBGrid.MoveInterval;
+
+        while (elapsed < duration)
         {
-            rb.MovePosition(clamped);
-
-            var v = rb.linearVelocity;
-            if (Mathf.Abs(clamped.x) >= limX) v.x = 0f;
-            if (Mathf.Abs(clamped.y) >= limY) v.y = 0f;
-            rb.linearVelocity = v;
+            elapsed += Time.deltaTime;
+            rb.MovePosition(Vector2.Lerp(start, target, Mathf.Clamp01(elapsed / duration)));
+            yield return null;
         }
+
+        rb.MovePosition(target);
+        isMoving = false;
     }
 
     // ── Input ─────────────────────────────────────────────────────────────────
 
     /// <summary>
-    /// Lit la direction depuis le swipe (TBSwipeInput)
+    /// Lit la direction depuis le swipe (TBSwipeInput en build)
     /// ou le clavier WASD / flèches (éditeur).
-    /// Retourne un vecteur normalisé ou réduit selon l'intensité du swipe.
+    /// Retourne un vecteur cardinal (Vector2.up/down/left/right) ou zéro.
     /// </summary>
     private static Vector2 ReadInput()
     {
@@ -85,19 +92,45 @@ public class TBPlayerController : MonoBehaviour
         var kb = Keyboard.current;
         if (kb == null) return Vector2.zero;
 
-        var raw = Vector2.zero;
-        if (kb.rightArrowKey.isPressed || kb.dKey.isPressed) raw.x += 1f;
-        if (kb.leftArrowKey.isPressed  || kb.aKey.isPressed) raw.x -= 1f;
-        if (kb.upArrowKey.isPressed    || kb.wKey.isPressed) raw.y += 1f;
-        if (kb.downArrowKey.isPressed  || kb.sKey.isPressed) raw.y -= 1f;
+        if (kb.rightArrowKey.wasPressedThisFrame || kb.dKey.wasPressedThisFrame) return Vector2.right;
+        if (kb.leftArrowKey.wasPressedThisFrame  || kb.aKey.wasPressedThisFrame) return Vector2.left;
+        if (kb.upArrowKey.wasPressedThisFrame    || kb.wKey.wasPressedThisFrame) return Vector2.up;
+        if (kb.downArrowKey.wasPressedThisFrame  || kb.sKey.wasPressedThisFrame) return Vector2.down;
 
-        return raw.magnitude > 0f ? raw.normalized : Vector2.zero;
+        return Vector2.zero;
 #else
         if (TBSwipeInput.Instance != null)
-            return TBSwipeInput.Instance.Direction;
+            return TBSwipeInput.Instance.ConsumeDirection();
 
         return Vector2.zero;
 #endif
+    }
+
+    // ── Vérification mouvement ────────────────────────────────────────────────
+
+    private bool CanMoveTo(Vector2 target)
+    {
+        if (Mathf.Abs(target.x) > TBGrid.MaxX) return false;
+        if (Mathf.Abs(target.y) > TBGrid.MaxY) return false;
+
+        var hits = Physics2D.OverlapCircleAll(target, TBGrid.CheckRadius);
+        foreach (var hit in hits)
+        {
+            if (hit.isTrigger)               continue;
+            if (hit.gameObject == gameObject) continue;
+            return false;
+        }
+        return true;
+    }
+
+    // ── Utilitaire grille ─────────────────────────────────────────────────────
+
+    private static Vector2 SnapToGrid(Vector2 pos)
+    {
+        return new Vector2(
+            Mathf.Round(pos.x / TBGrid.StepSize) * TBGrid.StepSize,
+            Mathf.Round(pos.y / TBGrid.StepSize) * TBGrid.StepSize
+        );
     }
 
     // ── Mort ──────────────────────────────────────────────────────────────────
@@ -107,6 +140,7 @@ public class TBPlayerController : MonoBehaviour
     {
         if (!IsAlive) return;
         isDead = true;
+        StopAllCoroutines();
         rb.linearVelocity = Vector2.zero;
         StartCoroutine(DieRoutine());
     }
@@ -135,9 +169,9 @@ public class TBPlayerController : MonoBehaviour
     public void EnterHole(Vector2 holeCenter)
     {
         if (!IsAlive) return;
-        isEnteringHole    = true;
+        isEnteringHole = true;
+        StopAllCoroutines();
         rb.linearVelocity = Vector2.zero;
-        rb.bodyType       = RigidbodyType2D.Kinematic;
         StartCoroutine(EnterHoleRoutine(holeCenter));
     }
 
@@ -160,4 +194,3 @@ public class TBPlayerController : MonoBehaviour
         TBGameManager.Instance?.EnterHole();
     }
 }
-

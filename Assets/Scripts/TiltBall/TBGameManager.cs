@@ -8,10 +8,11 @@ using UnityEngine.SceneManagement;
 /// Singleton gérant l'état persistant du jeu TiltBall.
 /// Persiste via DontDestroyOnLoad.
 ///
-/// Flux de jeu (8 niveaux, index 0 → 7) :
+/// Flux de jeu (10 niveaux, index 0 → 9) :
 ///   Le joueur entre dans le trou → boutique d'améliorations → niveau suivant.
 ///   Niveaux impairs : clé requise avant le trou.
-///   Après le niveau 7 : widget de victoire finale → retour au menu.
+///   Après le niveau 9 (10ème) : victoire finale + XP ×2 → retour au menu.
+///   Mort du joueur : retour au niveau 1 (index 0), score réinitialisé.
 /// </summary>
 public class TBGameManager : MonoBehaviour
 {
@@ -19,8 +20,11 @@ public class TBGameManager : MonoBehaviour
 
     // ── Constantes ────────────────────────────────────────────────────────────
 
-    public const int   TotalLevels = 12;
-    public const string SceneMenu  = "Menu";
+    public const int    TotalLevels  = 10;
+    public const string SceneMenu   = "Menu";
+
+    /// <summary>Multiplicateur XP accordé à la victoire finale (10 niveaux complétés).</summary>
+    private const float XpVictoryMultiplier = 2f;
 
     // ── État ──────────────────────────────────────────────────────────────────
 
@@ -94,12 +98,20 @@ public class TBGameManager : MonoBehaviour
 
         if (nextLevel >= TotalLevels)
         {
-            // Victoire finale — persistance du score total de la session Ball & Goal
+            // ── Victoire finale — 10 niveaux complétés ────────────────────────
             ScoreManager.EnsureExists();
-            ScoreManager.Instance.AddScore(GameType.BallAndGoal, Score);
+
+            // XP de base (score → XP) puis doublement
+            int baseXp   = Mathf.Max(1, Score / 10);
+            int bonusXp  = Mathf.RoundToInt(baseXp * XpVictoryMultiplier);
+            int totalXp  = bonusXp;   // on envoie directement le total doublé
+
+            // Enregistre le score sans déclencher l'XP standard (on la gère manuellement)
+            ScoreManager.Instance.AddScoreOnly(GameType.BallAndGoal, Score);
+            ScoreManager.Instance.AddXP(totalXp);
 
             HasKey = false;
-            TBWinWidget.Show(ElapsedTime, Score, GoToMenuDirect);
+            TBWinWidget.ShowVictory(ElapsedTime, Score, totalXp, baseXp, GoToMenuDirect);
         }
         else
         {
@@ -112,12 +124,20 @@ public class TBGameManager : MonoBehaviour
     /// <summary>Modifie le score (utilisé par TBUpgradeShopWidget après un achat).</summary>
     public void SetScore(int newScore) => Score = Mathf.Max(0, newScore);
 
-    /// <summary>Relance le niveau courant après la mort du joueur.</summary>
+    /// <summary>
+    /// Appelé après la mort du joueur.
+    /// Remet le jeu au niveau 1 (index 0) et réinitialise le score + les améliorations.
+    /// </summary>
     public void RestartLevel()
     {
-        HasKey    = false;
-        isRunning = false;
-        TBSceneSetup.RebuildLevel(LevelIndex);
+        HasKey     = false;
+        isRunning  = false;
+        Score      = 0;
+        LevelIndex = 0;
+        Upgrades.Reset();
+
+        // Courte pause pour laisser l'animation de mort se terminer
+        StartCoroutine(RestartFromLevel0Routine());
     }
 
     /// <summary>Retourne au menu principal.</summary>
@@ -139,12 +159,17 @@ public class TBGameManager : MonoBehaviour
 
     private IEnumerator AdvanceLevelRoutine(int nextLevel)
     {
-        // Petite pause avant de reconstruire (laisse l'animation du trou se terminer)
         yield return new WaitForSeconds(0.3f);
 
         LevelIndex = nextLevel;
         HasKey     = false;
         TBSceneSetup.RebuildLevel(nextLevel);
+    }
+
+    private IEnumerator RestartFromLevel0Routine()
+    {
+        yield return new WaitForSeconds(0.6f);   // laisse l'animation de mort finir
+        TBSceneSetup.RebuildLevel(0);
     }
 
     private void GoToMenuDirect()

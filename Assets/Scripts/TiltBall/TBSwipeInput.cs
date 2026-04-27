@@ -3,14 +3,13 @@ using UnityEngine.EventSystems;
 using UnityEngine.UI;
 
 /// <summary>
-/// Détecte les swipes sur l'écran entier et expose une direction normalisée.
+/// Détecte les swipes directionnels sur l'écran entier (4 axes : haut, bas, gauche, droite).
 ///
 /// Utilisation :
-///   Vector2 dir = TBSwipeInput.Instance?.Direction ?? Vector2.zero;
+///   Vector2 dir = TBSwipeInput.Instance?.ConsumeDirection() ?? Vector2.zero;
 ///
-/// - Le premier contact pose l'ancre.
-/// - Le déplacement du doigt définit la direction et l'intensité (plafonné à 1).
-/// - Le relâchement remet la direction à zéro.
+/// - Un swipe dépose une direction dans le buffer (Vector2Int).
+/// - ConsumeDirection() retourne la direction en attente puis la vide.
 /// - Compatible multi-touch : seul le premier doigt est suivi.
 /// </summary>
 public class TBSwipeInput : MonoBehaviour, IPointerDownHandler, IDragHandler, IPointerUpHandler
@@ -19,31 +18,34 @@ public class TBSwipeInput : MonoBehaviour, IPointerDownHandler, IDragHandler, IP
 
     // ── Paramètres ────────────────────────────────────────────────────────────
 
-    /// <summary>Distance (px) à parcourir pour atteindre la vitesse maximale.</summary>
-    private const float FullSpeedDistance = 80f;
-
-    /// <summary>Zone morte en pixels — en-dessous, la direction reste nulle.</summary>
-    private const float DeadZonePx = 8f;
+    /// <summary>Distance minimale en pixels pour valider un swipe.</summary>
+    private const float SwipeThresholdPx = 40f;
 
     // ── État ──────────────────────────────────────────────────────────────────
 
-    /// <summary>Direction normalisée [-1,1] lue par TBPlayerController.</summary>
-    public Vector2 Direction { get; private set; }
-
     private int     touchId    = -1;
-    private Vector2 originPx;               // position écran du premier contact
+    private Vector2 originPx;
+    private bool    swiped;
+
+    /// <summary>Direction discrète en attente de consommation (zéro si aucune).</summary>
+    public Vector2 PendingDirection { get; private set; }
+
+    /// <summary>Retourne la direction en attente et la vide.</summary>
+    public Vector2 ConsumeDirection()
+    {
+        var dir           = PendingDirection;
+        PendingDirection  = Vector2.zero;
+        return dir;
+    }
 
     // ── Création statique ─────────────────────────────────────────────────────
 
-    /// <summary>
-    /// Crée la zone de swipe (plein écran, transparent) sur le Canvas fourni.
-    /// </summary>
+    /// <summary>Crée la zone de swipe plein écran sur le Canvas fourni.</summary>
     public static TBSwipeInput Create(RectTransform canvasRT)
     {
         var go  = new GameObject("SwipeInput");
         go.transform.SetParent(canvasRT, false);
 
-        // Image transparente plein canvas — capte tous les événements pointer
         var img           = go.AddComponent<Image>();
         img.color         = Color.clear;
         img.raycastTarget = true;
@@ -53,7 +55,6 @@ public class TBSwipeInput : MonoBehaviour, IPointerDownHandler, IDragHandler, IP
         rt.anchorMax  = Vector2.one;
         rt.offsetMin  = rt.offsetMax = Vector2.zero;
 
-        // Place sous les autres éléments du HUD (le bouton menu reste au-dessus)
         go.transform.SetAsFirstSibling();
 
         var swipe  = go.AddComponent<TBSwipeInput>();
@@ -68,30 +69,29 @@ public class TBSwipeInput : MonoBehaviour, IPointerDownHandler, IDragHandler, IP
         if (touchId != -1) return;
         touchId  = e.pointerId;
         originPx = e.position;
+        swiped   = false;
     }
 
     public void OnDrag(PointerEventData e)
     {
-        if (e.pointerId != touchId) return;
+        if (e.pointerId != touchId || swiped) return;
 
         Vector2 delta = e.position - originPx;
-        float   dist  = delta.magnitude;
+        if (delta.magnitude < SwipeThresholdPx) return;
 
-        if (dist < DeadZonePx)
-        {
-            Direction = Vector2.zero;
-            return;
-        }
+        // Axe dominant → direction 4-axes
+        PendingDirection = Mathf.Abs(delta.x) >= Mathf.Abs(delta.y)
+            ? (delta.x > 0f ? Vector2.right : Vector2.left)
+            : (delta.y > 0f ? Vector2.up    : Vector2.down);
 
-        float   intensity = Mathf.Clamp01(dist / FullSpeedDistance);
-        Direction         = (delta / dist) * intensity;
+        swiped = true;
     }
 
     public void OnPointerUp(PointerEventData e)
     {
         if (e.pointerId != touchId) return;
-        touchId   = -1;
-        Direction = Vector2.zero;
+        touchId = -1;
+        swiped  = false;
     }
 
     // ── Cleanup ───────────────────────────────────────────────────────────────

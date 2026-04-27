@@ -2,25 +2,26 @@ using UnityEngine;
 
 /// <summary>
 /// Fait suivre la caméra orthographique le joueur verticalement (scroll vertical).
-/// Activé uniquement à partir du niveau 4 (double slide).
-/// La caméra reste contrainte dans les limites verticales du monde étendu.
+/// Activé à partir du niveau 0 sur tous les niveaux.
+/// La caméra reste contrainte dans les limites verticales du monde.
 /// </summary>
 public class TBCameraFollow : MonoBehaviour
 {
     // ── Configuration ─────────────────────────────────────────────────────────
 
-    public const int  ActivationLevel = 4;
+    /// <summary>Niveau d'activation — 0 = tous les niveaux.</summary>
+    public const int  ActivationLevel = 0;
     public const float SmoothSpeed   = 6.0f;  // unités/seconde (lerp)
 
     // ── État ──────────────────────────────────────────────────────────────────
 
     private Transform    playerTransform;
-    private float        worldHalfH;   // limite verticale du monde en mode double slide
+    private float        worldHalfH;   // limite verticale du monde
     private float        camHalfH;     // demi-hauteur orthographique de la caméra
 
     // ── Factory ───────────────────────────────────────────────────────────────
 
-    /// <summary>Attache TBCameraFollow à la caméra principale si le niveau l'exige.</summary>
+    /// <summary>Attache TBCameraFollow à la caméra principale pour tout niveau ≥ ActivationLevel.</summary>
     public static void AttachIfNeeded(int levelIndex, float extendedHalfH)
     {
         if (levelIndex < ActivationLevel) return;

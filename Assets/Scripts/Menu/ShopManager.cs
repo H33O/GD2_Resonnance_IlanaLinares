@@ -3,20 +3,18 @@ using UnityEngine;
 
 /// <summary>
 /// Gère les achats en boutique (coffre mystère uniquement).
-///
-/// Les consommables Eau / Nourriture / Sommeil ont été supprimés.
-/// Le coffre mystère reste disponible comme récompense aléatoire.
+/// La monnaie est désormais l'XP totale accumulée.
 /// </summary>
 public class ShopManager : MonoBehaviour
 {
-    // ── Singleton ──────────────────────────────────────────────────────────────
+    // ── Singleton ─────────────────────────────────────────────────────────────
 
     public static ShopManager Instance { get; private set; }
 
     // ── Configuration ─────────────────────────────────────────────────────────
 
     [Header("Prix des articles")]
-    [Tooltip("Prix du coffre mystère.")]
+    [Tooltip("Coût en XP du coffre mystère.")]
     [SerializeField] public int ChestCost = 500;
 
     // ── Événements ────────────────────────────────────────────────────────────
@@ -24,23 +22,19 @@ public class ShopManager : MonoBehaviour
     /// <summary>Déclenché après un achat. success = fonds suffisants, itemName = article acheté.</summary>
     public event Action<bool, string, int> OnPurchaseResult;
 
-    /// <summary>Déclenché quand le solde de pièces change (relais de ScoreManager).</summary>
+    /// <summary>Déclenché quand le total d'XP change (relais de ScoreManager).</summary>
     public event Action<int> OnCoinsChanged;
 
     // ── Propriétés ────────────────────────────────────────────────────────────
 
-    /// <summary>Solde actuel de pièces (lu depuis ScoreManager).</summary>
-    public int Coins => ScoreManager.Instance != null ? ScoreManager.Instance.GetTotalCoins() : 0;
+    /// <summary>Total d'XP actuel (lu depuis ScoreManager).</summary>
+    public int Coins => ScoreManager.Instance != null ? ScoreManager.Instance.GetTotalXP() : 0;
 
     // ── Lifecycle ─────────────────────────────────────────────────────────────
 
     private void Awake()
     {
-        if (Instance != null && Instance != this)
-        {
-            Destroy(gameObject);
-            return;
-        }
+        if (Instance != null && Instance != this) { Destroy(gameObject); return; }
         Instance = this;
         DontDestroyOnLoad(gameObject);
     }
@@ -48,13 +42,13 @@ public class ShopManager : MonoBehaviour
     private void OnEnable()
     {
         if (ScoreManager.Instance != null)
-            ScoreManager.Instance.OnCoinsAdded += ForwardCoinsChanged;
+            ScoreManager.Instance.OnXPAdded += ForwardCoinsChanged;
     }
 
     private void OnDisable()
     {
         if (ScoreManager.Instance != null)
-            ScoreManager.Instance.OnCoinsAdded -= ForwardCoinsChanged;
+            ScoreManager.Instance.OnXPAdded -= ForwardCoinsChanged;
     }
 
     // ── API publique ──────────────────────────────────────────────────────────
@@ -66,23 +60,20 @@ public class ShopManager : MonoBehaviour
 
     private void TryPurchase(string itemName, int cost, Action onSuccess)
     {
-        int currentCoins = ScoreManager.Instance != null ? ScoreManager.Instance.GetTotalCoins() : 0;
-
-        if (currentCoins < cost)
+        int currentXP = ScoreManager.Instance != null ? ScoreManager.Instance.GetTotalXP() : 0;
+        if (currentXP < cost)
         {
-            OnPurchaseResult?.Invoke(false, itemName, currentCoins);
+            OnPurchaseResult?.Invoke(false, itemName, currentXP);
             return;
         }
-
-        ScoreManager.Instance?.SpendCoins(cost);
         onSuccess?.Invoke();
-        int remaining = ScoreManager.Instance != null ? ScoreManager.Instance.GetTotalCoins() : 0;
+        int remaining = ScoreManager.Instance != null ? ScoreManager.Instance.GetTotalXP() : 0;
         OnPurchaseResult?.Invoke(true, itemName, remaining);
     }
 
     private void OnChestOpened()
     {
-        Debug.Log("[ShopManager] Coffre ouvert ! Ajoute ta récompense ici.");
+        Debug.Log("[ShopManager] Coffre ouvert !");
     }
 
     private void ForwardCoinsChanged(int amount, int newTotal)
@@ -90,14 +81,13 @@ public class ShopManager : MonoBehaviour
         OnCoinsChanged?.Invoke(newTotal);
     }
 
-    // ── EnsureExists ─────────────────────────────────────────────────────────
+    // ── EnsureExists ──────────────────────────────────────────────────────────
 
     /// <summary>Crée le singleton s'il est absent.</summary>
     public static ShopManager EnsureExists()
     {
         if (Instance != null) return Instance;
         ScoreManager.EnsureExists();
-        var go = new GameObject("ShopManager");
-        return go.AddComponent<ShopManager>();
+        return new GameObject("ShopManager").AddComponent<ShopManager>();
     }
 }
