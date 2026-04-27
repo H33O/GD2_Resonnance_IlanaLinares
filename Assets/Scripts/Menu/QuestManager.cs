@@ -13,10 +13,20 @@ public class QuestDefinition
     public string   Title;
     public string   Description;
     public GameType TargetGame;
+
+    /// <summary>
+    /// Nombre de sessions valides requises pour compléter la quête.
+    /// Chaque session valide (score ≥ GetMinScore) incrémente d'une unité.
+    /// </summary>
     public int      RequiredCount;
+
     public int      RewardCoins;
     public int      RewardXP;
-    /// <summary>Vrai si c'est une quête "complexe" (multi-objectifs ou score élevé requis).</summary>
+
+    /// <summary>
+    /// Vrai si c'est une quête "complexe" (multi-objectifs ou score élevé requis).
+    /// Les quêtes complexes accordent de l'XP → progression de niveau.
+    /// </summary>
     public bool     IsComplex;
 }
 
@@ -25,9 +35,25 @@ public class QuestDefinition
 public class QuestProgress
 {
     public string Id;
+
+    /// <summary>Nombre de sessions valides déjà complétées pour cette quête.</summary>
     public int    Count;
+
     public bool   Completed;
     public bool   Claimed;
+
+    // ── Helpers de ratio ──────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Ratio de progression [0..1] calculé dynamiquement.
+    /// Appelé avec la <see cref="QuestDefinition"/> correspondante.
+    /// </summary>
+    public float GetRatio(QuestDefinition def)
+    {
+        if (Completed) return 1f;
+        if (def.RequiredCount <= 0) return 0f;
+        return Mathf.Clamp01((float)Count / def.RequiredCount);
+    }
 }
 
 /// <summary>Sauvegarde complète du système de quêtes.</summary>
@@ -40,22 +66,23 @@ public class QuestSaveData
 }
 
 /// <summary>
-/// Singleton persistant gérant les vagues de quêtes dynamiques.
+/// Singleton persistant gérant les vagues de quêtes dynamiques basées sur le niveau joueur.
 ///
 /// Architecture :
-///   – Une <em>vague</em> est un ensemble de N quêtes générées pour le niveau courant du joueur.
+///   – Une <em>vague</em> est un ensemble de N quêtes générées pour le niveau courant.
 ///   – Quand toutes les quêtes d'une vague sont complétées, une nouvelle vague plus difficile
-///     est générée automatiquement.
+///     est générée automatiquement (+20% difficulté par cycle).
 ///   – La difficulté scale sur <see cref="PlayerLevelManager.Level"/> :
 ///       • RequiredCount  += Level / 2
 ///       • Score minimum  += Level * 10  (via <see cref="GetMinScore"/>)
-///       • RewardCoins    *= 1 + 0.25 * WaveIndex
-///       • RewardXP       : les quêtes complexes donnent le double
-///   – Les quêtes complexes (IsComplex = true) font progresser le niveau directement
-///     via <see cref="PlayerLevelManager.AddXP"/>.
+///       • RewardCoins    *= 1 + 0.25 × WaveIndex
+///       • RewardXP       : double pour les quêtes complexes
+///   – Les quêtes complexes (IsComplex = true) accordent de l'XP → level up.
+///   – Les quêtes simples récompensent uniquement en pièces.
 ///
-/// Le score minimum global est exposé via <see cref="GetMinScore"/> pour que
-/// les systèmes en aval puissent adapter leurs règles de validation.
+/// <b>Boucle de progression :</b>
+///   ScoreManager.OnScoreAdded → HandleScoreAdded → progrès mis à jour
+///   → OnProgressChanged (UI) → si vague terminée → GenerateWave → OnWaveStarted
 /// </summary>
 public class QuestManager : MonoBehaviour
 {
@@ -83,7 +110,10 @@ public class QuestManager : MonoBehaviour
     /// <summary>Déclenché quand une nouvelle vague est générée. Arg : index de la vague.</summary>
     public event Action<int> OnWaveStarted;
 
-    /// <summary>Déclenché à chaque changement de progression (count, complétion).</summary>
+    /// <summary>
+    /// Déclenché à chaque changement de progression (count, complétion).
+    /// Abonnez l'UI ici pour se rafraîchir en temps réel.
+    /// </summary>
     public event Action OnProgressChanged;
 
     // ── Données ───────────────────────────────────────────────────────────────
@@ -100,7 +130,7 @@ public class QuestManager : MonoBehaviour
 
     /// <summary>
     /// Score minimum requis pour valider une session de jeu dans une quête.
-    /// Augmente avec le niveau du joueur.
+    /// Augmente de <see cref="MinScorePerLevel"/> points par niveau joueur.
     /// </summary>
     public int GetMinScore()
     {
@@ -137,8 +167,8 @@ public class QuestManager : MonoBehaviour
     /// <summary>Appelé par <see cref="PlayerLevelManager"/> après un gain de niveau.</summary>
     public void OnPlayerLevelChanged(int newLevel)
     {
-        // La difficulté augmente automatiquement à la prochaine vague ;
-        // ici on peut forcer une notification de changement si souhaité.
+        // La difficulté augmente à la prochaine vague.
+        // On notifie l'UI pour qu'elle mette à jour le score minimum affiché.
         OnProgressChanged?.Invoke();
     }
 
@@ -146,12 +176,8 @@ public class QuestManager : MonoBehaviour
 
     private void HandleScoreAdded(GameType type, int score)
     {
-        int minScore = GetMinScore();
-        if (score < minScore)
-        {
-            // Session invalide mais on notifie quand même l'UI pour l'animer éventuellement
-            return;
-        }
+        // Session invalide si score inférieur au minimum requis
+        if (score < GetMinScore()) return;
 
         bool anyCompleted = false;
 
@@ -160,6 +186,7 @@ public class QuestManager : MonoBehaviour
             var prog = GetProgress(def.Id);
             if (prog.Completed) continue;
 
+            // -1 signifie "tout type de jeu" (quête polyvalente)
             bool matches = (int)def.TargetGame == -1 || def.TargetGame == type;
             if (!matches) continue;
 
@@ -167,31 +194,54 @@ public class QuestManager : MonoBehaviour
 
             if (prog.Count >= def.RequiredCount)
             {
-                prog.Completed = true;
-                anyCompleted   = true;
-
-                // Récompense monétaire
-                ScoreManager.EnsureExists();
-                ScoreManager.Instance.AddCoins(def.RewardCoins);
-
-                // Récompense XP (uniquement pour les quêtes complexes)
-                if (def.IsComplex)
-                    PlayerLevelManager.Instance?.AddXP(def.RewardXP);
-
-                OnQuestCompleted?.Invoke(def);
+                CompleteQuest(def, prog);
+                anyCompleted = true;
             }
         }
 
         Save();
         OnProgressChanged?.Invoke();
 
-        // Vérifier si toute la vague est terminée
         if (IsWaveComplete())
-        {
-            _save.WaveIndex++;
-            GenerateWave();
-            OnWaveStarted?.Invoke(_save.WaveIndex);
-        }
+            AdvanceWave();
+    }
+
+    // ── Complétion d'une quête ────────────────────────────────────────────────
+
+    /// <summary>
+    /// Marque la quête comme terminée, distribue les récompenses et déclenche les événements.
+    ///
+    /// Règles de récompenses :
+    ///   – Toutes les quêtes donnent des pièces.
+    ///   – Les quêtes complexes accordent de l'XP → peuvent déclencher un level up.
+    /// </summary>
+    private void CompleteQuest(QuestDefinition def, QuestProgress prog)
+    {
+        prog.Completed = true;
+
+        // Récompense pièces (toujours)
+        ScoreManager.EnsureExists();
+        ScoreManager.Instance.AddCoins(def.RewardCoins);
+
+        // Récompense XP uniquement pour les quêtes complexes → potentiel level up
+        if (def.IsComplex && def.RewardXP > 0)
+            PlayerLevelManager.Instance?.AddXP(def.RewardXP);
+
+        OnQuestCompleted?.Invoke(def);
+    }
+
+    // ── Avancement de vague ───────────────────────────────────────────────────
+
+    /// <summary>
+    /// Passe à la vague suivante avec une difficulté augmentée.
+    /// Génère une nouvelle liste de quêtes basée sur le niveau joueur actuel.
+    /// </summary>
+    private void AdvanceWave()
+    {
+        _save.WaveIndex++;
+        GenerateWave();
+        Save();
+        OnWaveStarted?.Invoke(_save.WaveIndex);
     }
 
     // ── Génération de vague ───────────────────────────────────────────────────
@@ -199,27 +249,28 @@ public class QuestManager : MonoBehaviour
     /// <summary>
     /// Génère une nouvelle vague de <see cref="QuestsPerWave"/> quêtes
     /// basée sur le niveau joueur et l'indice de vague courant.
+    ///
+    /// Scaling de difficulté :
+    ///   – RequiredCount de base : 3 + waveIdx / 2  (arrondi bas), plafonné à 12
+    ///   – Quêtes complexes : RequiredCount × 1.5, plafonné à 20
+    ///   – RewardCoins × (1 + CoinScaleFactor × waveIdx)
+    ///   – Score minimum global : BaseMinScore + (level-1) × MinScorePerLevel
     /// </summary>
     private void GenerateWave()
     {
         _save.ActiveWave.Clear();
         _save.Progresses.Clear();
 
-        int level     = PlayerLevelManager.Instance?.Level ?? 1;
-        int waveIdx   = _save.WaveIndex;
+        int level   = PlayerLevelManager.Instance?.Level ?? 1;
+        int waveIdx = _save.WaveIndex;
 
-        // Modèles de quêtes disponibles pour le générateur
         var templates = BuildTemplates(level, waveIdx);
-
-        // Mélanger pour varier l'ordre
         Shuffle(templates);
 
-        // Prendre les N premiers
         int count = Mathf.Min(QuestsPerWave, templates.Count);
         for (int i = 0; i < count; i++)
             _save.ActiveWave.Add(templates[i]);
 
-        // Créer les entrées de progression
         foreach (var def in _save.ActiveWave)
             _save.Progresses.Add(new QuestProgress { Id = def.Id });
 
@@ -227,71 +278,65 @@ public class QuestManager : MonoBehaviour
     }
 
     /// <summary>
-    /// Construit la liste complète des modèles de quêtes possibles pour un niveau et une vague donnés.
-    ///
-    /// Règles de scaling :
-    ///   – RequiredCount de base : 3 + waveIdx / 2  (arrondi bas), plafonné à 12
-    ///   – Les quêtes complexes ont RequiredCount × 1.5, arrondi supérieur, plafonné à 20
-    ///   – RewardCoins *= (1 + CoinScaleFactor × waveIdx)
-    ///   – Score minimum global : BaseMinScore + (level-1) × MinScorePerLevel (géré dans <see cref="GetMinScore"/>)
+    /// Construit la liste complète des modèles de quêtes possibles.
+    /// Chaque modèle est unique (Id unique par vague).
     /// </summary>
     private List<QuestDefinition> BuildTemplates(int level, int waveIdx)
     {
-        int baseCount   = Mathf.Clamp(3 + waveIdx / 2, 3, 12);
-        float coinMult  = 1f + CoinScaleFactor * waveIdx;
+        int baseCount  = Mathf.Clamp(3 + waveIdx / 2, 3, 12);
+        float coinMult = 1f + CoinScaleFactor * waveIdx;
 
-        int SimpleCoins(int @base) => Mathf.RoundToInt(@base * coinMult);
-        int ComplexCoins(int @base) => Mathf.RoundToInt(@base * coinMult * 1.5f);
-        int ComplexCount()          => Mathf.Clamp(Mathf.CeilToInt(baseCount * 1.5f), 4, 20);
+        int SimpleCoins(int b)  => Mathf.RoundToInt(b * coinMult);
+        int ComplexCoins(int b) => Mathf.RoundToInt(b * coinMult * 1.5f);
+        int ComplexCount()      => Mathf.Clamp(Mathf.CeilToInt(baseCount * 1.5f), 4, 20);
+        int minScore            = GetMinScore();
 
-        var list = new List<QuestDefinition>
+        return new List<QuestDefinition>
         {
-            // ── Quêtes simples ─────────────────────────────────────────────
+            // ── Quêtes simples (pièces uniquement) ─────────────────────────
             Quest($"gaw_{waveIdx}_s",
                 "Game & Watch ×" + baseCount,
-                $"Joue {baseCount} fois à Game & Watch (score ≥ {GetMinScore()}).",
+                $"Joue {baseCount} fois à Game & Watch (score ≥ {minScore}).",
                 GameType.GameAndWatch, baseCount,
-                SimpleCoins(BaseCoinsSimple), BaseXPSimple, isComplex: false),
+                SimpleCoins(BaseCoinsSimple), 0, isComplex: false),
 
             Quest($"bubble_{waveIdx}_s",
                 "Bulles ×" + baseCount,
-                $"Joue {baseCount} fois au Bubble Shooter (score ≥ {GetMinScore()}).",
+                $"Joue {baseCount} fois au Bubble Shooter (score ≥ {minScore}).",
                 GameType.BubbleShooter, baseCount,
-                SimpleCoins(BaseCoinsSimple), BaseXPSimple, isComplex: false),
+                SimpleCoins(BaseCoinsSimple), 0, isComplex: false),
 
             Quest($"ball_{waveIdx}_s",
                 "Ball & Goal ×" + baseCount,
-                $"Joue {baseCount} fois à Ball & Goal (score ≥ {GetMinScore()}).",
+                $"Joue {baseCount} fois à Ball & Goal (score ≥ {minScore}).",
                 GameType.BallAndGoal, baseCount,
-                SimpleCoins(BaseCoinsSimple), BaseXPSimple, isComplex: false),
+                SimpleCoins(BaseCoinsSimple), 0, isComplex: false),
 
-            // ── Quêtes complexes ────────────────────────────────────────────
+            // ── Quêtes complexes (pièces + XP → potentiel level up) ────────
             Quest($"gaw_{waveIdx}_c",
                 "Expert Game & Watch",
-                $"Joue {ComplexCount()} fois à Game & Watch (score ≥ {GetMinScore()}). Gagne de l'XP !",
+                $"Joue {ComplexCount()} fois à Game & Watch (score ≥ {minScore}).",
                 GameType.GameAndWatch, ComplexCount(),
                 ComplexCoins(BaseCoinsComplex), BaseXPComplex, isComplex: true),
 
             Quest($"bubble_{waveIdx}_c",
                 "Expert Bulles",
-                $"Joue {ComplexCount()} fois au Bubble Shooter (score ≥ {GetMinScore()}). Gagne de l'XP !",
+                $"Joue {ComplexCount()} fois au Bubble Shooter (score ≥ {minScore}).",
                 GameType.BubbleShooter, ComplexCount(),
                 ComplexCoins(BaseCoinsComplex), BaseXPComplex, isComplex: true),
 
             Quest($"ball_{waveIdx}_c",
                 "Expert Ball & Goal",
-                $"Joue {ComplexCount()} fois à Ball & Goal (score ≥ {GetMinScore()}). Gagne de l'XP !",
+                $"Joue {ComplexCount()} fois à Ball & Goal (score ≥ {minScore}).",
                 GameType.BallAndGoal, ComplexCount(),
                 ComplexCoins(BaseCoinsComplex), BaseXPComplex, isComplex: true),
 
             Quest($"any_{waveIdx}_c",
-                "Joueur polyvalent",
-                $"Joue {ComplexCount()} fois à n'importe quel mini-jeu. Gagne de l'XP !",
+                "Joueur Polyvalent",
+                $"Joue {ComplexCount()} fois à n'importe quel mini-jeu (score ≥ {minScore}).",
                 (GameType)(-1), ComplexCount(),
                 ComplexCoins(BaseCoinsComplex), BaseXPComplex, isComplex: true),
         };
-
-        return list;
     }
 
     private static QuestDefinition Quest(string id, string title, string desc,
@@ -312,19 +357,17 @@ public class QuestManager : MonoBehaviour
 
     private bool IsWaveComplete()
     {
+        if (_save.ActiveWave.Count == 0) return false;
         foreach (var def in _save.ActiveWave)
-        {
-            var prog = GetProgress(def.Id);
-            if (!prog.Completed) return false;
-        }
-        return _save.ActiveWave.Count > 0;
+            if (!GetProgress(def.Id).Completed) return false;
+        return true;
     }
 
     private static void Shuffle<T>(List<T> list)
     {
         for (int i = list.Count - 1; i > 0; i--)
         {
-            int j     = UnityEngine.Random.Range(0, i + 1);
+            int j = UnityEngine.Random.Range(0, i + 1);
             (list[i], list[j]) = (list[j], list[i]);
         }
     }
@@ -349,6 +392,14 @@ public class QuestManager : MonoBehaviour
         foreach (var def in _save.ActiveWave)
             if (GetProgress(def.Id).Completed) n++;
         return n;
+    }
+
+    /// <summary>
+    /// Force la génération d'une nouvelle vague (debug / test uniquement).
+    /// </summary>
+    public void ForceNewWave()
+    {
+        AdvanceWave();
     }
 
     // ── Persistance ───────────────────────────────────────────────────────────

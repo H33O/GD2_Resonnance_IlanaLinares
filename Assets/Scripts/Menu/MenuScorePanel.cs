@@ -367,6 +367,9 @@ public class MenuScorePanel : MonoBehaviour
         scrollRect.viewport = viewRT;
 
         _questListParent = listGO.transform;
+
+        // Forcer un rebuild immédiat pour que le ContentSizeFitter soit actif
+        LayoutRebuilder.ForceRebuildLayoutImmediate(listRT);
     }
 
     private void BuildCloseButton(RectTransform parent)

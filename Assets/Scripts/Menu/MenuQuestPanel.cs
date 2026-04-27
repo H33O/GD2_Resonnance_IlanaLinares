@@ -7,8 +7,9 @@ using TMPro;
 /// <summary>
 /// Journal des quêtes — slide depuis la droite (EaseOutQuart, 0.4 s).
 ///
-/// Affiche la vague de quêtes active avec progression animée.
-/// Pas de bouton Retour ici : le joueur rappuie sur le bouton QUÊTES pour fermer.
+/// Affiche la vague active avec progression animée.
+/// Le journal se rafraîchit en temps réel via <see cref="QuestManager.OnProgressChanged"/>.
+/// Pas de bouton Retour : le joueur rappuie sur QUÊTES pour fermer.
 /// </summary>
 public class MenuQuestPanel : MonoBehaviour
 {
@@ -18,7 +19,7 @@ public class MenuQuestPanel : MonoBehaviour
     private const float CanvasRefW    = 1080f;
     private const float FillAnimDur   = 0.65f;
 
-    // ── Palette — tout en blanc ───────────────────────────────────────────────
+    // ── Palette ───────────────────────────────────────────────────────────────
 
     private static readonly Color ColBg           = new Color(0.06f, 0.05f, 0.08f, 0.98f);
     private static readonly Color ColWhite        = Color.white;
@@ -36,19 +37,23 @@ public class MenuQuestPanel : MonoBehaviour
     private static readonly Color ColDone         = new Color(0.30f, 0.95f, 0.45f, 1.00f);
     private static readonly Color ColGold         = new Color(1.00f, 0.82f, 0.18f, 1.00f);
     private static readonly Color ColBlue         = new Color(0.40f, 0.80f, 1.00f, 1.00f);
+    private static readonly Color ColLevelTag     = new Color(0.40f, 0.80f, 1.00f, 0.22f);
 
     // ── État ──────────────────────────────────────────────────────────────────
 
-    private RectTransform _panelRT;
-    private CanvasGroup   _group;
-    private bool          _isAnimating;
-    private Transform     _listParent;
+    private RectTransform   _panelRT;
+    private CanvasGroup     _group;
+    private bool            _isAnimating;
+    private bool            _isVisible;
+    private Transform       _listParent;
     private TextMeshProUGUI _waveLabel;
     private TextMeshProUGUI _minScoreLabel;
-    private readonly List<(Image fill, float target)> _fills = new();
+
+    private readonly List<(Image fill, float target)> _fills = new List<(Image, float)>();
 
     // ── Factory ───────────────────────────────────────────────────────────────
 
+    /// <summary>Crée le panel dans le canvas donné et le retourne.</summary>
     public static MenuQuestPanel Create(Transform canvasParent)
     {
         var go = new GameObject("QuestPanel");
@@ -109,53 +114,61 @@ public class MenuQuestPanel : MonoBehaviour
 
     private void BuildScrollView(RectTransform root, Vector2 ancMin, Vector2 ancMax)
     {
-        var viewGO   = new GameObject("ScrollView");
+        // Viewport (conteneur masqué)
+        var viewGO = new GameObject("Viewport");
         viewGO.transform.SetParent(root, false);
 
-        var mask     = viewGO.AddComponent<Image>();
-        mask.color   = Color.clear;
-        mask.raycastTarget = false;
+        var maskImg  = viewGO.AddComponent<Image>();
+        maskImg.color = Color.clear;
+        maskImg.raycastTarget = false;
         viewGO.AddComponent<Mask>().showMaskGraphic = false;
 
-        var viewRT   = mask.rectTransform;
+        var viewRT       = maskImg.rectTransform;
         viewRT.anchorMin = ancMin;
         viewRT.anchorMax = ancMax;
         viewRT.offsetMin = viewRT.offsetMax = Vector2.zero;
 
-        var sr              = viewGO.AddComponent<ScrollRect>();
-        sr.horizontal       = false;
-        sr.vertical         = true;
+        // ScrollRect sur le viewport
+        var sr               = viewGO.AddComponent<ScrollRect>();
+        sr.horizontal        = false;
+        sr.vertical          = true;
         sr.scrollSensitivity = 45f;
-        sr.movementType     = ScrollRect.MovementType.Clamped;
+        sr.movementType      = ScrollRect.MovementType.Clamped;
+        sr.viewport          = viewRT;
 
+        // Conteneur du contenu (ancré en haut, grandit vers le bas)
         var listGO = new GameObject("List");
         listGO.transform.SetParent(viewGO.transform, false);
 
-        var listRT = listGO.AddComponent<RectTransform>();
+        var listRT       = listGO.AddComponent<RectTransform>();
         listRT.anchorMin = new Vector2(0f, 1f);
         listRT.anchorMax = new Vector2(1f, 1f);
         listRT.pivot     = new Vector2(0.5f, 1f);
         listRT.offsetMin = listRT.offsetMax = Vector2.zero;
 
         var vlg = listGO.AddComponent<VerticalLayoutGroup>();
-        vlg.spacing = 10f;
-        vlg.padding = new RectOffset(0, 0, 6, 12);
+        vlg.spacing              = 10f;
+        vlg.padding              = new RectOffset(0, 0, 6, 12);
         vlg.childControlWidth    = true;
         vlg.childControlHeight   = false;
         vlg.childForceExpandWidth  = true;
         vlg.childForceExpandHeight = false;
 
-        var csf = listGO.AddComponent<ContentSizeFitter>();
-        csf.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+        var csf             = listGO.AddComponent<ContentSizeFitter>();
+        csf.verticalFit     = ContentSizeFitter.FitMode.PreferredSize;
 
-        sr.content  = listRT;
-        sr.viewport = viewRT;
+        sr.content = listRT;
 
         _listParent = listGO.transform;
     }
 
-    // ── Reconstruction des lignes ─────────────────────────────────────────────
+    // ── Reconstruction de la liste ────────────────────────────────────────────
 
+    /// <summary>
+    /// Vide et reconstruit toutes les lignes de quêtes.
+    /// Appelle <see cref="ForceLayoutRebuild"/> via coroutine pour que le
+    /// <see cref="ContentSizeFitter"/> calcule les hauteurs correctement.
+    /// </summary>
     private void RebuildList()
     {
         // Vider
@@ -163,9 +176,14 @@ public class MenuQuestPanel : MonoBehaviour
             Destroy(_listParent.GetChild(i).gameObject);
         _fills.Clear();
 
-        if (QuestManager.Instance == null) return;
+        if (QuestManager.Instance == null)
+        {
+            if (_waveLabel    != null) _waveLabel.text    = "Système de quêtes indisponible";
+            if (_minScoreLabel != null) _minScoreLabel.text = "";
+            return;
+        }
 
-        // Header
+        // Mise à jour des labels d'en-tête
         int done  = QuestManager.Instance.CompletedCount();
         int total = QuestManager.Instance.ActiveWave.Count;
         if (_waveLabel    != null)
@@ -173,16 +191,23 @@ public class MenuQuestPanel : MonoBehaviour
         if (_minScoreLabel != null)
             _minScoreLabel.text = $"Score minimum requis : {QuestManager.Instance.GetMinScore()} pts";
 
-        // Lignes
+        // Construire une ligne par quête
         foreach (var def in QuestManager.Instance.ActiveWave)
         {
             var prog  = QuestManager.Instance.GetProgress(def.Id);
-            bool isDone = prog.Completed;
-            float ratio = isDone ? 1f
-                : (def.RequiredCount > 0 ? Mathf.Clamp01((float)prog.Count / def.RequiredCount) : 0f);
+            bool done1  = prog.Completed;
+            float ratio = prog.GetRatio(def);
 
-            var fill = BuildRow(def, prog, isDone);
+            var fill = BuildRow(def, prog, done1);
             _fills.Add((fill, ratio));
+        }
+
+        // Forcer le layout immédiatement (frame actuelle)
+        if (_listParent != null)
+        {
+            var rt = _listParent.GetComponent<RectTransform>();
+            if (rt != null)
+                LayoutRebuilder.ForceRebuildLayoutImmediate(rt);
         }
     }
 
@@ -193,12 +218,12 @@ public class MenuQuestPanel : MonoBehaviour
         Color accentCol = isDone ? ColAccentDone : (isXP ? ColAccentXP  : ColAccentSimple);
         Color fillCol   = isDone ? ColFillDone   : (isXP ? ColFillXP    : ColFillSimple);
         Color titleCol  = isDone ? ColDone        : ColWhite;
-        Color rewardCol = isDone ? ColDone        : ColGold;
-        Color xpCol     = ColBlue;
         Color progCol   = isDone ? ColDone        : ColWhiteDim;
 
+        float rowH = isXP ? 130f : 110f;
+
         // ── Fond de ligne ──────────────────────────────────────────────────────
-        var rowGO  = new GameObject($"Row_{def.Id}");
+        var rowGO = new GameObject($"Row_{def.Id}");
         rowGO.transform.SetParent(_listParent, false);
 
         var rowImg = rowGO.AddComponent<Image>();
@@ -207,47 +232,60 @@ public class MenuQuestPanel : MonoBehaviour
         rowImg.raycastTarget = false;
 
         var le = rowGO.AddComponent<LayoutElement>();
-        le.preferredHeight = isXP ? 120f : 102f;
+        le.preferredHeight = rowH;
         le.flexibleWidth   = 1f;
 
         var rowRT = rowImg.rectTransform;
 
-        // Accent gauche
-        var ac = new GameObject("Acc");
+        // Accent gauche (bande colorée verticale)
+        var ac  = new GameObject("Acc");
         ac.transform.SetParent(rowGO.transform, false);
         var acI = ac.AddComponent<Image>();
         acI.sprite = SpriteGenerator.CreateWhiteSquare();
         acI.color  = accentCol;
         acI.raycastTarget = false;
-        var acRT = acI.rectTransform;
+        var acRT  = acI.rectTransform;
         acRT.anchorMin = Vector2.zero;
         acRT.anchorMax = new Vector2(0.014f, 1f);
         acRT.offsetMin = acRT.offsetMax = Vector2.zero;
 
-        // Titre
-        var t = AddTMP("T", rowGO.transform,
+        // Titre de la quête
+        AddTMP("T", rowGO.transform,
             isDone ? $"✓  {def.Title}" : def.Title,
             24f, FontStyles.Bold, titleCol,
-            new Vector2(0.04f, isXP ? 0.56f : 0.50f), new Vector2(0.74f, 1f));
+            new Vector2(0.04f, isXP ? 0.60f : 0.52f), new Vector2(0.74f, 1f));
 
-        // Récompense pièces (droite haut)
+        // Récompense pièces (haut-droite)
+        string coinsText = isDone ? "✓" : $"+{def.RewardCoins}";
         AddTMP("R", rowGO.transform,
-            isDone ? "✓" : $"+{def.RewardCoins}",
+            coinsText,
             26f, FontStyles.Bold, isDone ? ColDone : ColGold,
-            new Vector2(0.74f, isXP ? 0.55f : 0.50f), new Vector2(0.97f, 1f),
+            new Vector2(0.74f, isXP ? 0.58f : 0.50f), new Vector2(0.97f, 1f),
             TextAlignmentOptions.MidlineRight);
 
-        // Récompense XP (droite bas — uniquement quête complexe non terminée)
+        // Badge "+N XP · NIVEAU" (quêtes complexes non terminées uniquement)
         if (isXP && !isDone)
         {
-            AddTMP("XP", rowGO.transform,
-                $"+{def.RewardXP} XP",
-                18f, FontStyles.Normal, xpCol,
-                new Vector2(0.74f, 0.08f), new Vector2(0.97f, 0.55f),
-                TextAlignmentOptions.MidlineRight);
+            // Fond du badge
+            var badgeGO = new GameObject("XPBadge");
+            badgeGO.transform.SetParent(rowGO.transform, false);
+            var badgeImg = badgeGO.AddComponent<Image>();
+            badgeImg.sprite = SpriteGenerator.CreateWhiteSquare();
+            badgeImg.color  = ColLevelTag;
+            badgeImg.raycastTarget = false;
+            var badgeRT = badgeImg.rectTransform;
+            badgeRT.anchorMin = new Vector2(0.04f, 0.56f);
+            badgeRT.anchorMax = new Vector2(0.70f, 0.78f);
+            badgeRT.offsetMin = badgeRT.offsetMax = Vector2.zero;
+
+            AddTMP("XP", badgeGO.transform,
+                $"+{def.RewardXP} XP  ·  NIVEAU +1",
+                17f, FontStyles.Bold, ColBlue,
+                Vector2.zero, Vector2.one,
+                TextAlignmentOptions.Center);
         }
 
-        // Piste de progression
+        // Piste de progression (fond gris)
         var trackGO = new GameObject("Track");
         trackGO.transform.SetParent(rowGO.transform, false);
         var trackI  = trackGO.AddComponent<Image>();
@@ -256,30 +294,31 @@ public class MenuQuestPanel : MonoBehaviour
         trackI.raycastTarget = false;
         var trackRT = trackI.rectTransform;
         trackRT.anchorMin = new Vector2(0.04f, 0.08f);
-        trackRT.anchorMax = new Vector2(0.70f, 0.26f);
+        trackRT.anchorMax = new Vector2(0.70f, 0.28f);
         trackRT.offsetMin = new Vector2(4f, 0f);
         trackRT.offsetMax = Vector2.zero;
 
-        var fillGO  = new GameObject("Fill");
+        // Jauge de remplissage (Image.Filled Horizontal)
+        var fillGO = new GameObject("Fill");
         fillGO.transform.SetParent(trackGO.transform, false);
-        var fillI   = fillGO.AddComponent<Image>();
-        fillI.sprite = SpriteGenerator.CreateWhiteSquare();
-        fillI.color  = fillCol;
-        fillI.type   = Image.Type.Filled;
+        var fillI  = fillGO.AddComponent<Image>();
+        fillI.sprite     = SpriteGenerator.CreateWhiteSquare();
+        fillI.color      = fillCol;
+        fillI.type       = Image.Type.Filled;
         fillI.fillMethod = Image.FillMethod.Horizontal;
-        fillI.fillAmount = 0f;   // animé au Show
+        fillI.fillAmount = 0f;   // animé dans AnimateFills()
         fillI.raycastTarget = false;
-        var fillRT  = fillI.rectTransform;
+        var fillRT = fillI.rectTransform;
         fillRT.anchorMin = Vector2.zero;
         fillRT.anchorMax = Vector2.one;
         fillRT.offsetMin = fillRT.offsetMax = Vector2.zero;
 
-        // Label progression (bas gauche)
+        // Label progression (bas-gauche) : "X / N sessions"
         int display = Mathf.Min(prog.Count, def.RequiredCount);
         AddTMP("P", rowGO.transform,
-            isDone ? "Terminée" : $"{display} / {def.RequiredCount}",
-            19f, FontStyles.Normal, progCol,
-            new Vector2(0.04f, 0.04f), new Vector2(0.55f, 0.42f),
+            isDone ? "Terminée ✓" : $"{display} / {def.RequiredCount} sessions",
+            18f, FontStyles.Normal, progCol,
+            new Vector2(0.04f, 0.04f), new Vector2(0.60f, 0.40f),
             TextAlignmentOptions.MidlineLeft);
 
         return fillI;
@@ -291,7 +330,7 @@ public class MenuQuestPanel : MonoBehaviour
     {
         if (QuestManager.Instance != null)
         {
-            QuestManager.Instance.OnProgressChanged += OnQuestChanged;
+            QuestManager.Instance.OnProgressChanged += OnQuestProgressChanged;
             QuestManager.Instance.OnWaveStarted     += OnWaveStarted;
         }
     }
@@ -300,29 +339,50 @@ public class MenuQuestPanel : MonoBehaviour
     {
         if (QuestManager.Instance != null)
         {
-            QuestManager.Instance.OnProgressChanged -= OnQuestChanged;
+            QuestManager.Instance.OnProgressChanged -= OnQuestProgressChanged;
             QuestManager.Instance.OnWaveStarted     -= OnWaveStarted;
         }
     }
 
-    private void OnQuestChanged()  { /* rafraîchi au prochain Show */ }
-    private void OnWaveStarted(int _) { /* rafraîchi au prochain Show */ }
+    /// <summary>
+    /// Appelé quand la progression des quêtes change (score ajouté, complétion).
+    /// Si le panel est visible, rafraîchit immédiatement la liste.
+    /// </summary>
+    private void OnQuestProgressChanged()
+    {
+        if (_isVisible)
+            StartCoroutine(RebuildNextFrame());
+    }
 
-    // ── Show / Hide ──────────────────────────────────────────────────────────
+    private void OnWaveStarted(int _)
+    {
+        if (_isVisible)
+            StartCoroutine(RebuildNextFrame());
+    }
+
+    /// <summary>
+    /// Attend une frame avant de rebuilder pour laisser Unity mettre à jour
+    /// les données du QuestManager (exécuté dans le même frame que l'event).
+    /// </summary>
+    private IEnumerator RebuildNextFrame()
+    {
+        yield return null;
+        RebuildList();
+        if (_fills.Count > 0)
+            StartCoroutine(AnimateFills());
+    }
+
+    // ── Show / Hide ───────────────────────────────────────────────────────────
 
     public void Show()
     {
         if (_isAnimating) return;
         _isAnimating          = true;
+        _isVisible            = true;
         _group.blocksRaycasts = true;
         _group.interactable   = true;
 
         RebuildList();
-
-        // Forcer le recalcul du layout pour que ContentSizeFitter applique les hauteurs
-        if (_listParent != null)
-            UnityEngine.UI.LayoutRebuilder.ForceRebuildLayoutImmediate(
-                _listParent.GetComponent<RectTransform>());
 
         StopAllCoroutines();
         _panelRT.anchoredPosition = new Vector2(CanvasRefW, 0f);
@@ -337,11 +397,15 @@ public class MenuQuestPanel : MonoBehaviour
     {
         if (_isAnimating) return;
         _isAnimating          = true;
+        _isVisible            = false;
         _group.blocksRaycasts = false;
         _group.interactable   = false;
 
         StopAllCoroutines();
-        StartCoroutine(Slide(_panelRT.anchoredPosition.x, CanvasRefW, () => _isAnimating = false));
+        StartCoroutine(Slide(_panelRT.anchoredPosition.x, CanvasRefW, () =>
+        {
+            _isAnimating = false;
+        }));
     }
 
     private IEnumerator Slide(float from, float to, System.Action done)
@@ -358,7 +422,7 @@ public class MenuQuestPanel : MonoBehaviour
         done?.Invoke();
     }
 
-    // ── Animation fills ───────────────────────────────────────────────────────
+    // ── Animation des jauges ──────────────────────────────────────────────────
 
     private IEnumerator AnimateFills()
     {
@@ -375,8 +439,11 @@ public class MenuQuestPanel : MonoBehaviour
     private static IEnumerator AnimateFill(Image img, float from, float to, float dur, float delay)
     {
         if (delay > 0f) yield return new WaitForSeconds(delay);
-        float e = 0f;
-        Color baseCol = img.color;
+        if (img == null) yield break;
+
+        float e        = 0f;
+        Color baseCol  = img.color;
+
         while (e < dur)
         {
             e += Time.deltaTime;
@@ -386,10 +453,10 @@ public class MenuQuestPanel : MonoBehaviour
         }
         img.fillAmount = to;
 
+        // Flash blanc si la jauge est pleine
         if (Mathf.Approximately(to, 1f))
         {
-            // Flash blanc rapide
-            float f = 0f;
+            float f      = 0f;
             Color bright = Color.Lerp(baseCol, Color.white, 0.6f);
             while (f < 0.25f)
             {

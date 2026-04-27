@@ -175,8 +175,13 @@ public class QuestCompletionOverlay : MonoBehaviour
         _isShowing = true;
 
         // Remplir les textes
-        SetText("QuestName",   quest.Description);
-        SetText("RewardLabel", $"+{quest.RewardCoins} pièces");
+        SetText("QuestName", quest.Description);
+
+        // Récompense : pièces + XP si quête complexe
+        string rewardText = $"+{quest.RewardCoins} pièces";
+        if (quest.IsComplex && quest.RewardXP > 0)
+            rewardText += $"  +{quest.RewardXP} XP · NIVEAU +1";
+        SetText("RewardLabel", rewardText);
 
         // Activer le raycasting pour bloquer les clics
         _rootGroup.blocksRaycasts = true;
