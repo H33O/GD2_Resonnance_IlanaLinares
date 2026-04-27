@@ -233,6 +233,10 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   backgroundSprite: {fileID: 0}
   backgroundTint: {r: 1, g: 1, b: 1, a: 1}
+  doorInteriorSprite: {fileID: 0}
+  doorButtonSprite: {fileID: 0}
+  doorTargetScene: CircleArena
+  doorButtonLabel: JOUER
 --- !u!4 &1552250789
 Transform:
   m_ObjectHideFlags: 0

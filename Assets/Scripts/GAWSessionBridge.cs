@@ -4,14 +4,21 @@ using UnityEngine;
 /// Bridge minimal pour la scène GameAndWatch.
 /// Délègue entièrement la fin de partie à <see cref="GameEndScreen"/>.
 ///
-/// Ce composant garantit que OWGameManager existe et que GameEndScreen
-/// est présent dans la scène. Si GameEndScreen est déjà attaché à un
-/// autre GameObject dans la scène, ce composant est superflu.
+/// Garantit que les singletons persistants (<see cref="ScoreManager"/>,
+/// <see cref="QuestManager"/>, <see cref="PlayerLevelManager"/>) existent
+/// avant que la partie ne commence, afin que <see cref="ScoreManager.OnScoreAdded"/>
+/// soit bien reçu par <see cref="QuestManager"/> même si le jeu démarre
+/// directement sur cette scène (sans passer par le menu).
 /// </summary>
 public class GAWSessionBridge : MonoBehaviour
 {
     private void Start()
     {
+        // S'assurer que les singletons sont présents avant toute partie
+        ScoreManager.EnsureExists();
+        PlayerLevelManager.EnsureExists();
+        QuestManager.EnsureExists();
+
         EnsureOWGameManager();
         EnsureGameEndScreen();
     }
@@ -29,7 +36,7 @@ public class GAWSessionBridge : MonoBehaviour
         var go     = new GameObject("GameEndScreen");
         var screen = go.AddComponent<GameEndScreen>();
 
-        // Forcer le type GameAndWatch via réflexion pour éviter de rendre le champ public
+        // Forcer le type GameAndWatch via réflexion
         var field = typeof(GameEndScreen)
             .GetField("gameType", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
         field?.SetValue(screen, GameType.GameAndWatch);

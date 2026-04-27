@@ -195,6 +195,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 955b2b29f076fc744a2906fe6c9e035c, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  backgroundSprite: {fileID: 0}
+  backgroundColor: {r: 0.05, g: 0.05, b: 0.05, a: 1}
+  backgroundFit: 0
 --- !u!114 &826354956
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -394,6 +397,7 @@ GameObject:
   m_Component:
   - component: {fileID: 1502494749}
   - component: {fileID: 1502494750}
+  - component: {fileID: 1502494751}
   m_Layer: 0
   m_Name: BubbleGameManager
   m_TagString: Untagged
@@ -432,6 +436,22 @@ MonoBehaviour:
   targetScore: 500
   lowShotsThreshold: 6
   backgroundMusic: {fileID: 8300000, guid: 0bea440fd6099e44a8ed8ce670893cc9, type: 3}
+--- !u!114 &1502494751
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1502494748}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: cdf9fee4feda98b4cbd707f2eaa90233, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  level1: {fileID: 11400000, guid: 8646a8591d6fc4c46b34f8b8addf3bed, type: 2}
+  level2: {fileID: 11400000, guid: 25c5a3c974816344bb9b7767fca0da1b, type: 2}
+  level3: {fileID: 11400000, guid: 541c3cdf564b64c4c8cc092c473bb8dd, type: 2}
+  canvasTransform: {fileID: 1876382005}
 --- !u!1 &1770219878
 GameObject:
   m_ObjectHideFlags: 0
@@ -601,6 +621,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 955b2b29f076fc744a2906fe6c9e035c, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  backgroundSprite: {fileID: 0}
+  backgroundColor: {r: 0.05, g: 0.05, b: 0.05, a: 1}
+  backgroundFit: 0
 --- !u!114 &1876382002
 MonoBehaviour:
   m_ObjectHideFlags: 0

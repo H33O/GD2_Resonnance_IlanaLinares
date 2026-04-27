@@ -29,7 +29,7 @@ public class MenuMainSetup : MonoBehaviour
     // ── Palette bouton GAMES ──────────────────────────────────────────────────
 
     private static readonly Color ColGamesBtnBg  = new Color(1f, 1f, 1f, 0.08f);
-    private static readonly Color ColGamesBtnTxt = new Color(1f, 1f, 1f, 0.70f);
+    private static readonly Color ColGamesBtnTxt = Color.white;
 
     // ── Inspector ─────────────────────────────────────────────────────────────
 
@@ -59,19 +59,31 @@ public class MenuMainSetup : MonoBehaviour
 
     private void Start()
     {
-        NeedsManager.EnsureExists();
-        ShopManager.EnsureExists();
         ScoreManager.EnsureExists();
+        PlayerLevelManager.EnsureExists();
+        QuestManager.EnsureExists();
+
+        // Initialiser les assets partagés (font JimNightshade + sprite bouton)
+        MenuAssets.Init(doorButtonSprite);
 
         BuildBackground2D();
         var canvasRT = BuildCanvas();
         BuildHud(canvasRT);
-        BuildDoorManager(canvasRT);   // DoorManager doit être initialisé avant MenuDoor
+        BuildDoorManager(canvasRT);
         BuildDoor(canvasRT);
         BuildGamesButton(canvasRT);
         BuildQuestsButton(canvasRT);
-        MenuCoinReceiver.Create(canvasRT);   // traite les pièces en attente après une partie
+        QuestCompletionOverlay.Create(canvasRT);
+        MenuCoinReceiver.Create(canvasRT);
         EnsureSceneTransition();
+
+        // Brancher l'overlay "Quête validée" sur le QuestManager
+        if (QuestManager.Instance != null)
+            QuestManager.Instance.OnQuestCompleted += QuestCompletionOverlay.Show;
+
+        // Brancher le feedback "Niveau +1" sur le PlayerLevelManager
+        if (PlayerLevelManager.Instance != null)
+            PlayerLevelManager.Instance.OnLevelUp += lvl => LevelUpToast.Show(canvasRT, lvl);
     }
 
     // ── Fond 2D (SpriteRenderer) ──────────────────────────────────────────────
@@ -211,15 +223,20 @@ public class MenuMainSetup : MonoBehaviour
 
         var btn           = btnGO.AddComponent<Button>();
         btn.targetGraphic = img;
-        btn.onClick.AddListener(panel.Show);
+        bool gamesOpen = false;
+        btn.onClick.AddListener(() =>
+        {
+            gamesOpen = !gamesOpen;
+            if (gamesOpen) panel.Show(); else panel.Hide();
+        });
     }
 
-    // ── Bouton QUÊTES + panneau NeedsPanel ────────────────────────────────────
+    // ── Bouton QUÊTES + panneau QuestPanel ────────────────────────────────────
 
     private static void BuildQuestsButton(RectTransform canvasRT)
     {
-        // Panneau quêtes (hors écran, à droite) — sans sprites de jauges custom ici
-        var needsPanel = MenuNeedsPanel.Create(canvasRT);
+        // Panneau quêtes (hors écran, à droite)
+        var questPanel = MenuQuestPanel.Create(canvasRT);
 
         // Bouton "QUÊTES" — bas-gauche
         var btnGO = new GameObject("QuestsButton");
@@ -250,9 +267,14 @@ public class MenuMainSetup : MonoBehaviour
         lrt.anchorMax     = Vector2.one;
         lrt.offsetMin     = lrt.offsetMax = Vector2.zero;
 
-        var btn           = btnGO.AddComponent<Button>();
+        bool open = false;
+        var btn   = btnGO.AddComponent<Button>();
         btn.targetGraphic = img;
-        btn.onClick.AddListener(needsPanel.Show);
+        btn.onClick.AddListener(() =>
+        {
+            open = !open;
+            if (open) questPanel.Show(); else questPanel.Hide();
+        });
     }
 
     // ── EventSystem ───────────────────────────────────────────────────────────

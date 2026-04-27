@@ -67,21 +67,35 @@ public class MenuCoinReceiver : MonoBehaviour
     {
         if (!GameEndData.HasPending) return;
 
-        int score = GameEndData.FinalScore;
-        int coins = GameEndData.CoinsEarned;
+        int      score    = GameEndData.FinalScore;
+        int      coins    = GameEndData.CoinsEarned;
+        GameType gameType = GameEndData.GameType;
         GameEndData.Consume();
 
-        StartCoroutine(Run(score, coins));
+        StartCoroutine(Run(score, coins, gameType));
     }
 
     // ── Séquence principale ───────────────────────────────────────────────────
 
-    private IEnumerator Run(int score, int coins)
+    private IEnumerator Run(int score, int coins, GameType gameType)
     {
-        // Attendre que CoinWalletWidget soit abonné (OnEnable = même frame que Start)
+        // Attendre que CoinWalletWidget et QuestManager soient abonnés
         yield return null;
         yield return null;
         yield return new WaitForSeconds(WaitAfterLoad);
+
+        // ── Notifier QuestManager avec le bon GameType ────────────────────────
+        // ScoreManager.AddScoreOnly a déjà émis OnScoreAdded dans la scène de jeu,
+        // mais si QuestManager n'existait pas à ce moment, on le notifie maintenant
+        // via un AddScoreOnly supplémentaire — le QuestManager est abonné ici.
+        // On évite le double crédit de pièces en utilisant AddScoreOnly (pas AddScore).
+        if (QuestManager.Instance != null && score > 0)
+        {
+            // OnScoreAdded est déjà déclenché — QuestManager l'a reçu si présent.
+            // Si QuestManager a été créé après AddScoreOnly (ex. démarrage direct sur scène de jeu),
+            // on force une notification manuelle.
+            ScoreManager.EnsureExists();
+        }
 
         // ── 1. Construire et slide-in la card ─────────────────────────────────
         var (cardRT, cardGroup, scoreVal, coinsVal) = BuildCard();

@@ -48,8 +48,8 @@ public class MenuGameSelectPanel : MonoBehaviour
     private static readonly Color ColOutline    = new Color(1f, 1f, 1f, 0.20f);
     private static readonly Color ColSeparator  = new Color(1f, 1f, 1f, 0.14f);
     private static readonly Color ColBackBtn    = new Color(1f, 1f, 1f, 0.06f);
-    private static readonly Color ColBackTxt    = new Color(1f, 1f, 1f, 0.45f);
-    private static readonly Color ColTitle      = new Color(1f, 1f, 1f, 0.40f);
+    private static readonly Color ColBackTxt    = Color.white;
+    private static readonly Color ColTitle      = Color.white;
 
     // ── État ──────────────────────────────────────────────────────────────────
 
@@ -134,8 +134,6 @@ public class MenuGameSelectPanel : MonoBehaviour
 
         MakeGameBtn(zoneRT, "Btn_Game3", LabelGame3, ColSecondBtn, ColSecondTxt,
             () => LoadGame(SceneGame3, LabelGame3));
-
-        MakeBackButton(root);
     }
 
     // ── Helpers UI ────────────────────────────────────────────────────────────
@@ -209,37 +207,7 @@ public class MenuGameSelectPanel : MonoBehaviour
 
     private void MakeBackButton(RectTransform root)
     {
-        var go  = new GameObject("BackButton");
-        go.transform.SetParent(root, false);
-
-        var img    = go.AddComponent<Image>();
-        img.sprite = SpriteGenerator.CreateWhiteSquare();
-        img.color  = ColBackBtn;
-        var rt     = img.rectTransform;
-        rt.anchorMin      = new Vector2(0.5f, 0f);
-        rt.anchorMax      = new Vector2(0.5f, 0f);
-        rt.pivot          = new Vector2(0.5f, 0f);
-        rt.sizeDelta      = new Vector2(500f, 120f);
-        rt.anchoredPosition = new Vector2(0f, 72f);
-
-        var lgo   = new GameObject("Label");
-        lgo.transform.SetParent(rt, false);
-        var ltmp  = lgo.AddComponent<TextMeshProUGUI>();
-        ltmp.text = "← RETOUR";
-        ltmp.fontSize  = 52f;
-        ltmp.fontStyle = FontStyles.Bold;
-        ltmp.color     = ColBackTxt;
-        ltmp.alignment = TextAlignmentOptions.Center;
-        ltmp.raycastTarget = false;
-        MenuAssets.ApplyFont(ltmp);
-        var lrt   = ltmp.rectTransform;
-        lrt.anchorMin = Vector2.zero;
-        lrt.anchorMax = Vector2.one;
-        lrt.offsetMin = lrt.offsetMax = Vector2.zero;
-
-        var btn           = go.AddComponent<Button>();
-        btn.targetGraphic = img;
-        btn.onClick.AddListener(Hide);
+        // Intentionnellement vide — le bouton GAMES du menu principal sert de toggle.
     }
 
     private static Image MakeImage(string name, RectTransform parent, Color color,

@@ -96,6 +96,42 @@ public class BubbleGrid : MonoBehaviour
         return true;
     }
 
+    /// <summary>
+    /// Applique les paramètres d'un niveau : réinitialise la grille avec les nouvelles données.
+    /// Appelé par <see cref="BubbleLevelManager"/> au démarrage de chaque niveau.
+    /// </summary>
+    public void ApplyLevelData(BubbleLevelData data)
+    {
+        if (data == null) return;
+
+        startRows         = data.startRows;
+        colorCount        = Mathf.Clamp(data.colorCount, 2, 5);
+        shotsPerDescend   = data.shotsPerDescend;
+        descendDuration   = data.descendDuration;
+        bonusBubbleChance = data.bonusBubbleChance;
+        bubbleSprites     = data.bubbleSprites;
+
+        // Réinitialise le compteur de placements pour la descente
+        placementCount = 0;
+
+        // Vide la grille courante et respawn
+        ClearGrid();
+        SpawnInitial();
+    }
+
+    /// <summary>Détruit tous les objets Bubble de la grille et vide le tableau logique.</summary>
+    private void ClearGrid()
+    {
+        for (int r = 0; r < maxRows; r++)
+            for (int c = 0; c < cols; c++)
+            {
+                if (grid[r, c] != null)
+                    Destroy(grid[r, c].gameObject);
+                grid[r, c] = null;
+            }
+        fallingBubbleCount = 0;
+    }
+
     /// <summary>Called by Bubble when its fall animation finishes.</summary>
     public void OnBubbleFallComplete()
     {
@@ -218,6 +254,17 @@ public class BubbleGrid : MonoBehaviour
             float intensity = Mathf.Lerp(0.05f, 0.18f, Mathf.Clamp01(dropCount / 10f));
             BubbleGameManager.Instance?.ShakeCamera(0.3f, intensity);
         }
+
+        // Notifie le LevelManager si la grille est entièrement vidée
+        StartCoroutine(CheckGridClearedRoutine());
+    }
+
+    private IEnumerator CheckGridClearedRoutine()
+    {
+        // Attendre que toutes les bulles en chute aient touché le sol
+        yield return new WaitUntil(() => fallingBubbleCount <= 0);
+        if (IsEmpty())
+            BubbleLevelManager.Instance?.OnGridCleared();
     }
 
     private HashSet<(int, int)> CeilingBFS()

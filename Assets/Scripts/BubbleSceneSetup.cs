@@ -27,23 +27,49 @@ public class BubbleSceneSetup : MonoBehaviour
 
     public enum BackgroundFit { Fill, Contain }
 
+    // ── Instance courante (pour mise à jour runtime) ──────────────────────────
+
+    private static BubbleSceneSetup _instance;
+    private GameObject _bgObject;
+
+    private void Awake() => _instance = this;
+
     private void Start()
     {
         // Caméra : fond correspondant à la couleur choisie
         if (Camera.main != null)
             Camera.main.backgroundColor = backgroundColor;
 
-        BuildWorldBackground();
+        _bgObject = BuildWorldBackground(backgroundSprite, backgroundColor, backgroundFit);
         BuildGrid();
+    }
+
+    // ── API statique pour le LevelManager ─────────────────────────────────────
+
+    /// <summary>
+    /// Applique le fond d'un niveau en remplaçant le fond existant.
+    /// Peut être appelé depuis <see cref="BubbleLevelManager"/> à chaque changement de niveau.
+    /// </summary>
+    public static void ApplyBackground(BubbleLevelData data)
+    {
+        if (_instance == null || data == null) return;
+        _instance.ApplyBackgroundInternal(data.backgroundSprite, data.backgroundColor, data.backgroundFit);
+    }
+
+    private void ApplyBackgroundInternal(Sprite sprite, Color color, BackgroundFit fit)
+    {
+        if (_bgObject != null) Destroy(_bgObject);
+        if (Camera.main != null) Camera.main.backgroundColor = color;
+        _bgObject = BuildWorldBackground(sprite, color, fit);
     }
 
     // ── Fond monde ────────────────────────────────────────────────────────────
 
     /// <summary>SpriteRenderer plein écran en arrière-plan, avec sprite ou couleur unie.</summary>
-    private void BuildWorldBackground()
+    private static GameObject BuildWorldBackground(Sprite sprite, Color color, BackgroundFit fit)
     {
         Camera cam = Camera.main;
-        if (cam == null) return;
+        if (cam == null) return null;
 
         float h  = cam.orthographicSize * 2f;
         float w  = h * cam.aspect;
@@ -52,18 +78,17 @@ public class BubbleSceneSetup : MonoBehaviour
         var go = new GameObject("BubbleBG");
         var sr = go.AddComponent<SpriteRenderer>();
 
-        if (backgroundSprite != null)
+        if (sprite != null)
         {
-            sr.sprite      = backgroundSprite;
-            sr.color       = backgroundColor;
+            sr.sprite      = sprite;
+            sr.color       = color;
             sr.drawMode    = SpriteDrawMode.Simple;
 
-            // Calcule l'échelle pour couvrir l'écran (Fill) ou s'inscrire dedans (Contain)
-            float spriteW = backgroundSprite.bounds.size.x;
-            float spriteH = backgroundSprite.bounds.size.y;
+            float spriteW = sprite.bounds.size.x;
+            float spriteH = sprite.bounds.size.y;
             float scaleX  = w / spriteW;
             float scaleY  = h / spriteH;
-            float scale   = backgroundFit == BackgroundFit.Fill
+            float scale   = fit == BackgroundFit.Fill
                 ? Mathf.Max(scaleX, scaleY)
                 : Mathf.Min(scaleX, scaleY);
 
@@ -71,14 +96,14 @@ public class BubbleSceneSetup : MonoBehaviour
         }
         else
         {
-            // Aucun sprite : rectangle uni plein écran
             sr.sprite       = SpriteGenerator.CreateCircle(4);
-            sr.color        = backgroundColor;
+            sr.color        = color;
             go.transform.localScale = new Vector3(w, h, 1f);
         }
 
-        sr.sortingOrder         = -20;
-        go.transform.position   = new Vector3(cp.x, cp.y, 1f);
+        sr.sortingOrder       = -20;
+        go.transform.position = new Vector3(cp.x, cp.y, 1f);
+        return go;
     }
 
     // ── Grille monde ──────────────────────────────────────────────────────────

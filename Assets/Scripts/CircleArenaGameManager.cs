@@ -534,6 +534,7 @@ public class CircleArenaGameManager : MonoBehaviour
         AddLabel(panel.transform, "FIN",            100f, FontStyles.Bold, new Vector2(0f,  120f), new Vector2(700f, 130f));
         AddLabel(panel.transform, score.ToString(), 160f, FontStyles.Bold, new Vector2(0f,  -10f), new Vector2(700f, 200f));
         AddRetryBtn(panel.transform);
+        AddMenuBtn(panel.transform);
 
         StartCoroutine(FadePanel(bg));
     }
@@ -601,6 +602,43 @@ public class CircleArenaGameManager : MonoBehaviour
         {
             Time.timeScale = 1f;
             SceneManager.LoadScene(SceneManager.GetActiveScene().name);
+        });
+    }
+
+    private void AddMenuBtn(Transform parent)
+    {
+        var go  = new GameObject("MenuBtn");
+        go.transform.SetParent(parent, false);
+        var bg  = go.AddComponent<Image>();
+        bg.sprite = SpriteGenerator.CreateWhiteSquare();
+        bg.color  = new Color(0.12f, 0.12f, 0.12f, 0.95f);
+        var rt    = bg.rectTransform;
+        rt.anchorMin = rt.anchorMax = new Vector2(0.5f, 0.5f);
+        rt.pivot     = new Vector2(0.5f, 0.5f);
+        rt.sizeDelta = new Vector2(340f, 95f);
+        rt.anchoredPosition = new Vector2(0f, -300f);
+
+        var lGO  = new GameObject("Label");
+        lGO.transform.SetParent(go.transform, false);
+        var lbl  = lGO.AddComponent<TextMeshProUGUI>();
+        lbl.text      = "← MENU";
+        lbl.fontSize  = 44f;
+        lbl.fontStyle = FontStyles.Bold;
+        lbl.color     = Color.white;
+        lbl.alignment = TextAlignmentOptions.Center;
+        var lrt = lbl.rectTransform;
+        lrt.anchorMin = Vector2.zero; lrt.anchorMax = Vector2.one;
+        lrt.offsetMin = lrt.offsetMax = Vector2.zero;
+
+        var btn = go.AddComponent<Button>();
+        btn.targetGraphic = bg;
+        btn.onClick.AddListener(() =>
+        {
+            Time.timeScale = 1f;
+            if (SceneTransition.Instance != null)
+                SceneTransition.Instance.LoadScene(MenuMainSetup.SceneName, MenuMainSetup.SceneName);
+            else
+                SceneManager.LoadScene(MenuMainSetup.SceneName);
         });
     }
 

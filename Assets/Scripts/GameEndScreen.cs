@@ -33,18 +33,15 @@ public class GameEndScreen : MonoBehaviour
 
     private static readonly Color ColScrim       = new Color(0.04f, 0.02f, 0.08f, 0.92f);
     private static readonly Color ColCard        = new Color(0.09f, 0.08f, 0.15f, 1.00f);
-    private static readonly Color ColCardEdge    = new Color(0.80f, 0.10f, 0.10f, 0.90f);  // rouge defeat
+    private static readonly Color ColCardEdge    = new Color(0.80f, 0.10f, 0.10f, 0.90f);
     private static readonly Color ColDefeat      = new Color(0.95f, 0.15f, 0.15f, 1.00f);
-    private static readonly Color ColSub         = new Color(1.00f, 1.00f, 1.00f, 0.35f);
-    private static readonly Color ColScoreLbl    = new Color(1.00f, 1.00f, 1.00f, 0.45f);
+    private static readonly Color ColSub         = new Color(1.00f, 1.00f, 1.00f, 1.00f);   // blanc pur
+    private static readonly Color ColScoreLbl    = new Color(1.00f, 1.00f, 1.00f, 1.00f);   // blanc pur
     private static readonly Color ColScoreVal    = new Color(1.00f, 0.82f, 0.18f, 1.00f);
-    private static readonly Color ColCoinsLbl    = new Color(1.00f, 1.00f, 1.00f, 0.45f);
+    private static readonly Color ColCoinsLbl    = new Color(1.00f, 1.00f, 1.00f, 1.00f);   // blanc pur
     private static readonly Color ColCoinsVal    = new Color(0.30f, 0.95f, 0.45f, 1.00f);
     private static readonly Color ColSep         = new Color(1.00f, 1.00f, 1.00f, 0.10f);
-    private static readonly Color ColBtnMenu     = new Color(0.12f, 0.12f, 0.22f, 1.00f);
-    private static readonly Color ColBtnMenuHov  = new Color(0.20f, 0.20f, 0.35f, 1.00f);
-    private static readonly Color ColBtnMenuTxt  = new Color(1.00f, 1.00f, 1.00f, 0.90f);
-    private static readonly Color ColHint        = new Color(0.55f, 0.55f, 0.55f, 1.00f);
+    private static readonly Color ColHint        = new Color(1.00f, 1.00f, 1.00f, 0.70f);   // blanc lisible
     private static readonly Color ColDivider     = new Color(0.80f, 0.10f, 0.10f, 0.50f);
 
     // ── Runtime ───────────────────────────────────────────────────────────────
@@ -54,7 +51,6 @@ public class GameEndScreen : MonoBehaviour
     private TextMeshProUGUI scoreValLabel;
     private TextMeshProUGUI coinsValLabel;
     private TextMeshProUGUI hintLabel;
-    private Button          menuButton;
     private bool            fired;
 
     // ── Lifecycle ─────────────────────────────────────────────────────────────
@@ -98,7 +94,7 @@ public class GameEndScreen : MonoBehaviour
         ScoreManager.EnsureExists();
         ScoreManager.Instance.AddScoreOnly(gameType, score);
 
-        GameEndData.Set(score, coins);
+        GameEndData.Set(score, coins, gameType);
 
         StartCoroutine(RunScreen(score, coins));
     }
@@ -119,17 +115,14 @@ public class GameEndScreen : MonoBehaviour
         yield return new WaitForSecondsRealtime(0.45f);
         yield return StartCoroutine(CountUp(coinsValLabel, 0, coins, 0.75f, isCoin: true));
 
-        // 3. Countdown auto-retour + écoute bouton
-        bool clicked = false;
-        menuButton.onClick.AddListener(() => clicked = true);
-
+        // 3. Countdown auto-retour (pas de bouton — le joueur re-clique sur "Game")
         float elapsed = 0f;
-        while (elapsed < autoReturnSec && !clicked)
+        while (elapsed < autoReturnSec)
         {
             elapsed += Time.unscaledDeltaTime;
             int rem = Mathf.CeilToInt(autoReturnSec - elapsed);
             if (hintLabel != null)
-                hintLabel.text = $"Retour automatique dans {rem}s";
+                hintLabel.text = $"Retour au menu dans {rem}s — appuie sur Game pour rejouer";
             yield return null;
         }
 
@@ -226,49 +219,56 @@ public class GameEndScreen : MonoBehaviour
         // Divider bas
         HLine(card, 0.42f, ColDivider);
 
-        // ── Bouton MENU ───────────────────────────────────────────────────────
-        var btnRT      = CenteredRect("BtnMenu", card, new Vector2(0.50f, 0.275f), 680f, 88f);
-        var btnImg     = btnRT.gameObject.AddComponent<Image>();
-        btnImg.sprite  = SpriteGenerator.CreateWhiteSquare();
-        btnImg.color   = ColBtnMenu;
-        menuButton     = btnRT.gameObject.AddComponent<Button>();
-        menuButton.targetGraphic = btnImg;
-        var colors     = menuButton.colors;
-        colors.normalColor      = Color.white;
-        colors.highlightedColor = new Color(1.4f, 1.4f, 1.4f, 1f);
-        colors.pressedColor     = new Color(0.7f, 0.7f, 0.7f, 1f);
-        colors.fadeDuration     = 0.08f;
-        menuButton.colors = colors;
-
-        // Bordure bouton
-        var btnBorder = new GameObject("BtnBorder");
-        btnBorder.transform.SetParent(btnRT, false);
-        var bbi = btnBorder.AddComponent<Image>();
-        bbi.sprite = SpriteGenerator.CreateWhiteSquare();
-        bbi.color  = new Color(1f, 1f, 1f, 0.12f);
-        bbi.raycastTarget = false;
-        var bbiRT = bbi.rectTransform;
-        bbiRT.anchorMin = Vector2.zero;
-        bbiRT.anchorMax = Vector2.one;
-        bbiRT.offsetMin = new Vector2(-2f, -2f);
-        bbiRT.offsetMax = new Vector2( 2f,  2f);
-
-        Label(btnRT, "BtnLabel", "RETOUR AU MENU",
-            Vector2.zero, Vector2.one, 34f, ColBtnMenuTxt, FontStyles.Bold);
-
         // ── Hint countdown ────────────────────────────────────────────────────
         var hintGO = new GameObject("Hint");
         hintGO.transform.SetParent(card, false);
         hintLabel              = hintGO.AddComponent<TextMeshProUGUI>();
-        hintLabel.text         = $"Retour automatique dans {Mathf.CeilToInt(autoReturnSec)}s";
-        hintLabel.fontSize     = 22f;
+        hintLabel.text         = $"Retour au menu dans {Mathf.CeilToInt(autoReturnSec)}s — appuie sur Game pour rejouer";
+        hintLabel.fontSize     = 24f;
         hintLabel.color        = ColHint;
         hintLabel.alignment    = TextAlignmentOptions.Center;
         hintLabel.raycastTarget = false;
+        hintLabel.enableWordWrapping = true;
         var hintRT = hintLabel.rectTransform;
-        hintRT.anchorMin = new Vector2(0.05f, 0.08f);
-        hintRT.anchorMax = new Vector2(0.95f, 0.18f);
+        hintRT.anchorMin = new Vector2(0.05f, 0.20f);
+        hintRT.anchorMax = new Vector2(0.95f, 0.40f);
         hintRT.offsetMin = hintRT.offsetMax = Vector2.zero;
+
+        // ── Bouton MENU (retour) ──────────────────────────────────────────────
+        MakeReturnButton(card);
+    }
+
+    private void MakeReturnButton(RectTransform parent)
+    {
+        var go = new GameObject("ReturnButton");
+        go.transform.SetParent(parent, false);
+
+        var img    = go.AddComponent<Image>();
+        img.sprite = SpriteGenerator.CreateWhiteSquare();
+        img.color  = new Color(0.80f, 0.10f, 0.10f, 0.90f);
+
+        var rt     = img.rectTransform;
+        rt.anchorMin      = new Vector2(0.10f, 0.04f);
+        rt.anchorMax      = new Vector2(0.90f, 0.18f);
+        rt.offsetMin      = rt.offsetMax = Vector2.zero;
+
+        var lgo  = new GameObject("Label");
+        lgo.transform.SetParent(rt, false);
+        var ltmp = lgo.AddComponent<TextMeshProUGUI>();
+        ltmp.text          = "← RETOUR AU MENU";
+        ltmp.fontSize      = 30f;
+        ltmp.fontStyle     = FontStyles.Bold;
+        ltmp.color         = Color.white;
+        ltmp.alignment     = TextAlignmentOptions.Center;
+        ltmp.raycastTarget = false;
+        var lrt  = ltmp.rectTransform;
+        lrt.anchorMin = Vector2.zero;
+        lrt.anchorMax = Vector2.one;
+        lrt.offsetMin = lrt.offsetMax = Vector2.zero;
+
+        var btn           = go.AddComponent<Button>();
+        btn.targetGraphic = img;
+        btn.onClick.AddListener(GoToMenu);
     }
 
     // ── Helpers de construction ───────────────────────────────────────────────

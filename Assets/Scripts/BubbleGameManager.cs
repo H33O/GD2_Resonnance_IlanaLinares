@@ -74,6 +74,26 @@ public class BubbleGameManager : MonoBehaviour
         goal.Init(Camera.main);
     }
 
+    // ── Niveau ────────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Applique les règles d'un niveau (coups, seuil d'alerte).
+    /// Appelé par <see cref="BubbleLevelManager"/> au début de chaque niveau.
+    /// </summary>
+    public void ApplyLevelData(BubbleLevelData data)
+    {
+        if (data == null) return;
+        maxShots  = data.maxShots;
+        ShotsLeft = data.maxShots;
+        RefreshUI();
+    }
+
+    /// <summary>Active ou suspend le jeu sans déclencher de fin de partie.</summary>
+    public void SetGameActive(bool active)
+    {
+        IsGameActive = active;
+    }
+
     // ── Score & coups ─────────────────────────────────────────────────────────
 
     private void Update()
@@ -566,13 +586,13 @@ public class BubbleGameManager : MonoBehaviour
 
         // ── Restart ───────────────────────────────────────────────────────────
         MakeButton(panel.transform, "RESTART",
-                   new Vector2(0f, -345f),
+                   new Vector2(0f, -310f),
                    Color.white,
                    () => SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex));
 
         // ── Menu ──────────────────────────────────────────────────────────────
         MakeButton(panel.transform, "MENU",
-                   new Vector2(0f, -470f),
+                   new Vector2(0f, -435f),
                    new Color(0.12f, 0.12f, 0.12f),
                    () => SceneManager.LoadScene(SceneMenu));
     }
