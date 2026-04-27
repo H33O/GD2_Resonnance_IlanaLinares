@@ -110,33 +110,8 @@ public class PGSceneSetup : MonoBehaviour
     /// </summary>
     private void BuildBackgroundUI(RectTransform canvasRT)
     {
-        var go  = new GameObject("Background");
-        go.transform.SetParent(canvasRT, false);
-        go.transform.SetAsFirstSibling();   // derrière tout le reste
-
-        Sprite fondSprite = LoadSprite("Assets/sprites/fond jeu.png");
-
-        if (fondSprite != null)
-        {
-            var raw = go.AddComponent<RawImage>();
-            raw.texture         = fondSprite.texture;
-            raw.color           = Color.white;
-            raw.raycastTarget   = false;
-            var rt        = raw.rectTransform;
-            rt.anchorMin  = Vector2.zero;
-            rt.anchorMax  = Vector2.one;
-            rt.offsetMin  = rt.offsetMax = Vector2.zero;
-        }
-        else
-        {
-            var img = go.AddComponent<Image>();
-            img.color         = new Color(0.08f, 0.06f, 0.12f, 1f);
-            img.raycastTarget = false;
-            var rt        = img.rectTransform;
-            rt.anchorMin  = Vector2.zero;
-            rt.anchorMax  = Vector2.one;
-            rt.offsetMin  = rt.offsetMax = Vector2.zero;
-        }
+        // Fond noir pur — la couleur de clear de la caméra suffit.
+        // Les lucioles sont ajoutées séparément via MenuFireflies.
     }
 
     /// <summary>A flat ground plane for depth markers — kept as subtle décor.</summary>
@@ -242,22 +217,20 @@ public class PGSceneSetup : MonoBehaviour
 
         if (playerSprite != null)
         {
-            var go  = new GameObject("PlayerSprite");
+            var go = new GameObject("PlayerSprite");
             go.transform.SetParent(parent, false);
-            go.transform.localPosition = new Vector3(0f, 0f, 0f);
+            go.transform.localPosition = Vector3.zero;
 
-            // Caméra perspective FOV 60° à z=-7 → hauteur visible ≈ 8.08u à z=0.
-            // Le joueur doit occuper ~18% de la hauteur écran ≈ 1.45u de haut.
-            // Sprite PPU=100, on cible 1.45u → scale = 1.45 / (texHeight/100).
-            // On utilise 0.012 comme facteur universel (ajustable si PPU différent).
+            // Caméra perspective FOV 60° à z=-7, écran 9:16.
+            // Hauteur visible à z=0 ≈ 8.08u → joueur cible 1.45u de haut (~18%).
             const float targetHeightU = 1.45f;
-            float       ppu           = playerSprite.pixelsPerUnit > 0 ? playerSprite.pixelsPerUnit : 100f;
-            float       spriteHeightU = playerSprite.rect.height / ppu;
-            float       s             = spriteHeightU > 0 ? targetHeightU / spriteHeightU : 0.012f;
-
+            float ppu        = playerSprite.pixelsPerUnit > 0 ? playerSprite.pixelsPerUnit : 100f;
+            float spriteH    = playerSprite.rect.height / ppu;
+            float s          = spriteH > 0 ? targetHeightU / spriteH : 0.012f;
             go.transform.localScale = new Vector3(s, s, s);
-            var sr     = go.AddComponent<SpriteRenderer>();
-            sr.sprite  = playerSprite;
+
+            var sr          = go.AddComponent<SpriteRenderer>();
+            sr.sprite       = playerSprite;
             sr.sortingOrder = 5;
         }
         else
@@ -351,8 +324,16 @@ public class PGSceneSetup : MonoBehaviour
 
         var canvasRT = canvas.GetComponent<RectTransform>();
 
-        // ── Fond plein écran (derrière tout) ──────────────────────────────────
-        BuildBackgroundUI(canvasRT);
+        // ── Lucioles (derrière tout) ──────────────────────────────────────────
+        var fireflyGO = new GameObject("Fireflies");
+        fireflyGO.transform.SetParent(canvasRT, false);
+        var fireflyRT        = fireflyGO.AddComponent<RectTransform>();
+        fireflyRT.anchorMin  = Vector2.zero;
+        fireflyRT.anchorMax  = Vector2.one;
+        fireflyRT.offsetMin  = fireflyRT.offsetMax = Vector2.zero;
+        fireflyGO.transform.SetAsFirstSibling();
+        var fireflies = fireflyGO.AddComponent<MenuFireflies>();
+        fireflies.Init(fireflyRT);
 
         // ── HUD ───────────────────────────────────────────────────────────────
         var hudGO = new GameObject("PGHUD");
