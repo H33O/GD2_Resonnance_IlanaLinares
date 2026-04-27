@@ -4,30 +4,23 @@ using UnityEngine.UI;
 using TMPro;
 
 /// <summary>
-/// Builds and drives the Parry Game HUD:
-/// - Top: score and combo
-/// - Bottom: three action tabs — Défense / Armes / Soins (fully functional)
-/// - Hearts: HP display
-/// - Strong screen-flash feedback: green heal, cyan shield, red hit
-/// - Camera shake on hit and on abilities
-/// - Double-strike burst and weapon-grey feedback
+/// HUD du Parry Game.
+/// - Top: score + combo
+/// - Bottom: 2 onglets — DÉFENSE / SOINS (l'onglet Armes est supprimé)
+/// - Hearts: HP
+/// - Textes flottants : PARRY!, AÏIE!, COMBO!, BLOQUÉ!, +1 VIE!
+/// - Flash écran + camera shake
+/// - Police JimNightshade sur tous les textes
 /// </summary>
 public class PGHUD : MonoBehaviour
 {
     // ── Constants ─────────────────────────────────────────────────────────────
 
     private const float CanvasRefW    = 1080f;
-    private const float CanvasRefH    = 1920f;
-
-    // Bottom bar
     private const float TabBarH       = 220f;
     private const float TabBarPadding = 24f;
-
-    // Hearts
     private const float HeartSize     = 80f;
     private const float HeartSpacing  = 20f;
-
-    // Score pop
     private const float PopPeakScale  = 1.35f;
     private const float PopDuration   = 0.18f;
 
@@ -36,23 +29,22 @@ public class PGHUD : MonoBehaviour
     [Header("Settings")]
     public PGSettings settings;
 
-    // ── Internal references ───────────────────────────────────────────────────
+    // ── Internal refs ─────────────────────────────────────────────────────────
 
-    private TextMeshProUGUI scoreLabel;
-    private TextMeshProUGUI comboLabel;
-    private Image[]         heartImages;
-    private int             maxHp;
+    private TextMeshProUGUI   scoreLabel;
+    private TextMeshProUGUI   comboLabel;
+    private Image[]           heartImages;
+    private int               maxHp;
+    private Coroutine         scorePopCoroutine;
+    private Coroutine         comboPopCoroutine;
 
-    private Coroutine scorePopCoroutine;
-    private Coroutine comboPopCoroutine;
+    // Tabs : [0]=Défense  [1]=Soins
+    private Image[]           tabBgImages;
+    private Image[]           cooldownFill;
+    private TextMeshProUGUI[] cooldownLabel;
+    private bool[]            tabReady;
 
-    // Per-tab state
-    private Image[]         tabBgImages;     // [0]=Defense [1]=Weapon [2]=Heal
-    private Image[]         cooldownFill;    // fill bar under each tab
-    private TextMeshProUGUI[] cooldownLabel; // "45s" countdown text
-    private bool[]          tabReady;
-
-    // Feedback overlays
+    // Overlays plein écran
     private Image _healFlashOverlay;
     private Image _shieldBlockOverlay;
     private Image _hitFlashOverlay;
@@ -61,46 +53,57 @@ public class PGHUD : MonoBehaviour
     private Coroutine _shakeCoroutine;
     private Vector3   _camOrigin;
 
+    // Root pour textes flottants
+    private RectTransform _feedbackRoot;
+
     // ── Lifecycle ─────────────────────────────────────────────────────────────
 
     private void OnEnable()
     {
-        PGGameManager.OnScoreChanged  += HandleScore;
-        PGGameManager.OnComboChanged  += HandleCombo;
-        PGGameManager.OnHpChanged     += HandleHp;
-        PGGameManager.OnHpRestored    += HandleHpRestored;
-        PGGameManager.OnGameOver      += HandleGameOver;
-        PGGameManager.OnShieldBlocked += HandleShieldBlocked;
-        PGGameManager.OnParryFail     += HandleHit;
+        PGGameManager.OnScoreChanged   += HandleScore;
+        PGGameManager.OnComboChanged   += HandleCombo;
+        PGGameManager.OnHpChanged      += HandleHp;
+        PGGameManager.OnHpRestored     += HandleHpRestored;
+        PGGameManager.OnGameOver       += HandleGameOver;
+        PGGameManager.OnShieldBlocked  += HandleShieldBlocked;
+        PGGameManager.OnParryFail      += HandleHit;
+        PGGameManager.OnParrySuccess   += HandleParrySuccess;
 
-        PGAbilitySystem.OnAbilityUsed     += HandleAbilityUsed;
-        PGAbilitySystem.OnAbilityReady    += HandleAbilityReady;
+        PGAbilitySystem.OnAbilityUsed      += HandleAbilityUsed;
+        PGAbilitySystem.OnAbilityReady     += HandleAbilityReady;
         PGAbilitySystem.OnCooldownProgress += HandleCooldownProgress;
     }
 
     private void OnDisable()
     {
-        PGGameManager.OnScoreChanged  -= HandleScore;
-        PGGameManager.OnComboChanged  -= HandleCombo;
-        PGGameManager.OnHpChanged     -= HandleHp;
-        PGGameManager.OnHpRestored    -= HandleHpRestored;
-        PGGameManager.OnGameOver      -= HandleGameOver;
-        PGGameManager.OnShieldBlocked -= HandleShieldBlocked;
-        PGGameManager.OnParryFail     -= HandleHit;
+        PGGameManager.OnScoreChanged   -= HandleScore;
+        PGGameManager.OnComboChanged   -= HandleCombo;
+        PGGameManager.OnHpChanged      -= HandleHp;
+        PGGameManager.OnHpRestored     -= HandleHpRestored;
+        PGGameManager.OnGameOver       -= HandleGameOver;
+        PGGameManager.OnShieldBlocked  -= HandleShieldBlocked;
+        PGGameManager.OnParryFail      -= HandleHit;
+        PGGameManager.OnParrySuccess   -= HandleParrySuccess;
 
-        PGAbilitySystem.OnAbilityUsed     -= HandleAbilityUsed;
-        PGAbilitySystem.OnAbilityReady    -= HandleAbilityReady;
+        PGAbilitySystem.OnAbilityUsed      -= HandleAbilityUsed;
+        PGAbilitySystem.OnAbilityReady     -= HandleAbilityReady;
         PGAbilitySystem.OnCooldownProgress -= HandleCooldownProgress;
     }
 
-    // ── Initialisation ────────────────────────────────────────────────────────
+    // ── Init ──────────────────────────────────────────────────────────────────
 
-    /// <summary>Builds the full HUD inside the provided canvas RectTransform.</summary>
     public void Init(RectTransform canvasRT)
     {
         maxHp = settings != null ? settings.maxHp : 3;
-
         if (Camera.main != null) _camOrigin = Camera.main.transform.position;
+
+        // Root textes flottants (au-dessus du jeu, sous les overlays)
+        var feedbackGO = new GameObject("FeedbackRoot");
+        feedbackGO.transform.SetParent(canvasRT, false);
+        _feedbackRoot            = feedbackGO.AddComponent<RectTransform>();
+        _feedbackRoot.anchorMin  = Vector2.zero;
+        _feedbackRoot.anchorMax  = Vector2.one;
+        _feedbackRoot.offsetMin  = _feedbackRoot.offsetMax = Vector2.zero;
 
         BuildTopBar(canvasRT);
         BuildHearts(canvasRT);
@@ -110,51 +113,53 @@ public class PGHUD : MonoBehaviour
         BuildHitFlashOverlay(canvasRT);
     }
 
-    // ── Top bar (score + combo) ───────────────────────────────────────────────
+    // ── Top bar ───────────────────────────────────────────────────────────────
 
     private void BuildTopBar(RectTransform canvasRT)
     {
         var root = MakeRT("TopBar", canvasRT);
-        root.anchorMin       = new Vector2(0f, 1f);
-        root.anchorMax       = new Vector2(1f, 1f);
-        root.pivot           = new Vector2(0.5f, 1f);
-        root.sizeDelta       = new Vector2(0f, 160f);
+        root.anchorMin        = new Vector2(0f, 1f);
+        root.anchorMax        = new Vector2(1f, 1f);
+        root.pivot            = new Vector2(0.5f, 1f);
+        root.sizeDelta        = new Vector2(0f, 160f);
         root.anchoredPosition = Vector2.zero;
 
-        var bg    = root.gameObject.AddComponent<Image>();
-        bg.color  = new Color(0f, 0f, 0f, 0.55f);
+        var bg           = root.gameObject.AddComponent<Image>();
+        bg.color         = new Color(0f, 0f, 0f, 0.55f);
         bg.raycastTarget = false;
 
-        var scoreGO = new GameObject("Score");
+        // Score
+        var scoreGO              = new GameObject("Score");
         scoreGO.transform.SetParent(root, false);
-        scoreLabel = scoreGO.AddComponent<TextMeshProUGUI>();
-        scoreLabel.text      = "0";
-        scoreLabel.fontSize  = 72f;
-        scoreLabel.fontStyle = FontStyles.Bold;
-        scoreLabel.color     = Color.white;
-        scoreLabel.alignment = TextAlignmentOptions.Center;
+        scoreLabel               = scoreGO.AddComponent<TextMeshProUGUI>();
+        scoreLabel.text          = "0";
+        scoreLabel.fontSize      = 72f;
+        scoreLabel.fontStyle     = FontStyles.Bold;
+        scoreLabel.color         = Color.white;
+        scoreLabel.alignment     = TextAlignmentOptions.Center;
         scoreLabel.raycastTarget = false;
         MenuAssets.ApplyFont(scoreLabel);
-        var sRT        = scoreLabel.rectTransform;
-        sRT.anchorMin  = new Vector2(0.2f, 0f);
-        sRT.anchorMax  = new Vector2(0.8f, 1f);
-        sRT.offsetMin  = sRT.offsetMax = Vector2.zero;
+        var sRT       = scoreLabel.rectTransform;
+        sRT.anchorMin = new Vector2(0.2f, 0f);
+        sRT.anchorMax = new Vector2(0.8f, 1f);
+        sRT.offsetMin = sRT.offsetMax = Vector2.zero;
 
-        var comboGO = new GameObject("Combo");
+        // Combo
+        var comboGO              = new GameObject("Combo");
         comboGO.transform.SetParent(root, false);
-        comboLabel = comboGO.AddComponent<TextMeshProUGUI>();
-        comboLabel.text      = "";
-        comboLabel.fontSize  = 40f;
-        comboLabel.fontStyle = FontStyles.Bold;
-        comboLabel.color     = new Color(1f, 0.85f, 0.2f, 1f);
-        comboLabel.alignment = TextAlignmentOptions.Center;
+        comboLabel               = comboGO.AddComponent<TextMeshProUGUI>();
+        comboLabel.text          = "";
+        comboLabel.fontSize      = 40f;
+        comboLabel.fontStyle     = FontStyles.Bold;
+        comboLabel.color         = new Color(1f, 0.85f, 0.2f, 1f);
+        comboLabel.alignment     = TextAlignmentOptions.Center;
         comboLabel.raycastTarget = false;
         MenuAssets.ApplyFont(comboLabel);
         comboGO.SetActive(false);
-        var cRT        = comboLabel.rectTransform;
-        cRT.anchorMin  = new Vector2(0.6f, 0f);
-        cRT.anchorMax  = new Vector2(1f, 1f);
-        cRT.offsetMin  = cRT.offsetMax = Vector2.zero;
+        var cRT       = comboLabel.rectTransform;
+        cRT.anchorMin = new Vector2(0.6f, 0f);
+        cRT.anchorMax = new Vector2(1f, 1f);
+        cRT.offsetMin = cRT.offsetMax = Vector2.zero;
     }
 
     // ── Hearts ────────────────────────────────────────────────────────────────
@@ -171,9 +176,9 @@ public class PGHUD : MonoBehaviour
         heartImages = new Image[maxHp];
         for (int i = 0; i < maxHp; i++)
         {
-            var hGO = new GameObject($"Heart_{i}");
+            var hGO           = new GameObject($"Heart_{i}");
             hGO.transform.SetParent(root, false);
-            var img = hGO.AddComponent<Image>();
+            var img           = hGO.AddComponent<Image>();
             img.color         = new Color(0.95f, 0.25f, 0.25f, 1f);
             img.raycastTarget = false;
             img.sprite        = SpriteGenerator.CreateCircle(64);
@@ -187,14 +192,14 @@ public class PGHUD : MonoBehaviour
         }
     }
 
-    // ── Bottom tab bar (Défense / Armes / Soins) ──────────────────────────────
+    // ── Bottom tab bar : DÉFENSE / SOINS (2 onglets) ─────────────────────────
 
     private void BuildBottomTabBar(RectTransform canvasRT)
     {
-        tabBgImages    = new Image[3];
-        cooldownFill   = new Image[3];
-        cooldownLabel  = new TextMeshProUGUI[3];
-        tabReady       = new bool[] { true, true, true };
+        tabBgImages   = new Image[2];
+        cooldownFill  = new Image[2];
+        cooldownLabel = new TextMeshProUGUI[2];
+        tabReady      = new bool[] { true, true };
 
         var root = MakeRT("BottomTabBar", canvasRT);
         root.anchorMin        = new Vector2(0f, 0f);
@@ -203,25 +208,24 @@ public class PGHUD : MonoBehaviour
         root.sizeDelta        = new Vector2(0f, TabBarH);
         root.anchoredPosition = Vector2.zero;
 
-        var bg = root.gameObject.AddComponent<Image>();
-        bg.color = new Color(0.05f, 0.05f, 0.08f, 0.92f);
+        var bg           = root.gameObject.AddComponent<Image>();
+        bg.color         = new Color(0.05f, 0.05f, 0.08f, 0.92f);
         bg.raycastTarget = false;
 
-        string[] labels = { "DÉFENSE", "ARMES", "SOINS" };
-        string[] icons  = { "🛡", "⚔", "♥" };
+        string[] labels = { "DÉFENSE", "SOINS" };
+        string[] icons  = { "🛡", "♥" };
         Color[]  colors =
         {
-            settings != null ? settings.colorDefense : new Color(0.30f, 0.55f, 1f, 1f),
-            settings != null ? settings.colorWeapons : new Color(1f, 0.38f, 0.28f, 1f),
+            settings != null ? settings.colorDefense : new Color(0.30f, 0.55f, 1f,   1f),
             settings != null ? settings.colorHeals   : new Color(0.25f, 0.85f, 0.45f, 1f),
         };
 
-        float tabW = (CanvasRefW - TabBarPadding * 4f) / 3f;
+        float tabW = (CanvasRefW - TabBarPadding * 3f) / 2f;
         float tabH = TabBarH - TabBarPadding * 2f;
 
         for (int i = 0; i < labels.Length; i++)
         {
-            int captured = i; // capture for lambda
+            int captured = i;
             BuildTab(root, labels[i], icons[i], colors[i], i, tabW, tabH,
                      () => OnTabPressed(captured));
         }
@@ -231,26 +235,25 @@ public class PGHUD : MonoBehaviour
                           Color accentColor, int index, float tabW, float tabH,
                           UnityEngine.Events.UnityAction onClick)
     {
-        var tabGO = new GameObject($"Tab_{label}");
+        var tabGO  = new GameObject($"Tab_{label}");
         tabGO.transform.SetParent(parent, false);
 
-        // Background
-        var img   = tabGO.AddComponent<Image>();
+        var img    = tabGO.AddComponent<Image>();
         img.sprite = SpriteGenerator.CreateWhiteSquare();
         img.color  = new Color(accentColor.r * 0.18f, accentColor.g * 0.18f, accentColor.b * 0.18f, 1f);
         tabBgImages[index] = img;
 
-        var rt          = img.rectTransform;
-        rt.anchorMin    = new Vector2(0f, 0f);
-        rt.anchorMax    = new Vector2(0f, 0f);
-        rt.pivot        = new Vector2(0f, 0f);
-        rt.sizeDelta    = new Vector2(tabW, tabH);
+        var rt             = img.rectTransform;
+        rt.anchorMin       = new Vector2(0f, 0f);
+        rt.anchorMax       = new Vector2(0f, 0f);
+        rt.pivot           = new Vector2(0f, 0f);
+        rt.sizeDelta       = new Vector2(tabW, tabH);
         rt.anchoredPosition = new Vector2(TabBarPadding + index * (tabW + TabBarPadding), TabBarPadding);
 
-        // Accent top border
-        var borderGO  = new GameObject("Border");
-        borderGO.transform.SetParent(rt, false);
-        var bImg      = borderGO.AddComponent<Image>();
+        // Bord accent haut
+        var bGO       = new GameObject("Border");
+        bGO.transform.SetParent(rt, false);
+        var bImg      = bGO.AddComponent<Image>();
         bImg.color    = accentColor;
         bImg.raycastTarget = false;
         var bRT       = bImg.rectTransform;
@@ -260,89 +263,91 @@ public class PGHUD : MonoBehaviour
         bRT.sizeDelta = new Vector2(0f, 6f);
         bRT.anchoredPosition = Vector2.zero;
 
-        // Icon (emoji)
-        var iGO  = new GameObject("Icon");
+        // Icône — police JimNightshade
+        var iGO            = new GameObject("Icon");
         iGO.transform.SetParent(rt, false);
-        var iTmp = iGO.AddComponent<TextMeshProUGUI>();
-        iTmp.text      = icon;
-        iTmp.fontSize  = 52f;
-        iTmp.alignment = TextAlignmentOptions.Center;
+        var iTmp           = iGO.AddComponent<TextMeshProUGUI>();
+        iTmp.text          = icon;
+        iTmp.fontSize      = 52f;
+        iTmp.alignment     = TextAlignmentOptions.Center;
         iTmp.raycastTarget = false;
-        var iRT        = iTmp.rectTransform;
-        iRT.anchorMin  = new Vector2(0f, 0.40f);
-        iRT.anchorMax  = new Vector2(1f, 1f);
-        iRT.offsetMin  = iRT.offsetMax = Vector2.zero;
+        MenuAssets.ApplyFont(iTmp);
+        var iRT            = iTmp.rectTransform;
+        iRT.anchorMin      = new Vector2(0f, 0.40f);
+        iRT.anchorMax      = new Vector2(1f, 1f);
+        iRT.offsetMin      = iRT.offsetMax = Vector2.zero;
 
-        // Label
-        var lblGO = new GameObject("Label");
+        // Label — police JimNightshade
+        var lblGO          = new GameObject("Label");
         lblGO.transform.SetParent(rt, false);
-        var tmp   = lblGO.AddComponent<TextMeshProUGUI>();
-        tmp.text      = label;
-        tmp.fontSize  = 26f;
-        tmp.fontStyle = FontStyles.Bold;
-        tmp.color     = new Color(accentColor.r, accentColor.g, accentColor.b, 1f);
-        tmp.alignment = TextAlignmentOptions.Bottom | TextAlignmentOptions.Center;
-        tmp.raycastTarget = false;
-        MenuAssets.ApplyFont(tmp);
-        var lRT       = tmp.rectTransform;
-        lRT.anchorMin = new Vector2(0f, 0f);
-        lRT.anchorMax = new Vector2(1f, 0.42f);
-        lRT.offsetMin = new Vector2(4f, 4f);
-        lRT.offsetMax = new Vector2(-4f, 0f);
+        var lTmp           = lblGO.AddComponent<TextMeshProUGUI>();
+        lTmp.text          = label;
+        lTmp.fontSize      = 26f;
+        lTmp.fontStyle     = FontStyles.Bold;
+        lTmp.color         = accentColor;
+        lTmp.alignment     = TextAlignmentOptions.Bottom | TextAlignmentOptions.Center;
+        lTmp.raycastTarget = false;
+        MenuAssets.ApplyFont(lTmp);
+        var lRT            = lTmp.rectTransform;
+        lRT.anchorMin      = new Vector2(0f, 0f);
+        lRT.anchorMax      = new Vector2(1f, 0.42f);
+        lRT.offsetMin      = new Vector2(4f, 4f);
+        lRT.offsetMax      = new Vector2(-4f, 0f);
 
-        // Cooldown fill bar (grows left→right as cooldown progresses)
-        var fillBgGO = new GameObject("CooldownBg");
-        fillBgGO.transform.SetParent(rt, false);
-        var fillBgImg = fillBgGO.AddComponent<Image>();
-        fillBgImg.sprite = SpriteGenerator.CreateWhiteSquare();
-        fillBgImg.color  = new Color(0f, 0f, 0f, 0.45f);
-        fillBgImg.raycastTarget = false;
-        var fillBgRT    = fillBgImg.rectTransform;
-        fillBgRT.anchorMin = new Vector2(0f, 0f);
-        fillBgRT.anchorMax = new Vector2(1f, 0f);
-        fillBgRT.pivot     = new Vector2(0f, 0f);
-        fillBgRT.sizeDelta = new Vector2(0f, 8f);
-        fillBgRT.anchoredPosition = Vector2.zero;
+        // Cooldown fond
+        var fbGO          = new GameObject("CooldownBg");
+        fbGO.transform.SetParent(rt, false);
+        var fbImg         = fbGO.AddComponent<Image>();
+        fbImg.sprite      = SpriteGenerator.CreateWhiteSquare();
+        fbImg.color       = new Color(0f, 0f, 0f, 0.45f);
+        fbImg.raycastTarget = false;
+        var fbRT          = fbImg.rectTransform;
+        fbRT.anchorMin    = new Vector2(0f, 0f);
+        fbRT.anchorMax    = new Vector2(1f, 0f);
+        fbRT.pivot        = new Vector2(0f, 0f);
+        fbRT.sizeDelta    = new Vector2(0f, 8f);
+        fbRT.anchoredPosition = Vector2.zero;
 
-        var fillGO = new GameObject("CooldownFill");
-        fillGO.transform.SetParent(rt, false);
-        var fillImg = fillGO.AddComponent<Image>();
-        fillImg.sprite = SpriteGenerator.CreateWhiteSquare();
-        fillImg.color  = accentColor;
-        fillImg.type   = Image.Type.Filled;
-        fillImg.fillMethod = Image.FillMethod.Horizontal;
-        fillImg.fillAmount = 1f; // starts full (ready)
-        fillImg.raycastTarget = false;
-        var fillRT     = fillImg.rectTransform;
-        fillRT.anchorMin = new Vector2(0f, 0f);
-        fillRT.anchorMax = new Vector2(1f, 0f);
-        fillRT.pivot     = new Vector2(0f, 0f);
-        fillRT.sizeDelta = new Vector2(0f, 8f);
-        fillRT.anchoredPosition = Vector2.zero;
-        cooldownFill[index] = fillImg;
+        // Cooldown fill
+        var fGO           = new GameObject("CooldownFill");
+        fGO.transform.SetParent(rt, false);
+        var fImg          = fGO.AddComponent<Image>();
+        fImg.sprite       = SpriteGenerator.CreateWhiteSquare();
+        fImg.color        = accentColor;
+        fImg.type         = Image.Type.Filled;
+        fImg.fillMethod   = Image.FillMethod.Horizontal;
+        fImg.fillAmount   = 1f;
+        fImg.raycastTarget = false;
+        var fRT           = fImg.rectTransform;
+        fRT.anchorMin     = new Vector2(0f, 0f);
+        fRT.anchorMax     = new Vector2(1f, 0f);
+        fRT.pivot         = new Vector2(0f, 0f);
+        fRT.sizeDelta     = new Vector2(0f, 8f);
+        fRT.anchoredPosition = Vector2.zero;
+        cooldownFill[index] = fImg;
 
-        // Cooldown text (hidden while ready)
-        var cdGO = new GameObject("CooldownTxt");
+        // Cooldown texte — police JimNightshade
+        var cdGO          = new GameObject("CooldownTxt");
         cdGO.transform.SetParent(rt, false);
-        var cdTmp = cdGO.AddComponent<TextMeshProUGUI>();
-        cdTmp.text      = "";
-        cdTmp.fontSize  = 30f;
-        cdTmp.fontStyle = FontStyles.Bold;
-        cdTmp.color     = new Color(1f, 1f, 1f, 0.70f);
-        cdTmp.alignment = TextAlignmentOptions.Center;
+        var cdTmp         = cdGO.AddComponent<TextMeshProUGUI>();
+        cdTmp.text        = "";
+        cdTmp.fontSize    = 30f;
+        cdTmp.fontStyle   = FontStyles.Bold;
+        cdTmp.color       = new Color(1f, 1f, 1f, 0.70f);
+        cdTmp.alignment   = TextAlignmentOptions.Center;
         cdTmp.raycastTarget = false;
         MenuAssets.ApplyFont(cdTmp);
         cdGO.SetActive(false);
-        var cdRT        = cdTmp.rectTransform;
-        cdRT.anchorMin  = Vector2.zero;
-        cdRT.anchorMax  = Vector2.one;
-        cdRT.offsetMin  = cdRT.offsetMax = Vector2.zero;
+        var cdRT          = cdTmp.rectTransform;
+        cdRT.anchorMin    = Vector2.zero;
+        cdRT.anchorMax    = Vector2.one;
+        cdRT.offsetMin    = cdRT.offsetMax = Vector2.zero;
         cooldownLabel[index] = cdTmp;
 
-        // Clickable button
-        var btn  = tabGO.AddComponent<Button>();
-        btn.targetGraphic = img;
-        var co   = btn.colors;
+        // Bouton
+        var btn             = tabGO.AddComponent<Button>();
+        btn.targetGraphic   = img;
+        var co              = btn.colors;
         co.normalColor      = Color.white;
         co.highlightedColor = new Color(1.2f, 1.2f, 1.2f, 1f);
         co.pressedColor     = new Color(accentColor.r, accentColor.g, accentColor.b, 0.6f);
@@ -352,54 +357,28 @@ public class PGHUD : MonoBehaviour
         btn.onClick.AddListener(onClick);
     }
 
-    // ── Feedback overlays ─────────────────────────────────────────────────────
+    // ── Overlays plein écran ──────────────────────────────────────────────────
 
-    /// <summary>Full-screen green flash shown on heal.</summary>
-    private void BuildHealFlashOverlay(RectTransform canvasRT)
+    private void BuildHealFlashOverlay(RectTransform r)     => _healFlashOverlay    = BuildOverlay(r, "HealFlash",       new Color(0.10f, 1f, 0.35f, 0f));
+    private void BuildShieldBlockOverlay(RectTransform r)   => _shieldBlockOverlay  = BuildOverlay(r, "ShieldBlockFlash",new Color(0.40f, 0.85f, 1f, 0f));
+    private void BuildHitFlashOverlay(RectTransform r)      => _hitFlashOverlay     = BuildOverlay(r, "HitFlash",        new Color(1f, 0.05f, 0.05f, 0f));
+
+    private static Image BuildOverlay(RectTransform canvasRT, string name, Color color)
     {
-        var go  = new GameObject("HealFlash");
+        var go            = new GameObject(name);
         go.transform.SetParent(canvasRT, false);
-        _healFlashOverlay = go.AddComponent<Image>();
-        _healFlashOverlay.color = new Color(0.20f, 1f, 0.40f, 0f);
-        _healFlashOverlay.raycastTarget = false;
-        var rt  = _healFlashOverlay.rectTransform;
-        rt.anchorMin = Vector2.zero;
-        rt.anchorMax = Vector2.one;
-        rt.offsetMin = rt.offsetMax = Vector2.zero;
+        var img           = go.AddComponent<Image>();
+        img.color         = color;
+        img.raycastTarget = false;
+        var rt            = img.rectTransform;
+        rt.anchorMin      = Vector2.zero;
+        rt.anchorMax      = Vector2.one;
+        rt.offsetMin      = rt.offsetMax = Vector2.zero;
         go.SetActive(false);
+        return img;
     }
 
-    /// <summary>Full-screen cyan flash shown on shield block.</summary>
-    private void BuildShieldBlockOverlay(RectTransform canvasRT)
-    {
-        var go  = new GameObject("ShieldBlockFlash");
-        go.transform.SetParent(canvasRT, false);
-        _shieldBlockOverlay = go.AddComponent<Image>();
-        _shieldBlockOverlay.color = new Color(0.40f, 0.85f, 1f, 0f);
-        _shieldBlockOverlay.raycastTarget = false;
-        var rt  = _shieldBlockOverlay.rectTransform;
-        rt.anchorMin = Vector2.zero;
-        rt.anchorMax = Vector2.one;
-        rt.offsetMin = rt.offsetMax = Vector2.zero;
-        go.SetActive(false);
-    }
-
-    /// <summary>Full-screen red flash shown on player hit.</summary>
-    private void BuildHitFlashOverlay(RectTransform canvasRT)
-    {
-        var go  = new GameObject("HitFlash");
-        go.transform.SetParent(canvasRT, false);
-        _hitFlashOverlay = go.AddComponent<Image>();
-        _hitFlashOverlay.color = new Color(1f, 0.05f, 0.05f, 0f);
-        _hitFlashOverlay.raycastTarget = false;
-        var rt  = _hitFlashOverlay.rectTransform;
-        rt.anchorMin = Vector2.zero;
-        rt.anchorMax = Vector2.one;
-        rt.offsetMin = rt.offsetMax = Vector2.zero;
-        go.SetActive(false);
-    }
-
-    // ── Tab press dispatch ────────────────────────────────────────────────────
+    // ── Tab dispatch ──────────────────────────────────────────────────────────
 
     private void OnTabPressed(int index)
     {
@@ -409,12 +388,10 @@ public class PGHUD : MonoBehaviour
 
         switch (index)
         {
-            case 0: ability.UseShield(); break;
-            case 1: ability.UseWeapon(); break;
-            case 2: ability.UseHeal();   break;
+            case 0: ability.UseShield(); break; // Défense
+            case 1: ability.UseHeal();   break; // Soins
         }
 
-        // Haptic pop on the tab icon
         StartCoroutine(TabPressEffect(index));
     }
 
@@ -423,6 +400,7 @@ public class PGHUD : MonoBehaviour
     private void HandleAbilityUsed(PGAbilitySystem.AbilityType type)
     {
         int idx = AbilityIndex(type);
+        if (idx < 0) return;
         tabReady[idx] = false;
         SetTabGreyed(idx, true);
         if (cooldownLabel[idx] != null) cooldownLabel[idx].gameObject.SetActive(true);
@@ -432,27 +410,31 @@ public class PGHUD : MonoBehaviour
     private void HandleAbilityReady(PGAbilitySystem.AbilityType type)
     {
         int idx = AbilityIndex(type);
+        if (idx < 0) return;
         tabReady[idx] = true;
         SetTabGreyed(idx, false);
-        if (cooldownLabel[idx] != null) { cooldownLabel[idx].text = ""; cooldownLabel[idx].gameObject.SetActive(false); }
-        if (cooldownFill[idx]  != null) cooldownFill[idx].fillAmount = 1f;
+        if (cooldownLabel[idx] != null)
+        {
+            cooldownLabel[idx].text = "";
+            cooldownLabel[idx].gameObject.SetActive(false);
+        }
+        if (cooldownFill[idx] != null) cooldownFill[idx].fillAmount = 1f;
         StartCoroutine(TabReadyFlash(idx));
     }
 
     private void HandleCooldownProgress(PGAbilitySystem.AbilityType type, float progress)
     {
         int idx = AbilityIndex(type);
-        if (cooldownFill[idx]  != null) cooldownFill[idx].fillAmount  = progress;
+        if (idx < 0) return;
+        if (cooldownFill[idx]  != null) cooldownFill[idx].fillAmount = progress;
         if (cooldownLabel[idx] != null)
         {
             float total = type switch
             {
-                PGAbilitySystem.AbilityType.Heal   => settings != null ? settings.healCooldown   : 45f,
-                PGAbilitySystem.AbilityType.Weapon => settings != null ? settings.weaponCooldown : 20f,
-                _                                  => settings != null ? settings.shieldCooldown :  8f,
+                PGAbilitySystem.AbilityType.Heal => settings != null ? settings.healCooldown   : 45f,
+                _                                => settings != null ? settings.shieldCooldown :  8f,
             };
-            float remaining = Mathf.Ceil(total * (1f - progress));
-            cooldownLabel[idx].text = $"{remaining:0}s";
+            cooldownLabel[idx].text = $"{Mathf.Ceil(total * (1f - progress)):0}s";
         }
     }
 
@@ -466,14 +448,32 @@ public class PGHUD : MonoBehaviour
         scorePopCoroutine = StartCoroutine(PopRoutine(scoreLabel.transform, PopPeakScale, PopDuration));
     }
 
+    private void HandleParrySuccess()
+    {
+        SpawnFloatingText("PARRY!", new Color(1f, 0.92f, 0.20f, 1f), 72f,
+                          new Vector2(0f, 100f), Vector2.up * 200f, 0.75f);
+    }
+
     private void HandleCombo(int combo)
     {
         if (comboLabel == null) return;
         if (combo <= 1) { comboLabel.gameObject.SetActive(false); return; }
+
         comboLabel.gameObject.SetActive(true);
-        comboLabel.text = $"x{combo} combo";
+        comboLabel.text = $"x{combo} COMBO!";
         if (comboPopCoroutine != null) StopCoroutine(comboPopCoroutine);
-        comboPopCoroutine = StartCoroutine(PopRoutine(comboLabel.transform, 1.25f, PopDuration));
+
+        float peak = 1.25f + Mathf.Min(combo - 2, 8) * 0.08f;
+        comboPopCoroutine = StartCoroutine(PopRoutine(comboLabel.transform, peak, PopDuration));
+
+        Color col = combo >= 10
+            ? new Color(1f, 0.25f, 0.10f, 1f)
+            : combo >= 5
+                ? new Color(1f, 0.55f, 0.10f, 1f)
+                : new Color(1f, 0.85f, 0.20f, 1f);
+
+        SpawnFloatingText($"x{combo} COMBO!", col, 68f + Mathf.Min(combo, 15) * 2.5f,
+                          new Vector2(0f, 200f), Vector2.up * 230f, 1.0f);
     }
 
     private void HandleHp(int hp)
@@ -482,19 +482,19 @@ public class PGHUD : MonoBehaviour
         for (int i = 0; i < heartImages.Length; i++)
         {
             if (heartImages[i] == null) continue;
-            bool alive = i < hp;
-            heartImages[i].color = alive
+            heartImages[i].color = i < hp
                 ? new Color(0.95f, 0.25f, 0.25f, 1f)
-                : new Color(0.3f, 0.3f, 0.3f, 0.4f);
+                : new Color(0.30f, 0.30f, 0.30f, 0.40f);
         }
     }
 
     private void HandleHpRestored(int hp)
     {
         HandleHp(hp);
-        // Strong green flash + big heart pop + camera shake
         StartCoroutine(ScreenFlash(_healFlashOverlay, new Color(0.10f, 1f, 0.35f, 0.72f), 0.70f));
         StartCoroutine(CameraShake(0.18f, 0.12f));
+        SpawnFloatingText("+1 VIE!", new Color(0.20f, 1f, 0.40f, 1f), 80f,
+                          new Vector2(0f, 300f), Vector2.up * 180f, 0.80f);
 
         if (heartImages != null)
             for (int i = 0; i < hp && i < heartImages.Length; i++)
@@ -503,18 +503,19 @@ public class PGHUD : MonoBehaviour
 
     private void HandleShieldBlocked()
     {
-        // Strong cyan flash + camera shake
         StartCoroutine(ScreenFlash(_shieldBlockOverlay, new Color(0.40f, 0.85f, 1f, 0.80f), 0.45f));
         StartCoroutine(CameraShake(0.20f, 0.14f));
+        SpawnFloatingText("BLOQUÉ!", new Color(0.40f, 0.85f, 1f, 1f), 70f,
+                          new Vector2(0f, 100f), Vector2.up * 190f, 0.65f);
     }
 
     private void HandleHit()
     {
-        // Red vignette flash + strong camera shake
         StartCoroutine(ScreenFlash(_hitFlashOverlay, new Color(1f, 0.05f, 0.05f, 0.70f), 0.50f));
         StartCoroutine(CameraShake(0.32f, 0.22f));
+        SpawnFloatingText("AÏIE!", new Color(1f, 0.10f, 0.10f, 1f), 100f,
+                          new Vector2(0f, 0f), Vector2.up * 160f, 0.70f);
 
-        // Shake active hearts
         if (heartImages != null)
             for (int i = 0; i < heartImages.Length; i++)
                 if (heartImages[i] != null && heartImages[i].color.a > 0.5f)
@@ -526,7 +527,69 @@ public class PGHUD : MonoBehaviour
         if (comboLabel != null) comboLabel.gameObject.SetActive(false);
     }
 
-    // ── Visual helpers ────────────────────────────────────────────────────────
+    // ── Textes flottants ──────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Spawne un texte animé avec police JimNightshade :
+    /// pop d'apparition → dérive en pixels → fondu quadratique.
+    /// </summary>
+    private void SpawnFloatingText(string text, Color color, float fontSize,
+                                   Vector2 anchorOffset, Vector2 drift, float duration)
+    {
+        if (_feedbackRoot == null) return;
+        StartCoroutine(FloatingTextRoutine(text, color, fontSize, anchorOffset, drift, duration));
+    }
+
+    private IEnumerator FloatingTextRoutine(string text, Color color, float fontSize,
+                                            Vector2 anchorOffset, Vector2 drift, float duration)
+    {
+        var go             = new GameObject("FloatTxt");
+        go.transform.SetParent(_feedbackRoot, false);
+
+        var tmp            = go.AddComponent<TextMeshProUGUI>();
+        tmp.text           = text;
+        tmp.fontSize       = fontSize;
+        tmp.fontStyle      = FontStyles.Bold;
+        tmp.color          = color;
+        tmp.alignment      = TextAlignmentOptions.Center;
+        tmp.raycastTarget  = false;
+        MenuAssets.ApplyFont(tmp);
+
+        var rt             = tmp.rectTransform;
+        rt.anchorMin       = new Vector2(0.5f, 0.5f);
+        rt.anchorMax       = new Vector2(0.5f, 0.5f);
+        rt.pivot           = new Vector2(0.5f, 0.5f);
+        rt.sizeDelta       = new Vector2(900f, 220f);
+        rt.anchoredPosition = anchorOffset;
+
+        // Pop d'apparition
+        float e = 0f;
+        while (e < 0.10f)
+        {
+            e += Time.deltaTime;
+            go.transform.localScale = Vector3.one * Mathf.Lerp(0.3f, 1.15f, e / 0.10f);
+            yield return null;
+        }
+        go.transform.localScale = Vector3.one;
+
+        // Dérive + fondu quadratique
+        Vector2 startPos = anchorOffset;
+        e = 0f;
+        while (e < duration)
+        {
+            e += Time.deltaTime;
+            float r           = e / duration;
+            rt.anchoredPosition = startPos + drift * r;
+            var c             = color;
+            c.a               = Mathf.Lerp(1f, 0f, r * r);
+            tmp.color         = c;
+            yield return null;
+        }
+
+        Destroy(go);
+    }
+
+    // ── Tab visual helpers ────────────────────────────────────────────────────
 
     private void SetTabGreyed(int idx, bool greyed)
     {
@@ -534,14 +597,12 @@ public class PGHUD : MonoBehaviour
         var btn = tabBgImages[idx].GetComponent<Button>();
         if (btn != null) btn.interactable = !greyed;
 
-        // Dim the background
         var c = tabBgImages[idx].color;
         tabBgImages[idx].color = greyed
             ? new Color(c.r * 0.3f, c.g * 0.3f, c.b * 0.3f, 1f)
-            : new Color(c.r / 0.3f, c.g / 0.3f, c.b / 0.3f, 1f);
+            : new Color(Mathf.Min(c.r / 0.3f, 1f), Mathf.Min(c.g / 0.3f, 1f), Mathf.Min(c.b / 0.3f, 1f), 1f);
     }
 
-    /// <summary>Brief bright flash when an ability comes off cooldown.</summary>
     private IEnumerator TabReadyFlash(int idx)
     {
         if (tabBgImages[idx] == null) yield break;
@@ -555,14 +616,14 @@ public class PGHUD : MonoBehaviour
         tabBgImages[idx].color = original;
     }
 
-    /// <summary>Scale-pop on the tab icon when pressed.</summary>
     private IEnumerator TabPressEffect(int idx)
     {
         if (tabBgImages[idx] == null) yield break;
         yield return PopRoutine(tabBgImages[idx].transform, 1.12f, 0.14f);
     }
 
-    /// <summary>Full-screen colored flash (fade in → fade out).</summary>
+    // ── Screen flash + camera shake ───────────────────────────────────────────
+
     private IEnumerator ScreenFlash(Image overlay, Color peakColor, float duration)
     {
         if (overlay == null) yield break;
@@ -573,8 +634,7 @@ public class PGHUD : MonoBehaviour
         while (t < half)
         {
             t += Time.deltaTime;
-            var c   = peakColor;
-            c.a     = Mathf.Lerp(0f, peakColor.a, t / half);
+            var c = peakColor; c.a = Mathf.Lerp(0f, peakColor.a, t / half);
             overlay.color = c;
             yield return null;
         }
@@ -582,30 +642,19 @@ public class PGHUD : MonoBehaviour
         while (t < half)
         {
             t += Time.deltaTime;
-            var c   = peakColor;
-            c.a     = Mathf.Lerp(peakColor.a, 0f, t / half);
+            var c = peakColor; c.a = Mathf.Lerp(peakColor.a, 0f, t / half);
             overlay.color = c;
             yield return null;
         }
-
         overlay.color = new Color(peakColor.r, peakColor.g, peakColor.b, 0f);
         overlay.gameObject.SetActive(false);
     }
 
-    // ── Camera shake ──────────────────────────────────────────────────────────
-
-    /// <summary>Shakes the main camera by <paramref name="magnitude"/> world units for <paramref name="duration"/> seconds.</summary>
     private IEnumerator CameraShake(float duration, float magnitude)
     {
         var cam = Camera.main;
         if (cam == null) yield break;
-
-        if (_shakeCoroutine != null)
-        {
-            StopCoroutine(_shakeCoroutine);
-            cam.transform.position = _camOrigin;
-        }
-
+        if (_shakeCoroutine != null) { StopCoroutine(_shakeCoroutine); cam.transform.position = _camOrigin; }
         _shakeCoroutine = StartCoroutine(ShakeRoutine(cam, duration, magnitude));
         yield return _shakeCoroutine;
         _shakeCoroutine = null;
@@ -618,9 +667,9 @@ public class PGHUD : MonoBehaviour
         {
             elapsed += Time.unscaledDeltaTime;
             float decay = 1f - elapsed / duration;
-            float ox    = Random.Range(-1f, 1f) * magnitude * decay;
-            float oy    = Random.Range(-1f, 1f) * magnitude * decay;
-            cam.transform.position = _camOrigin + new Vector3(ox, oy, 0f);
+            cam.transform.position = _camOrigin + new Vector3(
+                Random.Range(-1f, 1f) * magnitude * decay,
+                Random.Range(-1f, 1f) * magnitude * decay, 0f);
             yield return null;
         }
         cam.transform.position = _camOrigin;
@@ -630,32 +679,21 @@ public class PGHUD : MonoBehaviour
 
     private static IEnumerator PopRoutine(Transform t, float peakScale, float duration)
     {
-        float half = duration * 0.5f;
-        float e = 0f;
-        while (e < half)
-        {
-            e += Time.deltaTime;
-            t.localScale = Vector3.one * Mathf.Lerp(1f, peakScale, e / half);
-            yield return null;
-        }
+        float half = duration * 0.5f, e = 0f;
+        while (e < half) { e += Time.deltaTime; t.localScale = Vector3.one * Mathf.Lerp(1f, peakScale, e / half); yield return null; }
         e = 0f;
-        while (e < half)
-        {
-            e += Time.deltaTime;
-            t.localScale = Vector3.one * Mathf.Lerp(peakScale, 1f, e / half);
-            yield return null;
-        }
+        while (e < half) { e += Time.deltaTime; t.localScale = Vector3.one * Mathf.Lerp(peakScale, 1f, e / half); yield return null; }
         t.localScale = Vector3.one;
     }
 
     // ── Utilities ─────────────────────────────────────────────────────────────
 
+    /// <summary>Index du tab pour un type d'ability. Retourne -1 si le type n'a plus de tab.</summary>
     private static int AbilityIndex(PGAbilitySystem.AbilityType type) => type switch
     {
         PGAbilitySystem.AbilityType.Shield => 0,
-        PGAbilitySystem.AbilityType.Weapon => 1,
-        PGAbilitySystem.AbilityType.Heal   => 2,
-        _                                  => 0,
+        PGAbilitySystem.AbilityType.Heal   => 1,
+        _                                  => -1,
     };
 
     private static RectTransform MakeRT(string name, Transform parent)
