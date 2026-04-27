@@ -222,8 +222,8 @@ public class PGSceneSetup : MonoBehaviour
             go.transform.localPosition = Vector3.zero;
 
             // Caméra perspective FOV 60° à z=-7, écran 9:16.
-            // Hauteur visible à z=0 ≈ 8.08u → joueur cible 1.45u de haut (~18%).
-            const float targetHeightU = 1.45f;
+            // Hauteur visible à z=0 ≈ 8.08u → joueur cible 3.0u de haut (~37%).
+            const float targetHeightU = 3.0f;
             float ppu        = playerSprite.pixelsPerUnit > 0 ? playerSprite.pixelsPerUnit : 100f;
             float spriteH    = playerSprite.rect.height / ppu;
             float s          = spriteH > 0 ? targetHeightU / spriteH : 0.012f;

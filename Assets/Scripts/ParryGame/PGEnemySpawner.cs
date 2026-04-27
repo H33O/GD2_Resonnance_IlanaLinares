@@ -137,11 +137,11 @@ public class PGEnemySpawner : MonoBehaviour
             sr.sprite       = enemySprite;
             sr.sortingOrder = 4;
 
-            // Taille cible à pleine approche (z=playerZ) : ~0.9u de haut.
+            // Taille cible à pleine approche (z=playerZ) : ~0.55u de haut.
             // RefreshScale dans PGEnemy interpole de 0.05 à 1.0 sur ce scale de base.
             // Caméra FOV 60°, z=-7 → hauteur visible ≈ 8.08u.
-            // Ennemi ≈ 11% de hauteur écran ≈ 0.9u.
-            const float targetHeightU = 0.9f;
+            // Ennemi ≈ 7% de hauteur écran ≈ 0.55u.
+            const float targetHeightU = 0.55f;
             float       ppu           = enemySprite.pixelsPerUnit > 0 ? enemySprite.pixelsPerUnit : 100f;
             float       spriteH       = enemySprite.rect.height / ppu;
             float       s             = spriteH > 0 ? targetHeightU / spriteH : 0.009f;

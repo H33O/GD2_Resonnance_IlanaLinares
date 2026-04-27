@@ -14,11 +14,11 @@ public class PGEnemy : MonoBehaviour
     // ── Constants ─────────────────────────────────────────────────────────────
 
     /// <summary>Z at which a missed enemy damages the player.</summary>
-    private const float HitZ           = -1.0f;
-    private const float DestroyBeyondZ = -3.0f;
+    private const float HitZ           = 0.5f;
+    private const float DestroyBeyondZ = -2.0f;
 
     /// <summary>Z at which the warning icon appears (well before parry window).</summary>
-    private const float WarningZ       = 4.5f;
+    private const float WarningZ       = 5.5f;
 
     // ── State ─────────────────────────────────────────────────────────────────
 
