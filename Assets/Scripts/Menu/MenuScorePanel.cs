@@ -71,7 +71,6 @@ public class MenuScorePanel : MonoBehaviour
     /// <summary>Appelé par <see cref="MenuMainHud.Init"/>.</summary>
     public void Init(RectTransform canvasRT)
     {
-        BuildWidget(canvasRT);
         BuildPanel(canvasRT);
         RefreshAll(animate: false);
     }

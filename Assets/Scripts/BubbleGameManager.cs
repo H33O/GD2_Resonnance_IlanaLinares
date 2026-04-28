@@ -24,6 +24,9 @@ public class BubbleGameManager : MonoBehaviour
     [Tooltip("Son joué quand une bulle est récoltée / matchée.")]
     [SerializeField] private AudioClip bubbleCollectSfx;
 
+    [Tooltip("Son joué quand une bulle spéciale est touchée (+X tirs).")]
+    [SerializeField] private AudioClip bonusBubbleSfx;
+
     [Tooltip("Son joué quand le joueur perd (fin de coups).")]
     [SerializeField] private AudioClip loseLifeSfx;
 
@@ -302,6 +305,7 @@ public class BubbleGameManager : MonoBehaviour
         if (!IsGameActive) return;
         ShotsLeft += amount;
         RefreshUI();
+        AudioManager.Instance?.PlaySfx(bonusBubbleSfx);
         StartCoroutine(ShotsSwallowRoutine(amount));
     }
 
@@ -402,31 +406,50 @@ public class BubbleGameManager : MonoBehaviour
         ScoreManager.EnsureExists();
         ScoreManager.Instance.AddScore(GameType.BubbleShooter, Score);
 
-        // Préparer l'XP pour le menu (victoire = bonus x1.5)
-        int xp = win
-            ? Mathf.Max(8, Mathf.RoundToInt(GameEndData.ComputeXP(Score) * 1.5f))
-            : GameEndData.ComputeXP(Score);
-        GameEndData.SetWithXP(Score, xp, GameType.BubbleShooter);
-
         if (win)
-            ShowVictoryScreen();
+            StartCoroutine(ShowVictoryScreen());
         else
             CreateDefeatScreen();
     }
 
-    private void ShowVictoryScreen()
+    private IEnumerator ShowVictoryScreen()
     {
-        if (SceneTransition.Instance != null)
-            SceneTransition.Instance.LoadScene(SceneMenu, SceneMenu);
-        else
-            SceneManager.LoadScene(SceneMenu);
+        // Construire d'abord le panel de victoire visible
+        CreateVictoryScreenWithXP();
+
+        // Créditer 50 XP dans le GameLevelManager par jeu
+        GameLevelManager.EnsureExists();
+        const int XpGain = 50;
+        int levelBefore = GameLevelManager.Instance.GetLevel(GameType.BubbleShooter);
+        int xpBefore    = GameLevelManager.Instance.GetCurrentXP(GameType.BubbleShooter);
+        GameLevelManager.Instance.AddXP(GameType.BubbleShooter, XpGain);
+        int levelAfter = GameLevelManager.Instance.GetLevel(GameType.BubbleShooter);
+        int xpAfter    = GameLevelManager.Instance.GetCurrentXP(GameType.BubbleShooter);
+
+        // Animer la barre XP dans le panel victory
+        yield return StartCoroutine(AnimateBubbleXPBar(
+            levelBefore, xpBefore, levelAfter, xpAfter));
     }
 
-    private void CreateVictoryScreen()
+    // ── Références XP pour l'animation victory ────────────────────────────────
+
+    private TextMeshProUGUI _victoryXPLevelLabel;
+    private TextMeshProUGUI _victoryXPCounterLabel;
+    private Image           _victoryXPBarFill;
+
+    // Couleurs XP victory
+    private static readonly Color ColXPBg      = new Color(0.04f, 0.14f, 0.04f, 0.95f);
+    private static readonly Color ColXPValue   = new Color(0.35f, 1.00f, 0.50f, 1.00f);
+    private static readonly Color ColXPMuted   = new Color(1.00f, 1.00f, 1.00f, 0.45f);
+    private static readonly Color ColXPLevelUp = new Color(1.00f, 0.90f, 0.10f, 1.00f);
+    private static readonly Color ColBarBg     = new Color(0.05f, 0.05f, 0.05f, 0.60f);
+    private static readonly Color ColBarFill   = new Color(0.25f, 0.85f, 0.40f, 1.00f);
+
+    private void CreateVictoryScreenWithXP()
     {
         int shotsUsed = maxShots - ShotsLeft;
 
-        // ── Dark overlay (DA menu) ────────────────────────────────────────────
+        // ── Dark overlay ──────────────────────────────────────────────────────
         var overlay = new GameObject("VictoryOverlay");
         overlay.transform.SetParent(canvasTransform, false);
         var overlayRT = overlay.AddComponent<RectTransform>();
@@ -434,45 +457,49 @@ public class BubbleGameManager : MonoBehaviour
         overlayRT.anchorMax = Vector2.one;
         overlayRT.offsetMin = overlayRT.offsetMax = Vector2.zero;
         var overlayImg = overlay.AddComponent<Image>();
-        overlayImg.color          = new Color(0.05f, 0.05f, 0.05f, 0.88f);
-        overlayImg.sprite         = SpriteGenerator.CreateWhiteSquare();
-        overlayImg.raycastTarget  = false;
+        overlayImg.color         = new Color(0.05f, 0.05f, 0.05f, 0.88f);
+        overlayImg.sprite        = SpriteGenerator.CreateWhiteSquare();
+        overlayImg.raycastTarget = false;
 
-        // ── Central panel noir ────────────────────────────────────────────────
+        // ── Panel central — agrandi pour le bloc XP ───────────────────────────
         var panel = new GameObject("VictoryPanel");
         panel.transform.SetParent(overlay.transform, false);
         var panelRT = panel.AddComponent<RectTransform>();
         panelRT.anchorMin        = panelRT.anchorMax = new Vector2(0.5f, 0.5f);
-        panelRT.sizeDelta        = new Vector2(680f, 580f);
+        panelRT.sizeDelta        = new Vector2(680f, 820f);
         panelRT.anchoredPosition = Vector2.zero;
         var panelImg  = panel.AddComponent<Image>();
         panelImg.sprite = SpriteGenerator.CreateWhiteSquare();
         panelImg.color  = new Color(0.08f, 0.08f, 0.08f, 0.96f);
 
-        // Séparateur horizontal
-        MakeSeparator(panel.transform, new Vector2(0f, -130f), new Vector2(600f, 2f));
-
         // ── VICTORY ───────────────────────────────────────────────────────────
         MakePanelText(panel.transform, "VICTORY", new Vector2(0f, -75f), new Vector2(620f, 110f),
                       80, FontStyles.Bold, Color.white);
 
-        // ── Info tir ──────────────────────────────────────────────────────────
-        string shotLabel = shotsUsed == 1 ? "1 shot" : $"{shotsUsed} shots";
-        MakePanelText(panel.transform, shotLabel, new Vector2(0f, -200f), new Vector2(620f, 65f),
-                      38, FontStyles.Normal, new Color(1f, 1f, 1f, 0.55f));
+        MakeSeparator(panel.transform, new Vector2(0f, -145f), new Vector2(600f, 2f));
 
-        // ── Score ─────────────────────────────────────────────────────────────
-        MakePanelText(panel.transform, $"Score  {Score}", new Vector2(0f, -270f), new Vector2(620f, 55f),
+        // ── Info tir + score ──────────────────────────────────────────────────
+        string shotLabel = shotsUsed == 1 ? "1 tir" : $"{shotsUsed} tirs";
+        MakePanelText(panel.transform, shotLabel, new Vector2(0f, -205f), new Vector2(620f, 65f),
+                      38, FontStyles.Normal, new Color(1f, 1f, 1f, 0.55f));
+        MakePanelText(panel.transform, $"Score  {Score}", new Vector2(0f, -268f), new Vector2(620f, 55f),
                       30, FontStyles.Normal, new Color(1f, 1f, 1f, 0.40f));
 
-        // ── Boutons (DA menu : gris = restart secondaire, dark = menu tertiaire) ──
-        MakeButton(panel.transform, "RESTART",
-                   new Vector2(0f, -375f),
+        MakeSeparator(panel.transform, new Vector2(0f, -320f), new Vector2(600f, 2f));
+
+        // ── Bloc XP inline ────────────────────────────────────────────────────
+        BuildVictoryXPBlock(panel.transform);
+
+        MakeSeparator(panel.transform, new Vector2(0f, -590f), new Vector2(600f, 2f));
+
+        // ── Boutons ───────────────────────────────────────────────────────────
+        MakeButton(panel.transform, "REJOUER",
+                   new Vector2(0f, -660f),
                    ColorBtnRestart,
                    () => SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex));
 
         MakeButton(panel.transform, "MENU",
-                   new Vector2(0f, -500f),
+                   new Vector2(0f, -760f),
                    ColorBtnMenu,
                    () =>
                    {
@@ -481,6 +508,154 @@ public class BubbleGameManager : MonoBehaviour
                        else
                            SceneManager.LoadScene(SceneMenu);
                    });
+    }
+
+    private void BuildVictoryXPBlock(Transform panel)
+    {
+        GameLevelManager.EnsureExists();
+        int level = GameLevelManager.Instance.GetLevel(GameType.BubbleShooter);
+        int xp    = GameLevelManager.Instance.GetCurrentXP(GameType.BubbleShooter);
+        float ratio = xp / (float)GameLevelManager.XPPerLevel;
+
+        // Fond bloc XP
+        var bgGO  = new GameObject("XPBlockBg");
+        bgGO.transform.SetParent(panel, false);
+        var bgImg = bgGO.AddComponent<Image>();
+        bgImg.sprite = SpriteGenerator.CreateWhiteSquare();
+        bgImg.color  = ColXPBg;
+        bgImg.raycastTarget = false;
+        var bgRT = bgImg.rectTransform;
+        bgRT.anchorMin        = bgRT.anchorMax = new Vector2(0.5f, 1f);
+        bgRT.sizeDelta        = new Vector2(620f, 250f);
+        bgRT.anchoredPosition = new Vector2(0f, -360f);
+
+        // Label titre XP
+        MakePanelText(panel, "+50 XP  GAGNÉ !", new Vector2(0f, -345f), new Vector2(580f, 55f),
+                      32, FontStyles.Bold, ColXPValue);
+
+        // Label niveau
+        var lvlGO = new GameObject("XPLevelLabel");
+        lvlGO.transform.SetParent(panel, false);
+        var lvlRT2 = lvlGO.AddComponent<RectTransform>();
+        lvlRT2.anchorMin        = lvlRT2.anchorMax = new Vector2(0.5f, 1f);
+        lvlRT2.sizeDelta        = new Vector2(580f, 65f);
+        lvlRT2.anchoredPosition = new Vector2(-100f, -405f);
+        _victoryXPLevelLabel          = lvlGO.AddComponent<TextMeshProUGUI>();
+        _victoryXPLevelLabel.text     = $"NIV {level}";
+        _victoryXPLevelLabel.fontSize = 52f;
+        _victoryXPLevelLabel.fontStyle = FontStyles.Bold;
+        _victoryXPLevelLabel.color    = ColXPValue;
+        _victoryXPLevelLabel.alignment = TextAlignmentOptions.Left;
+        _victoryXPLevelLabel.raycastTarget = false;
+        ApplyMichroma(_victoryXPLevelLabel);
+
+        // Compteur XP droite
+        var ctrGO = new GameObject("XPCounterLabel");
+        ctrGO.transform.SetParent(panel, false);
+        var ctrRT2 = ctrGO.AddComponent<RectTransform>();
+        ctrRT2.anchorMin        = ctrRT2.anchorMax = new Vector2(0.5f, 1f);
+        ctrRT2.sizeDelta        = new Vector2(580f, 50f);
+        ctrRT2.anchoredPosition = new Vector2(100f, -410f);
+        _victoryXPCounterLabel          = ctrGO.AddComponent<TextMeshProUGUI>();
+        _victoryXPCounterLabel.text     = $"{xp} / {GameLevelManager.XPPerLevel} XP";
+        _victoryXPCounterLabel.fontSize = 30f;
+        _victoryXPCounterLabel.color    = ColXPMuted;
+        _victoryXPCounterLabel.alignment = TextAlignmentOptions.Right;
+        _victoryXPCounterLabel.raycastTarget = false;
+        ApplyMichroma(_victoryXPCounterLabel);
+
+        // Fond barre
+        var barBgGO = new GameObject("XPBarBg");
+        barBgGO.transform.SetParent(panel, false);
+        var barBgImg = barBgGO.AddComponent<Image>();
+        barBgImg.sprite = SpriteGenerator.CreateWhiteSquare();
+        barBgImg.color  = ColBarBg;
+        barBgImg.raycastTarget = false;
+        var barBgRT = barBgImg.rectTransform;
+        barBgRT.anchorMin        = barBgRT.anchorMax = new Vector2(0.5f, 1f);
+        barBgRT.sizeDelta        = new Vector2(600f, 20f);
+        barBgRT.anchoredPosition = new Vector2(0f, -475f);
+
+        // Fill barre
+        var barFillGO = new GameObject("XPBarFill");
+        barFillGO.transform.SetParent(panel, false);
+        _victoryXPBarFill        = barFillGO.AddComponent<Image>();
+        _victoryXPBarFill.sprite = SpriteGenerator.CreateWhiteSquare();
+        _victoryXPBarFill.color  = ColBarFill;
+        _victoryXPBarFill.raycastTarget = false;
+        var barFillRT = _victoryXPBarFill.rectTransform;
+        barFillRT.anchorMin        = barFillRT.anchorMax = new Vector2(0.5f, 1f);
+        barFillRT.sizeDelta        = new Vector2(600f * ratio, 20f);
+        barFillRT.anchoredPosition = new Vector2(-300f * (1f - ratio), -475f);
+        barFillRT.pivot            = new Vector2(0f, 0.5f);
+    }
+
+    private IEnumerator AnimateBubbleXPBar(int levelBefore, int xpBefore,
+                                           int levelAfter, int xpAfter)
+    {
+        if (_victoryXPBarFill == null) yield break;
+
+        const float XpBarMaxW = 600f;
+        float fromRatio = xpBefore / (float)GameLevelManager.XPPerLevel;
+        float toRatio   = xpAfter  / (float)GameLevelManager.XPPerLevel;
+
+        if (levelAfter > levelBefore)
+        {
+            // Remplir jusqu'à 100 %
+            yield return StartCoroutine(BubbleAnimBar(fromRatio, 1f, 0.45f, XpBarMaxW, levelBefore));
+
+            // Flash LEVEL UP
+            if (_victoryXPLevelLabel != null)
+            {
+                _victoryXPLevelLabel.text  = "LEVEL UP !";
+                _victoryXPLevelLabel.color = ColXPLevelUp;
+            }
+            yield return new WaitForSeconds(0.50f);
+
+            // Reset barre → fillTarget
+            SetBarFill(0f, XpBarMaxW);
+            yield return StartCoroutine(BubbleAnimBar(0f, toRatio, 0.35f, XpBarMaxW, levelAfter));
+
+            if (_victoryXPLevelLabel != null)
+            {
+                _victoryXPLevelLabel.text  = $"NIV {levelAfter}";
+                _victoryXPLevelLabel.color = ColXPValue;
+            }
+        }
+        else
+        {
+            yield return StartCoroutine(BubbleAnimBar(fromRatio, toRatio, 0.55f, XpBarMaxW, levelAfter));
+        }
+    }
+
+    private IEnumerator BubbleAnimBar(float from, float to, float dur, float maxW, int level)
+    {
+        float t = 0f;
+        while (t < dur)
+        {
+            t += Time.deltaTime;
+            float e = 1f - Mathf.Pow(1f - Mathf.Clamp01(t / dur), 3f);
+            float v = Mathf.Lerp(from, to, e);
+            SetBarFill(v, maxW);
+
+            int displayed = Mathf.RoundToInt(v * GameLevelManager.XPPerLevel);
+            if (_victoryXPCounterLabel != null)
+                _victoryXPCounterLabel.text = $"{displayed} / {GameLevelManager.XPPerLevel} XP";
+
+            yield return null;
+        }
+        SetBarFill(to, maxW);
+        if (_victoryXPCounterLabel != null)
+            _victoryXPCounterLabel.text = $"{Mathf.RoundToInt(to * GameLevelManager.XPPerLevel)} / {GameLevelManager.XPPerLevel} XP";
+    }
+
+    private void SetBarFill(float ratio, float maxW)
+    {
+        if (_victoryXPBarFill == null) return;
+        var rt = _victoryXPBarFill.rectTransform;
+        float w = maxW * Mathf.Clamp01(ratio);
+        rt.sizeDelta        = new Vector2(w, rt.sizeDelta.y);
+        rt.anchoredPosition = new Vector2(-maxW * 0.5f + w * 0.5f, rt.anchoredPosition.y);
     }
 
     private void MakePanelText(Transform parent, string text, Vector2 pos, Vector2 size,

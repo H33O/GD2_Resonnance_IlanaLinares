@@ -17,7 +17,7 @@ public class TBEnemyController : MonoBehaviour
     // ── Constantes ────────────────────────────────────────────────────────────
 
     /// <summary>Vitesse de poursuite en unités par seconde.</summary>
-    private const float ChaseSpeed = 3.0f;
+    private const float ChaseSpeed = 1.5f;
 
     /// <summary>
     /// Distance de kill : quand l'ennemi est à moins de cette distance

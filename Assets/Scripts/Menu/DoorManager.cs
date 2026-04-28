@@ -7,14 +7,12 @@ using TMPro;
 /// <summary>
 /// Gère le déverrouillage de la porte centrale et l'overlay "intérieur porte".
 ///
-/// Condition de déverrouillage : chacun des 3 mini-jeux a été joué au moins une fois
-/// (i.e. au moins un score enregistré dans <see cref="ScoreManager"/> pour chaque <see cref="GameType"/>).
+/// Condition de déverrouillage : les 3 mini-jeux ont chacun atteint le niveau 4
+/// dans <see cref="GameLevelManager"/>.
 ///
 /// Raccourci dev : touche <b>D</b> → force le déverrouillage immédiat.
 ///
-/// Quand la porte est déverrouillée, un clic l'ouvre et affiche l'overlay "intérieur porte" :
-///   - image de fond  (<see cref="interiorSprite"/>)
-///   - bouton centré  (<see cref="buttonSprite"/>) qui charge la scène <see cref="TargetScene"/>
+/// Quand la porte est déverrouillée, un clic charge directement la scène cible (ParryGame).
 /// </summary>
 public class DoorManager : MonoBehaviour
 {
@@ -81,14 +79,16 @@ public class DoorManager : MonoBehaviour
 
     private void Start()
     {
-        PlayerLevelManager.EnsureExists();
-        PlayerLevelManager.Instance.OnLevelUp += _ => EvaluateUnlock();
+        GameLevelManager.EnsureExists();
+        GameLevelManager.Instance.OnGameLevelUp += (_, __) => EvaluateUnlock();
+        GameLevelManager.Instance.OnDoorUnlocked += ForceUnlock;
     }
 
     private void OnDestroy()
     {
-        if (PlayerLevelManager.Instance != null)
-            PlayerLevelManager.Instance.OnLevelUp -= _ => EvaluateUnlock();
+        if (GameLevelManager.Instance == null) return;
+        GameLevelManager.Instance.OnGameLevelUp -= (_, __) => EvaluateUnlock();
+        GameLevelManager.Instance.OnDoorUnlocked -= ForceUnlock;
     }
 
     private void Update()
@@ -114,15 +114,15 @@ public class DoorManager : MonoBehaviour
     // ── Logique de déverrouillage ─────────────────────────────────────────────
 
     /// <summary>
-    /// La porte se déverrouille quand le joueur atteint le niveau 4.
-    /// Appelé depuis <see cref="Init"/> et depuis <see cref="MenuXPWidget"/> lors du level-up.
+    /// La porte se déverrouille quand les 3 mini-jeux atteignent chacun le niveau 4.
+    /// Appelé depuis <see cref="Init"/> et depuis <see cref="GameLevelManager.OnGameLevelUp"/>.
     /// </summary>
     public void EvaluateUnlock()
     {
         if (_unlocked) return;
 
-        PlayerLevelManager.EnsureExists();
-        if (PlayerLevelManager.Instance.IsMaxLevel)
+        GameLevelManager.EnsureExists();
+        if (GameLevelManager.Instance.IsDoorUnlocked())
             ForceUnlock();
     }
 
@@ -196,7 +196,8 @@ public class DoorManager : MonoBehaviour
         var txtGO  = new GameObject("Txt");
         txtGO.transform.SetParent(rt, false);
         _lockToastLabel           = txtGO.AddComponent<TMPro.TextMeshProUGUI>();
-        _lockToastLabel.text      = $"Atteindre le niveau {UnlockLevel} pour déverrouiller la porte";
+        // Texte initial du toast
+        _lockToastLabel.text = BuildLockText();
         _lockToastLabel.fontSize  = 28f;
         _lockToastLabel.fontStyle = TMPro.FontStyles.Bold;
         _lockToastLabel.color     = ColLockHint;
@@ -212,18 +213,27 @@ public class DoorManager : MonoBehaviour
 
     private void ShowLockToast()
     {
-        int  currentLevel = PlayerLevelManager.Instance?.Level ?? 1;
-        int  need         = PlayerLevelManager.MaxLevel - currentLevel;
-
         if (_lockToastLabel != null)
-        {
-            _lockToastLabel.text = need <= 0
-                ? "Atteins le niveau 4 pour déverrouiller !"
-                : $"Niveau {currentLevel} / {PlayerLevelManager.MaxLevel} — encore {need} niveau{(need > 1 ? "x" : "")} !";
-        }
+            _lockToastLabel.text = BuildLockText();
 
         if (_lockToastCoroutine != null) StopCoroutine(_lockToastCoroutine);
         _lockToastCoroutine = StartCoroutine(ToastSequence());
+    }
+
+    /// <summary>Construit le texte du toast en montrant la progression de chaque jeu.</summary>
+    private static string BuildLockText()
+    {
+        GameLevelManager.EnsureExists();
+        var glm = GameLevelManager.Instance;
+        int lvGAW    = glm.GetLevel(GameType.GameAndWatch);
+        int lvBubble = glm.GetLevel(GameType.BubbleShooter);
+        int lvTilt   = glm.GetLevel(GameType.BallAndGoal);
+        int target   = GameLevelManager.UnlockLevel;
+
+        return $"Atteins le niveau {target} dans chaque jeu pour déverrouiller\n"
+             + $"Game & Watch : {lvGAW}/{target}  •  "
+             + $"Bulles : {lvBubble}/{target}  •  "
+             + $"TiltBall : {lvTilt}/{target}";
     }
 
     private IEnumerator ToastSequence()

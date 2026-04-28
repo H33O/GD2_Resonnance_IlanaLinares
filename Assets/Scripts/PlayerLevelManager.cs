@@ -5,17 +5,17 @@ using UnityEngine;
 /// Singleton persistant gérant le niveau et l'XP du joueur.
 ///
 /// Règles :
-///   - 100 XP par niveau, 4 niveaux maximum.
+///   - 100 XP par niveau, progression infinie (aucun niveau maximum).
 ///   - L'XP et le niveau sont sauvegardés via <see cref="PlayerPrefs"/>.
 ///   - Quand <see cref="AddXP"/> fait dépasser les 100 XP, le niveau monte
-///     et l'excédent est reporté.
-///   - Au niveau 4, la barre reste pleine et n'évolue plus.
+///     et l'excédent est reporté au niveau suivant.
+///   - La porte du 4e jeu se déverrouille au niveau 4 (géré par <see cref="DoorManager"/>).
 /// </summary>
 public class PlayerLevelManager : MonoBehaviour
 {
     // ── Constantes ────────────────────────────────────────────────────────────
 
-    public const  int MaxLevel   = 4;
+    public const  int MaxLevel   = 999;
     public const  int XPPerLevel = 100;
 
     private const string KeyLevel = "plm_level";
@@ -35,7 +35,7 @@ public class PlayerLevelManager : MonoBehaviour
 
     // ── État ──────────────────────────────────────────────────────────────────
 
-    /// <summary>Niveau actuel (1–4).</summary>
+    /// <summary>Niveau actuel (commence à 1, progression infinie).</summary>
     public int Level     { get; private set; } = 1;
 
     /// <summary>XP dans le niveau courant (0–99).</summary>
@@ -70,20 +70,18 @@ public class PlayerLevelManager : MonoBehaviour
     /// </summary>
     public int AddXP(int amount)
     {
-        if (amount <= 0 || IsMaxLevel) return 0;
+        if (amount <= 0) return 0;
 
         int levelsGained = 0;
         CurrentXP += amount;
 
-        while (CurrentXP >= XPPerLevel && !IsMaxLevel)
+        while (CurrentXP >= XPPerLevel)
         {
             CurrentXP -= XPPerLevel;
             Level++;
             levelsGained++;
             OnLevelUp?.Invoke(Level);
         }
-
-        if (IsMaxLevel) CurrentXP = XPPerLevel; // barre pleine au niveau max
 
         Save();
         OnProgressChanged?.Invoke();
@@ -111,8 +109,8 @@ public class PlayerLevelManager : MonoBehaviour
 
     private void Load()
     {
-        Level     = Mathf.Clamp(PlayerPrefs.GetInt(KeyLevel, 1), 1, MaxLevel);
-        CurrentXP = Mathf.Clamp(PlayerPrefs.GetInt(KeyXP,    0), 0, XPPerLevel);
+        Level     = Mathf.Max(1, PlayerPrefs.GetInt(KeyLevel, 1));
+        CurrentXP = Mathf.Max(0, PlayerPrefs.GetInt(KeyXP,    0));
     }
 
     // ── Factory ───────────────────────────────────────────────────────────────

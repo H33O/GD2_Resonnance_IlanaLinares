@@ -32,6 +32,13 @@ public class PGAbilitySystem : MonoBehaviour
     public PGSettings    settings;
     public PGEnemySpawner enemySpawner;
 
+    [Header("Audio")]
+    [Tooltip("Son joué quand le joueur utilise Défense ou Soin (amelioration_sound.mp3).")]
+    public AudioClip ameliorationSound;
+
+    [Tooltip("Son joué quand le joueur parry via l'arme (parry sound.mp3).")]
+    public AudioClip parrySound;
+
     // ── Ability kinds ─────────────────────────────────────────────────────────
 
     public enum AbilityType { Heal, Weapon, Shield }
@@ -73,6 +80,8 @@ public class PGAbilitySystem : MonoBehaviour
         int amount = settings != null ? settings.healAmount : 1;
         gm.RestoreHp(amount);
 
+        AudioManager.Instance?.PlaySfx(ameliorationSound);
+
         _healReady = false;
         OnAbilityUsed?.Invoke(AbilityType.Heal);
         StartCoroutine(CooldownRoutine(AbilityType.Heal,
@@ -88,6 +97,7 @@ public class PGAbilitySystem : MonoBehaviour
 
         _weaponReady = false;
         OnAbilityUsed?.Invoke(AbilityType.Weapon);
+        AudioManager.Instance?.PlaySfx(parrySound);
         StartCoroutine(DoubleStrikeRoutine());
         StartCoroutine(CooldownRoutine(AbilityType.Weapon,
             settings != null ? settings.weaponCooldown : 20f));
@@ -103,6 +113,7 @@ public class PGAbilitySystem : MonoBehaviour
         _shieldReady = false;
         ShieldActive = true;
         OnAbilityUsed?.Invoke(AbilityType.Shield);
+        AudioManager.Instance?.PlaySfx(ameliorationSound);
         StartCoroutine(ShieldRoutine());
     }
 

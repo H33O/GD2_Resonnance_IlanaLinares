@@ -17,6 +17,10 @@ public class PGPlayerController : MonoBehaviour
     [Header("References")]
     public PGEnemySpawner enemySpawner;
 
+    [Header("Audio")]
+    [Tooltip("Son joué quand le joueur parry (parry sound.mp3).")]
+    public AudioClip parrySound;
+
     // ── Constants ─────────────────────────────────────────────────────────────
 
     private const float ParryArcRadius    = 0.7f;
@@ -92,6 +96,9 @@ public class PGPlayerController : MonoBehaviour
             e.TriggerParry();
             hit = true;
         }
+
+        if (hit)
+            AudioManager.Instance?.PlaySfx(parrySound);
 
         ShowParryArc(hit);
     }

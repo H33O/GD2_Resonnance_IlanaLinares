@@ -20,6 +20,11 @@ public class PGEnemy : MonoBehaviour
     /// <summary>Z at which the warning icon appears (well before parry window).</summary>
     private const float WarningZ       = 5.5f;
 
+    // ── Audio ─────────────────────────────────────────────────────────────────
+
+    /// <summary>Son joué quand l'ennemi est tué (ennemy death sound.mp3). Assigné par PGEnemySpawner.</summary>
+    [HideInInspector] public AudioClip enemyDeathSound;
+
     // ── State ─────────────────────────────────────────────────────────────────
 
     private float speed;
@@ -95,6 +100,7 @@ public class PGEnemy : MonoBehaviour
         if (parried) return;
         parried = true;
         HideWarning();
+        AudioManager.Instance?.PlaySfx(enemyDeathSound);
         PGGameManager.Instance?.NotifyParry();
         StartCoroutine(ParryFlash());
     }

@@ -22,6 +22,12 @@ public class PGGameManager : MonoBehaviour
     [Tooltip("Musique du Parry Game (parrygame music.mp3).")]
     public AudioClip parryMusic;
 
+    [Tooltip("Son joué quand le joueur meurt (death_sound.mp3).")]
+    public AudioClip deathSound;
+
+    [Tooltip("Son joué quand le joueur perd un point de vie (perte de vie.mp3).")]
+    public AudioClip loseLifeSound;
+
     // ── Events ────────────────────────────────────────────────────────────────
 
     public static event Action<int>   OnScoreChanged;
@@ -113,8 +119,13 @@ public class PGGameManager : MonoBehaviour
 
         if (Hp <= 0)
         {
+            AudioManager.Instance?.PlaySfx(deathSound);
             State = GameState.Dead;
             StartCoroutine(GameOverSequence());
+        }
+        else
+        {
+            AudioManager.Instance?.PlaySfx(loseLifeSound);
         }
     }
 

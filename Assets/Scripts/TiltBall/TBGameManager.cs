@@ -80,12 +80,6 @@ public class TBGameManager : MonoBehaviour
         DontDestroyOnLoad(gameObject);
         Screen.orientation = ScreenOrientation.Portrait;
 
-        if (AudioManager.Instance != null && fightMusic != null)
-        {
-            AudioManager.Instance.tiltBallMusic = fightMusic;
-            AudioManager.Instance.PlayMusic(fightMusic);
-        }
-
         ButtonClickAudio.HookAllButtons();
     }
 
@@ -133,11 +127,12 @@ public class TBGameManager : MonoBehaviour
 
             HasKey = false;
 
-            // XP victoire (bonus x2 pour la difficulté)
-            int xp = Mathf.Max(10, Mathf.RoundToInt(GameEndData.ComputeXP(Score) * 2f));
+            // Victoire finale = 50 XP base × 2 (bonus difficulté) = 100 XP fixes
+            const int XpVictoryFixed = 50;
+            int xp = Mathf.RoundToInt(XpVictoryFixed * XpVictoryMultiplier);
             GameEndData.SetWithXP(Score, xp, GameType.BallAndGoal);
 
-            TBWinWidget.ShowVictory(ElapsedTime, Score, 0, 0, GoToMenuDirect);
+            TBWinWidget.ShowVictory(ElapsedTime, Score, xp, XpVictoryFixed, GoToMenuDirect);
         }
         else
         {

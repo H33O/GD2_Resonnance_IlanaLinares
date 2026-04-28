@@ -13,6 +13,10 @@ public class PGEnemySpawner : MonoBehaviour
     [Header("Settings")]
     public PGSettings settings;
 
+    [Header("Audio")]
+    [Tooltip("Son joué quand un ennemi est tué (ennemy death sound.mp3).")]
+    public AudioClip enemyDeathSound;
+
     // ── State ─────────────────────────────────────────────────────────────────
 
     private readonly List<PGEnemy> activeEnemies = new();
@@ -100,6 +104,7 @@ public class PGEnemySpawner : MonoBehaviour
 
         var enemy = go.AddComponent<PGEnemy>();
         enemy.Init(settings.enemySpawnZ, settings.playerZ, gm.CurrentEnemySpeed);
+        enemy.enemyDeathSound = enemyDeathSound;
 
         activeEnemies.Add(enemy);
     }

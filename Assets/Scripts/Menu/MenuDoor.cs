@@ -7,8 +7,8 @@ using TMPro;
 /// Widget "Porte" du menu principal.
 ///
 /// - Affiche un rectangle blanc fluorescent centré bas-écran avec un halo mystique rayonnant.
-/// - Verrouillée : sprite cadenas + badge "Atteindre le niveau 4".
-/// - Déverrouillée : cadenas disparaît, porte pulse blanc intense, clic → <see cref="DoorManager"/>.
+/// - Verrouillée : sprite cadenas + badge "Une fois chacun des jeux monté au niveau 4, la porte se déverrouillera".
+/// - Déverrouillée : cadenas disparaît, porte pulse blanc intense, clic → <see cref="DoorManager"/> → ParryGame.
 /// </summary>
 public class MenuDoor : MonoBehaviour
 {
@@ -206,7 +206,7 @@ public class MenuDoor : MonoBehaviour
         var txtGO  = new GameObject("TooltipText");
         txtGO.transform.SetParent(go.transform, false);
         var tmp    = txtGO.AddComponent<TextMeshProUGUI>();
-        tmp.text   = $"Atteins le niveau {DoorManager.UnlockLevel} pour ouvrir la porte";
+        tmp.text   = $"Une fois chacun des jeux monté au niveau {DoorManager.UnlockLevel}, la porte se déverrouillera";
         tmp.fontSize    = 32f;
         tmp.fontStyle   = FontStyles.Bold;
         tmp.color       = Color.white;

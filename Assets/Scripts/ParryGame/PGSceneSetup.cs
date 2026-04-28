@@ -28,6 +28,21 @@ public class PGSceneSetup : MonoBehaviour
     [Tooltip("Son de clic UI (clic.mp3) — utilisé si l'AudioManager est absent.")]
     public AudioClip clickSfx;
 
+    [Tooltip("Son joué quand le joueur meurt (death_sound.mp3).")]
+    public AudioClip deathSound;
+
+    [Tooltip("Son joué quand le joueur perd un point de vie (perte de vie.mp3).")]
+    public AudioClip loseLifeSound;
+
+    [Tooltip("Son joué quand le joueur parry avec succès (parry sound.mp3).")]
+    public AudioClip parrySound;
+
+    [Tooltip("Son joué quand un ennemi est tué (ennemy death sound.mp3).")]
+    public AudioClip enemyDeathSound;
+
+    [Tooltip("Son joué quand le joueur utilise Défense ou Soin (amelioration_sound.mp3).")]
+    public AudioClip ameliorationSound;
+
     // ── Cached references ─────────────────────────────────────────────────────
 
     private Camera            gameCamera;
@@ -169,8 +184,10 @@ public class PGSceneSetup : MonoBehaviour
     {
         var go      = new GameObject("PGGameManager");
         gameManager = go.AddComponent<PGGameManager>();
-        gameManager.settings   = settings;
-        gameManager.parryMusic = parryMusic;
+        gameManager.settings      = settings;
+        gameManager.parryMusic    = parryMusic;
+        gameManager.deathSound    = deathSound;
+        gameManager.loseLifeSound = loseLifeSound;
 
         // Bootstrap AudioManager si la scène est démarrée directement
         if (AudioManager.Instance == null)
@@ -202,7 +219,8 @@ public class PGSceneSetup : MonoBehaviour
         PGPlayerVisuals.Build(go.transform);
 
         player = go.AddComponent<PGPlayerController>();
-        player.settings = settings;
+        player.settings   = settings;
+        player.parrySound = parrySound;
     }
 
     // ── Enemy Spawner ─────────────────────────────────────────────────────────
@@ -211,7 +229,8 @@ public class PGSceneSetup : MonoBehaviour
     {
         var go  = new GameObject("PGEnemySpawner");
         spawner = go.AddComponent<PGEnemySpawner>();
-        spawner.settings = settings;
+        spawner.settings        = settings;
+        spawner.enemyDeathSound = enemyDeathSound;
     }
 
     // ── Ability System ────────────────────────────────────────────────────────
@@ -220,7 +239,9 @@ public class PGSceneSetup : MonoBehaviour
     {
         var go        = new GameObject("PGAbilitySystem");
         abilitySystem = go.AddComponent<PGAbilitySystem>();
-        abilitySystem.settings = settings;
+        abilitySystem.settings          = settings;
+        abilitySystem.ameliorationSound = ameliorationSound;
+        abilitySystem.parrySound        = parrySound;
     }
 
     // ── UI Canvas ─────────────────────────────────────────────────────────────

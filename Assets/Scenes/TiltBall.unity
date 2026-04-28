@@ -168,7 +168,7 @@ MonoBehaviour:
   clickSfx: {fileID: 8300000, guid: e4f07c91a8c7a5a4fb84a7fc3b18da19, type: 3}
   upgradeSfx: {fileID: 8300000, guid: 7a81d24fd19176045966552335ea4e6b, type: 3}
   goalSfx: {fileID: 8300000, guid: 15eb0a13902f62741bec42e2e2d9aba1, type: 3}
-  deathSfx: {fileID: 8300000, guid: ac2ba37a63ac8fd48b025d65e8a1da80, type: 3}
+  deathSfx: {fileID: 8300000, guid: 042fb8f7ba87ef34fbcd4413a6640c43, type: 3}
   enemyDeathSfx: {fileID: 8300000, guid: 2ca9c4b8baab42944bca458e70799d9b, type: 3}
 --- !u!1 &1494366348
 GameObject:
@@ -180,6 +180,7 @@ GameObject:
   m_Component:
   - component: {fileID: 1494366349}
   - component: {fileID: 1494366350}
+  - component: {fileID: 1494366351}
   m_Layer: 0
   m_Name: Main Camera
   m_TagString: Untagged
@@ -253,6 +254,14 @@ Camera:
   m_OcclusionCulling: 1
   m_StereoConvergence: 10
   m_StereoSeparation: 0.022
+--- !u!81 &1494366351
+AudioListener:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1494366348}
+  m_Enabled: 1
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0

@@ -115,6 +115,11 @@ public class TBSceneSetup : MonoBehaviour
 
     private void Start()
     {
+        // Démarre la musique ici (Start) pour garantir que tous les Awake()
+        // — TBGameManager, AudioManager — ont déjà été exécutés.
+        if (fightMusic != null)
+            AudioManager.Instance?.PlayMusic(fightMusic);
+
         int levelIndex = TBGameManager.Instance != null ? TBGameManager.Instance.LevelIndex : 0;
         BuildLevel(levelIndex);
         TBGameManager.Instance?.StartLevel(levelIndex);
@@ -313,10 +318,12 @@ public class TBSceneSetup : MonoBehaviour
     private static void BuildBoundaries(Color wallColor)
     {
         float t = WallThickness;
-        MakeWall("WallTop",    0f,              HalfH - t * 0.5f,  HalfW * 2f, t,         wallColor);
-        MakeWall("WallBottom", 0f,             -HalfH + t * 0.5f,  HalfW * 2f, t,         wallColor);
-        MakeWall("WallLeft",  -HalfW + t * 0.5f, 0f,               t,          HalfH * 2f, wallColor);
-        MakeWall("WallRight",  HalfW - t * 0.5f, 0f,               t,          HalfH * 2f, wallColor);
+        // Le centre du mur est décalé vers l'extérieur afin que le bord interne
+        // soit exactement aligné sur le bord écran (±HalfH / ±HalfW = 1920/1080 px).
+        MakeWall("WallTop",    0f,               HalfH + t * 0.5f,  HalfW * 2f + t * 2f, t,           wallColor);
+        MakeWall("WallBottom", 0f,              -HalfH - t * 0.5f,  HalfW * 2f + t * 2f, t,           wallColor);
+        MakeWall("WallLeft",  -HalfW - t * 0.5f, 0f,                t,                   HalfH * 2f + t * 2f, wallColor);
+        MakeWall("WallRight",  HalfW + t * 0.5f, 0f,                t,                   HalfH * 2f + t * 2f, wallColor);
     }
 
     // ── Trou / Goal ───────────────────────────────────────────────────────────
@@ -515,128 +522,7 @@ public class TBSceneSetup : MonoBehaviour
 
     private static void BuildObstaclesForLevel(int levelIndex, Color obsColor, Sprite obsSprite, GameObject obsPrefab)
     {
-        float t = WallThickness;
-
-        switch (levelIndex)
-        {
-            // ── Niveau 0 : couloir en S simple ───────────────────────────────
-            case 0:
-                MakeObs("Obs1A", -1.0f, -6.0f,  8.0f, t,  obsColor, obsSprite, obsPrefab);
-                MakeObs("Obs2A",  1.0f, -3.0f,  8.0f, t,  obsColor, obsSprite, obsPrefab);
-                MakeObs("Obs3A", -1.0f,  0.0f,  8.0f, t,  obsColor, obsSprite, obsPrefab);
-                MakeObs("Obs4A",  1.0f,  3.0f,  8.0f, t,  obsColor, obsSprite, obsPrefab);
-                MakeObs("Obs5A", -1.0f,  6.0f,  8.0f, t,  obsColor, obsSprite, obsPrefab);
-                break;
-
-            // ── Niveau 1 : chicane + piliers ─────────────────────────────────
-            case 1:
-                MakeObs("Obs1A", -1.5f, -6.0f,  8.0f, t,  obsColor, obsSprite, obsPrefab);
-                MakeObs("Obs2A",  1.5f, -3.5f,  8.0f, t,  obsColor, obsSprite, obsPrefab);
-                MakeObs("Obs3A", -1.5f, -1.0f,  8.0f, t,  obsColor, obsSprite, obsPrefab);
-                MakeObs("Obs4A",  1.5f,  1.5f,  8.0f, t,  obsColor, obsSprite, obsPrefab);
-                MakeObs("Obs5A", -1.5f,  4.0f,  8.0f, t,  obsColor, obsSprite, obsPrefab);
-                MakeObs("Obs6A",  4.0f, -4.8f,  t, 2.0f,  obsColor, obsSprite, obsPrefab);
-                MakeObs("Obs7A", -4.0f,  0.5f,  t, 2.0f,  obsColor, obsSprite, obsPrefab);
-                break;
-
-            // ── Niveau 2 : spirale ────────────────────────────────────────────
-            case 2:
-                MakeObs("Obs1A",  0.0f, -6.5f,  9.5f, t,  obsColor, obsSprite, obsPrefab);
-                MakeObs("Obs2A",  4.5f, -2.5f,  t, 7.0f,  obsColor, obsSprite, obsPrefab);
-                MakeObs("Obs3A",  0.0f,  1.0f,  7.5f, t,  obsColor, obsSprite, obsPrefab);
-                MakeObs("Obs4A", -4.0f, -2.0f,  t, 5.5f,  obsColor, obsSprite, obsPrefab);
-                MakeObs("Obs5A",  1.5f, -3.5f,  5.5f, t,  obsColor, obsSprite, obsPrefab);
-                MakeObs("Obs6A",  2.5f, -1.0f,  t, 3.5f,  obsColor, obsSprite, obsPrefab);
-                MakeObs("Obs7A",  0.0f,  4.5f,  7.0f, t,  obsColor, obsSprite, obsPrefab);
-                break;
-
-            // ── Niveau 3 : grille serrée ──────────────────────────────────────
-            case 3:
-                MakeObs("Obs1A", -1.5f, -6.5f,  7.5f, t,  obsColor, obsSprite, obsPrefab);
-                MakeObs("Obs2A",  1.5f, -4.5f,  7.5f, t,  obsColor, obsSprite, obsPrefab);
-                MakeObs("Obs3A", -1.5f, -2.0f,  7.5f, t,  obsColor, obsSprite, obsPrefab);
-                MakeObs("Obs4A",  1.5f,  0.5f,  7.5f, t,  obsColor, obsSprite, obsPrefab);
-                MakeObs("Obs5A", -1.5f,  3.0f,  7.5f, t,  obsColor, obsSprite, obsPrefab);
-                MakeObs("Obs6A",  1.5f,  5.5f,  7.5f, t,  obsColor, obsSprite, obsPrefab);
-                MakeObs("Obs7A", -3.5f, -5.5f,  t, 2.5f,  obsColor, obsSprite, obsPrefab);
-                MakeObs("Obs8A",  3.5f, -3.3f,  t, 2.5f,  obsColor, obsSprite, obsPrefab);
-                MakeObs("Obs9A", -3.5f,  1.8f,  t, 2.5f,  obsColor, obsSprite, obsPrefab);
-                break;
-
-            // ── Niveau 4 : double chicane ─────────────────────────────────────
-            case 4:
-                MakeObs("Obs1A", -0.5f, -6.0f,  9.0f, t,  obsColor, obsSprite, obsPrefab);
-                MakeObs("Obs2A",  0.5f, -3.5f,  9.0f, t,  obsColor, obsSprite, obsPrefab);
-                MakeObs("Obs3A", -0.5f, -1.0f,  9.0f, t,  obsColor, obsSprite, obsPrefab);
-                MakeObs("Obs4A",  0.5f,  1.5f,  9.0f, t,  obsColor, obsSprite, obsPrefab);
-                MakeObs("Obs5A", -0.5f,  4.0f,  9.0f, t,  obsColor, obsSprite, obsPrefab);
-                MakeObs("Obs6A",  4.5f, -4.8f,  t, 3.5f,  obsColor, obsSprite, obsPrefab);
-                MakeObs("Obs7A", -4.5f,  0.5f,  t, 3.5f,  obsColor, obsSprite, obsPrefab);
-                break;
-
-            // ── Niveau 5 : labyrinthe croisé ──────────────────────────────────
-            case 5:
-                MakeObs("Obs1A",  0.0f, -7.0f,  9.5f, t,  obsColor, obsSprite, obsPrefab);
-                MakeObs("Obs2A",  4.5f, -3.5f,  t, 6.5f,  obsColor, obsSprite, obsPrefab);
-                MakeObs("Obs3A",  0.0f,  0.0f,  9.5f, t,  obsColor, obsSprite, obsPrefab);
-                MakeObs("Obs4A", -4.5f,  3.5f,  t, 6.5f,  obsColor, obsSprite, obsPrefab);
-                MakeObs("Obs5A",  0.0f,  4.5f,  9.5f, t,  obsColor, obsSprite, obsPrefab);
-                MakeObs("Obs6A",  2.5f, -5.0f,  5.0f, t,  obsColor, obsSprite, obsPrefab);
-                MakeObs("Obs7A",  2.5f, -2.0f,  t, 4.5f,  obsColor, obsSprite, obsPrefab);
-                break;
-
-            // ── Niveau 6 : escalier ───────────────────────────────────────────
-            case 6:
-                MakeObs("Obs1A", -3.0f, -6.5f,  4.5f, t,  obsColor, obsSprite, obsPrefab);
-                MakeObs("Obs2A",  3.0f, -5.0f,  4.5f, t,  obsColor, obsSprite, obsPrefab);
-                MakeObs("Obs3A", -2.5f, -3.0f,  5.5f, t,  obsColor, obsSprite, obsPrefab);
-                MakeObs("Obs4A",  2.5f, -1.0f,  5.5f, t,  obsColor, obsSprite, obsPrefab);
-                MakeObs("Obs5A", -2.0f,  1.0f,  6.5f, t,  obsColor, obsSprite, obsPrefab);
-                MakeObs("Obs6A",  2.0f,  3.0f,  6.5f, t,  obsColor, obsSprite, obsPrefab);
-                MakeObs("Obs7A", -1.5f,  5.0f,  7.5f, t,  obsColor, obsSprite, obsPrefab);
-                break;
-
-            // ── Niveau 7 : zigzag serré ───────────────────────────────────────
-            case 7:
-                MakeObs("Obs1A", -1.5f, -7.0f,  8.5f, t,  obsColor, obsSprite, obsPrefab);
-                MakeObs("Obs2A",  1.5f, -5.5f,  8.5f, t,  obsColor, obsSprite, obsPrefab);
-                MakeObs("Obs3A", -1.5f, -3.5f,  8.5f, t,  obsColor, obsSprite, obsPrefab);
-                MakeObs("Obs4A",  1.5f, -1.5f,  8.5f, t,  obsColor, obsSprite, obsPrefab);
-                MakeObs("Obs5A", -1.5f,  0.5f,  8.5f, t,  obsColor, obsSprite, obsPrefab);
-                MakeObs("Obs6A",  1.5f,  2.5f,  8.5f, t,  obsColor, obsSprite, obsPrefab);
-                MakeObs("Obs7A", -1.5f,  4.5f,  8.5f, t,  obsColor, obsSprite, obsPrefab);
-                MakeObs("Obs8A",  4.5f, -6.3f,  t, 3.0f,  obsColor, obsSprite, obsPrefab);
-                MakeObs("Obs9A", -4.5f, -2.5f,  t, 3.0f,  obsColor, obsSprite, obsPrefab);
-                break;
-
-            // ── Niveau 8 : cage centrale ──────────────────────────────────────
-            case 8:
-                // Cage
-                MakeObs("Obs1A",  0.0f, -2.5f,  5.0f, t,  obsColor, obsSprite, obsPrefab);
-                MakeObs("Obs2A",  0.0f,  2.5f,  5.0f, t,  obsColor, obsSprite, obsPrefab);
-                MakeObs("Obs3A", -2.5f,  0.0f,  t, 5.0f,  obsColor, obsSprite, obsPrefab);
-                MakeObs("Obs4A",  2.5f,  0.0f,  t, 5.0f,  obsColor, obsSprite, obsPrefab);
-                // Chicanes ext.
-                MakeObs("Obs5A",  0.0f, -6.0f,  9.0f, t,  obsColor, obsSprite, obsPrefab);
-                MakeObs("Obs6A",  4.5f, -4.3f,  t, 3.5f,  obsColor, obsSprite, obsPrefab);
-                MakeObs("Obs7A",  0.0f,  5.0f,  9.0f, t,  obsColor, obsSprite, obsPrefab);
-                MakeObs("Obs8A", -4.5f,  3.0f,  t, 3.5f,  obsColor, obsSprite, obsPrefab);
-                break;
-
-            // ── Niveau 9 : labyrinthe maximal ─────────────────────────────────
-            case 9:
-                MakeObs("Obs1A", -1.5f, -7.0f,  8.5f, t,  obsColor, obsSprite, obsPrefab);
-                MakeObs("Obs2A",  1.5f, -5.5f,  8.5f, t,  obsColor, obsSprite, obsPrefab);
-                MakeObs("Obs3A", -1.5f, -3.5f,  8.5f, t,  obsColor, obsSprite, obsPrefab);
-                MakeObs("Obs4A",  1.5f, -1.5f,  8.5f, t,  obsColor, obsSprite, obsPrefab);
-                MakeObs("Obs5A", -1.5f,  0.5f,  8.5f, t,  obsColor, obsSprite, obsPrefab);
-                MakeObs("Obs6A",  1.5f,  2.5f,  8.5f, t,  obsColor, obsSprite, obsPrefab);
-                MakeObs("Obs7A", -1.5f,  4.5f,  8.5f, t,  obsColor, obsSprite, obsPrefab);
-                MakeObs("Obs8A",  4.5f, -6.3f,  t, 3.5f,  obsColor, obsSprite, obsPrefab);
-                MakeObs("Obs9A", -4.5f, -3.5f,  t, 3.5f,  obsColor, obsSprite, obsPrefab);
-                MakeObs("Obs10A", 4.5f,  1.5f,  t, 3.5f,  obsColor, obsSprite, obsPrefab);
-                break;
-        }
+        // Aucun obstacle de level design — terrain ouvert sur tous les niveaux.
     }
 
     // ── HUD ───────────────────────────────────────────────────────────────────

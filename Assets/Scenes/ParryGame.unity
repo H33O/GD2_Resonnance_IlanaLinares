@@ -303,6 +303,11 @@ MonoBehaviour:
   settings: {fileID: 11400000, guid: 4effca968b160a1498e1bb6902e0e4cf, type: 2}
   parryMusic: {fileID: 8300000, guid: 792b7bd969484a548beb6e814520576e, type: 3}
   clickSfx: {fileID: 8300000, guid: e4f07c91a8c7a5a4fb84a7fc3b18da19, type: 3}
+  deathSound: {fileID: 8300000, guid: ac2ba37a63ac8fd48b025d65e8a1da80, type: 3}
+  loseLifeSound: {fileID: 8300000, guid: 9b50f8cca52bfc34ea61046ff9a99b1b, type: 3}
+  parrySound: {fileID: 8300000, guid: 30ae322a11c23da4c9b63b8c5083c083, type: 3}
+  enemyDeathSound: {fileID: 8300000, guid: 2ca9c4b8baab42944bca458e70799d9b, type: 3}
+  ameliorationSound: {fileID: 8300000, guid: 7a81d24fd19176045966552335ea4e6b, type: 3}
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0

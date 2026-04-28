@@ -52,6 +52,7 @@ public class MenuMainSetup : MonoBehaviour
     {
         ScoreManager.EnsureExists();
         PlayerLevelManager.EnsureExists();
+        GameLevelManager.EnsureExists();
 
         MenuAssets.Init(doorButtonSprite);
 
@@ -61,8 +62,6 @@ public class MenuMainSetup : MonoBehaviour
         BuildDoorManager(canvasRT);
         BuildDoor(canvasRT);
         BuildGamesButton(canvasRT);
-        MenuXPWidget.Create(canvasRT);
-        MenuXPReceiver.Create(canvasRT);
         EnsureSceneTransition();
         EnsureAudio();
     }
