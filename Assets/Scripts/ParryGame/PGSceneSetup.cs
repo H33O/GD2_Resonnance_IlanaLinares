@@ -35,6 +35,10 @@ public class PGSceneSetup : MonoBehaviour
 
     private void Awake()
     {
+        // Initialise MenuAssets si la scène est lancée directement sans passer par le menu
+        if (MenuAssets.Font == null)
+            MenuAssets.Init(null);
+
         EnsureEventSystem();
         BuildCamera();
         BuildBackground();
@@ -51,16 +55,22 @@ public class PGSceneSetup : MonoBehaviour
 
     private void BuildCamera()
     {
-        var camGO = new GameObject("Camera");
-        gameCamera = camGO.AddComponent<Camera>();
+        // Réutilise la caméra déjà présente dans la scène pour éviter les doublons
+        var camGO = GameObject.Find("Camera");
+        if (camGO == null)
+            camGO = new GameObject("Camera");
+
+        gameCamera = camGO.GetComponent<Camera>();
+        if (gameCamera == null)
+            gameCamera = camGO.AddComponent<Camera>();
 
         // Perspective for depth effect
-        gameCamera.orthographic  = false;
-        gameCamera.fieldOfView   = settings != null ? settings.cameraFov : 60f;
-        gameCamera.clearFlags    = CameraClearFlags.SolidColor;
+        gameCamera.orthographic    = false;
+        gameCamera.fieldOfView     = settings != null ? settings.cameraFov : 60f;
+        gameCamera.clearFlags      = CameraClearFlags.SolidColor;
         gameCamera.backgroundColor = new Color(0.04f, 0.04f, 0.08f, 1f);
-        gameCamera.nearClipPlane = 0.1f;
-        gameCamera.farClipPlane  = 50f;
+        gameCamera.nearClipPlane   = 0.1f;
+        gameCamera.farClipPlane    = 50f;
 
         // Third-person: slightly right, elevated, behind player
         float ox = settings != null ? settings.cameraOffsetX : 0.6f;
@@ -71,7 +81,8 @@ public class PGSceneSetup : MonoBehaviour
         // Tilt down slightly toward player/enemies
         camGO.transform.rotation = Quaternion.Euler(8f, -4f, 0f);
 
-        camGO.AddComponent<AudioListener>();
+        if (camGO.GetComponent<AudioListener>() == null)
+            camGO.AddComponent<AudioListener>();
     }
 
     // ── Background ────────────────────────────────────────────────────────────

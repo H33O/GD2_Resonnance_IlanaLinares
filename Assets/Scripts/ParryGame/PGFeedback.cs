@@ -1,4 +1,5 @@
 using System.Collections;
+using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -41,7 +42,14 @@ public class PGFeedback : MonoBehaviour
 
     public static PGFeedback Spawn(RectTransform canvasRT)
     {
+        // Attaché comme enfant du Canvas pour que les coroutines restent actives
         var go  = new GameObject("PGFeedback");
+        go.transform.SetParent(canvasRT, false);
+        var rt        = go.AddComponent<RectTransform>();
+        rt.anchorMin  = Vector2.zero;
+        rt.anchorMax  = Vector2.one;
+        rt.offsetMin  = rt.offsetMax = Vector2.zero;
+
         var fb  = go.AddComponent<PGFeedback>();
         fb.Init(canvasRT);
         return fb;
@@ -156,16 +164,16 @@ public class PGFeedback : MonoBehaviour
         var go  = new GameObject("ComboLabel");
         go.transform.SetParent(_canvas.transform, false);
 
-        var txt              = go.AddComponent<Text>();
-        txt.text             = $"x{combo} COMBO!";
-        txt.font             = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-        txt.fontSize         = combo >= 5 ? 72 : 54;
-        txt.fontStyle        = FontStyle.Bold;
-        txt.color            = ColCombo;
-        txt.alignment        = TextAnchor.MiddleCenter;
-        txt.raycastTarget    = false;
+        var tmp              = go.AddComponent<TextMeshProUGUI>();
+        tmp.text             = $"x{combo} COMBO!";
+        tmp.fontSize         = combo >= 5 ? 72f : 54f;
+        tmp.fontStyle        = FontStyles.Bold;
+        tmp.color            = ColCombo;
+        tmp.alignment        = TextAlignmentOptions.Center;
+        tmp.raycastTarget    = false;
+        MenuAssets.ApplyFont(tmp);
 
-        var rt           = txt.rectTransform;
+        var rt           = tmp.rectTransform;
         rt.anchorMin     = new Vector2(0.5f, 0.55f);
         rt.anchorMax     = new Vector2(0.5f, 0.55f);
         rt.pivot         = new Vector2(0.5f, 0.5f);
@@ -181,7 +189,7 @@ public class PGFeedback : MonoBehaviour
             float alpha = r < 0.3f
                 ? Mathf.Lerp(0f, 1f, r / 0.3f)
                 : Mathf.Lerp(1f, 0f, (r - 0.3f) / 0.7f);
-            txt.color = new Color(ColCombo.r, ColCombo.g, ColCombo.b, alpha);
+            tmp.color = new Color(ColCombo.r, ColCombo.g, ColCombo.b, alpha);
             yield return null;
         }
 

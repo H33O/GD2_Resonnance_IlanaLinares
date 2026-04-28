@@ -19,8 +19,8 @@ public class PGHUD : MonoBehaviour
     private const float CanvasRefW    = 1080f;
     private const float TabBarH       = 220f;
     private const float TabBarPadding = 24f;
-    private const float HeartSize     = 80f;
-    private const float HeartSpacing  = 20f;
+    private const float HeartSize     = 72f;   // taille du carré de vie
+    private const float HeartSpacing  = 14f;
     private const float PopPeakScale  = 1.35f;
     private const float PopDuration   = 0.18f;
 
@@ -162,7 +162,7 @@ public class PGHUD : MonoBehaviour
         cRT.offsetMin = cRT.offsetMax = Vector2.zero;
     }
 
-    // ── Hearts ────────────────────────────────────────────────────────────────
+    // ── Hearts (carrés) ───────────────────────────────────────────────────────
 
     private void BuildHearts(RectTransform canvasRT)
     {
@@ -181,7 +181,8 @@ public class PGHUD : MonoBehaviour
             var img           = hGO.AddComponent<Image>();
             img.color         = new Color(0.95f, 0.25f, 0.25f, 1f);
             img.raycastTarget = false;
-            img.sprite        = SpriteGenerator.CreateCircle(64);
+            // Carré blanc : sprite carré au lieu du cercle
+            img.sprite        = SpriteGenerator.CreateWhiteSquare();
             var rt            = img.rectTransform;
             rt.anchorMin      = new Vector2(0f, 0f);
             rt.anchorMax      = new Vector2(0f, 0f);
@@ -220,19 +221,16 @@ public class PGHUD : MonoBehaviour
             settings != null ? settings.colorHeals   : new Color(0.25f, 0.85f, 0.45f, 1f),
         };
 
-        float tabW = (CanvasRefW - TabBarPadding * 3f) / 2f;
-        float tabH = TabBarH - TabBarPadding * 2f;
-
         for (int i = 0; i < labels.Length; i++)
         {
             int captured = i;
-            BuildTab(root, labels[i], icons[i], colors[i], i, tabW, tabH,
+            BuildTab(root, labels[i], icons[i], colors[i], i,
                      () => OnTabPressed(captured));
         }
     }
 
     private void BuildTab(RectTransform parent, string label, string icon,
-                          Color accentColor, int index, float tabW, float tabH,
+                          Color accentColor, int index,
                           UnityEngine.Events.UnityAction onClick)
     {
         var tabGO  = new GameObject($"Tab_{label}");
@@ -243,12 +241,18 @@ public class PGHUD : MonoBehaviour
         img.color  = new Color(accentColor.r * 0.18f, accentColor.g * 0.18f, accentColor.b * 0.18f, 1f);
         tabBgImages[index] = img;
 
-        var rt             = img.rectTransform;
-        rt.anchorMin       = new Vector2(0f, 0f);
-        rt.anchorMax       = new Vector2(0f, 0f);
-        rt.pivot           = new Vector2(0f, 0f);
-        rt.sizeDelta       = new Vector2(tabW, tabH);
-        rt.anchoredPosition = new Vector2(TabBarPadding + index * (tabW + TabBarPadding), TabBarPadding);
+        // Chaque onglet occupe exactement la moitié de la largeur du parent,
+        // avec un padding interne sur les bords et entre les deux onglets.
+        const float totalTabs = 2f;
+        float anchorXMin = index / totalTabs;
+        float anchorXMax = (index + 1f) / totalTabs;
+
+        var rt        = img.rectTransform;
+        rt.anchorMin  = new Vector2(anchorXMin, 0f);
+        rt.anchorMax  = new Vector2(anchorXMax, 1f);
+        rt.pivot      = new Vector2(0.5f, 0.5f);
+        rt.offsetMin  = new Vector2(index == 0 ? TabBarPadding : TabBarPadding * 0.5f, TabBarPadding);
+        rt.offsetMax  = new Vector2(index == 0 ? -TabBarPadding * 0.5f : -TabBarPadding, -TabBarPadding);
 
         // Bord accent haut
         var bGO       = new GameObject("Border");
@@ -263,52 +267,57 @@ public class PGHUD : MonoBehaviour
         bRT.sizeDelta = new Vector2(0f, 6f);
         bRT.anchoredPosition = Vector2.zero;
 
-        // Icône — police JimNightshade
+        // ── Constantes de layout internes à l'onglet ──────────────────────────
+        const float CooldownBarH = 20f;  // hauteur de la barre de cooldown
+        const float IconSize     = 0.30f; // fraction de hauteur pour l'icône
+
+        // Icône — moitié supérieure
         var iGO            = new GameObject("Icon");
         iGO.transform.SetParent(rt, false);
         var iTmp           = iGO.AddComponent<TextMeshProUGUI>();
         iTmp.text          = icon;
-        iTmp.fontSize      = 52f;
-        iTmp.alignment     = TextAlignmentOptions.Center;
+        iTmp.fontSize      = 48f;
+        iTmp.alignment     = TextAlignmentOptions.Bottom | TextAlignmentOptions.Center;
         iTmp.raycastTarget = false;
         MenuAssets.ApplyFont(iTmp);
-        var iRT            = iTmp.rectTransform;
-        iRT.anchorMin      = new Vector2(0f, 0.40f);
-        iRT.anchorMax      = new Vector2(1f, 1f);
-        iRT.offsetMin      = iRT.offsetMax = Vector2.zero;
+        var iRT       = iTmp.rectTransform;
+        iRT.anchorMin = new Vector2(0f, 0.5f);
+        iRT.anchorMax = new Vector2(1f, 1f);
+        iRT.offsetMin = new Vector2(4f, 0f);
+        iRT.offsetMax = new Vector2(-4f, -4f);
 
-        // Label — police JimNightshade
+        // Label — centré verticalement dans la moitié basse (au-dessus de la barre)
         var lblGO          = new GameObject("Label");
         lblGO.transform.SetParent(rt, false);
         var lTmp           = lblGO.AddComponent<TextMeshProUGUI>();
         lTmp.text          = label;
-        lTmp.fontSize      = 26f;
+        lTmp.fontSize      = 28f;
         lTmp.fontStyle     = FontStyles.Bold;
         lTmp.color         = accentColor;
-        lTmp.alignment     = TextAlignmentOptions.Bottom | TextAlignmentOptions.Center;
+        lTmp.alignment     = TextAlignmentOptions.Center;
         lTmp.raycastTarget = false;
         MenuAssets.ApplyFont(lTmp);
-        var lRT            = lTmp.rectTransform;
-        lRT.anchorMin      = new Vector2(0f, 0f);
-        lRT.anchorMax      = new Vector2(1f, 0.42f);
-        lRT.offsetMin      = new Vector2(4f, 4f);
-        lRT.offsetMax      = new Vector2(-4f, 0f);
+        var lRT       = lTmp.rectTransform;
+        lRT.anchorMin = new Vector2(0f, 0f);
+        lRT.anchorMax = new Vector2(1f, 0.5f);
+        lRT.offsetMin = new Vector2(4f, CooldownBarH + 4f);
+        lRT.offsetMax = new Vector2(-4f, 0f);
 
-        // Cooldown fond
+        // ── Cooldown fond ─────────────────────────────────────────────────────
         var fbGO          = new GameObject("CooldownBg");
         fbGO.transform.SetParent(rt, false);
         var fbImg         = fbGO.AddComponent<Image>();
         fbImg.sprite      = SpriteGenerator.CreateWhiteSquare();
-        fbImg.color       = new Color(0f, 0f, 0f, 0.45f);
+        fbImg.color       = new Color(0f, 0f, 0f, 0.55f);
         fbImg.raycastTarget = false;
         var fbRT          = fbImg.rectTransform;
         fbRT.anchorMin    = new Vector2(0f, 0f);
         fbRT.anchorMax    = new Vector2(1f, 0f);
         fbRT.pivot        = new Vector2(0f, 0f);
-        fbRT.sizeDelta    = new Vector2(0f, 8f);
+        fbRT.sizeDelta    = new Vector2(0f, CooldownBarH);
         fbRT.anchoredPosition = Vector2.zero;
 
-        // Cooldown fill
+        // ── Cooldown fill ─────────────────────────────────────────────────────
         var fGO           = new GameObject("CooldownFill");
         fGO.transform.SetParent(rt, false);
         var fImg          = fGO.AddComponent<Image>();
@@ -322,26 +331,28 @@ public class PGHUD : MonoBehaviour
         fRT.anchorMin     = new Vector2(0f, 0f);
         fRT.anchorMax     = new Vector2(1f, 0f);
         fRT.pivot         = new Vector2(0f, 0f);
-        fRT.sizeDelta     = new Vector2(0f, 8f);
+        fRT.sizeDelta     = new Vector2(0f, CooldownBarH);
         fRT.anchoredPosition = Vector2.zero;
         cooldownFill[index] = fImg;
 
-        // Cooldown texte — police JimNightshade
+        // ── Cooldown texte — centré sur la barre ─────────────────────────────
         var cdGO          = new GameObject("CooldownTxt");
         cdGO.transform.SetParent(rt, false);
         var cdTmp         = cdGO.AddComponent<TextMeshProUGUI>();
         cdTmp.text        = "";
-        cdTmp.fontSize    = 30f;
+        cdTmp.fontSize    = 22f;
         cdTmp.fontStyle   = FontStyles.Bold;
-        cdTmp.color       = new Color(1f, 1f, 1f, 0.70f);
+        cdTmp.color       = Color.white;
         cdTmp.alignment   = TextAlignmentOptions.Center;
         cdTmp.raycastTarget = false;
         MenuAssets.ApplyFont(cdTmp);
         cdGO.SetActive(false);
         var cdRT          = cdTmp.rectTransform;
-        cdRT.anchorMin    = Vector2.zero;
-        cdRT.anchorMax    = Vector2.one;
-        cdRT.offsetMin    = cdRT.offsetMax = Vector2.zero;
+        cdRT.anchorMin    = new Vector2(0f, 0f);
+        cdRT.anchorMax    = new Vector2(1f, 0f);
+        cdRT.pivot        = new Vector2(0f, 0f);
+        cdRT.sizeDelta    = new Vector2(0f, CooldownBarH);
+        cdRT.anchoredPosition = Vector2.zero;
         cooldownLabel[index] = cdTmp;
 
         // Bouton

@@ -10,7 +10,7 @@ public class PGPlayerVisuals : MonoBehaviour
     // ── Constantes ────────────────────────────────────────────────────────────
 
     private const int   BoltCount      = 6;
-    private const float BoltLength     = 0.55f;
+    private const float BoltLength     = 0.90f;   // plus long pour couvrir l'ovale agrandi
     private const float PulseSpeed     = 3.5f;
     private const float GlowPulseSpeed = 2.2f;
 
@@ -36,7 +36,7 @@ public class PGPlayerVisuals : MonoBehaviour
         var glowGO = new GameObject("PlayerGlow");
         glowGO.transform.SetParent(root, false);
         glowGO.transform.localPosition = Vector3.zero;
-        glowGO.transform.localScale    = new Vector3(1.6f, 1.2f, 1f);
+        glowGO.transform.localScale    = new Vector3(2.2f, 1.65f, 1f);
 
         var glowSR          = glowGO.AddComponent<SpriteRenderer>();
         glowSR.sprite       = SpriteGenerator.CreateCircle(64);
@@ -47,7 +47,7 @@ public class PGPlayerVisuals : MonoBehaviour
         var bodyGO = new GameObject("PlayerBody");
         bodyGO.transform.SetParent(root, false);
         bodyGO.transform.localPosition = Vector3.zero;
-        bodyGO.transform.localScale    = new Vector3(0.70f, 0.95f, 1f); // ovale vertical
+        bodyGO.transform.localScale    = new Vector3(1.10f, 1.55f, 1f); // ovale vertical agrandi
 
         var bodySR          = bodyGO.AddComponent<SpriteRenderer>();
         bodySR.sprite       = SpriteGenerator.CreateCircle(128);
