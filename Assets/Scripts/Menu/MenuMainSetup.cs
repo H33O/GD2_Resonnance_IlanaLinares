@@ -1,6 +1,7 @@
 using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.EventSystems;
+using TMPro;
 
 /// <summary>
 /// Bootstrap de la scène <c>MenuScene</c>.
@@ -21,24 +22,7 @@ public class MenuMainSetup : MonoBehaviour
     /// <summary>Nom de cette scène dans les Build Settings.</summary>
     public const string SceneName = "Menu";
 
-    // ── Palette fond placeholder ───────────────────────────────────────────────
-
-    private static readonly Color ColBgTop    = Color.black;
-    private static readonly Color ColBgCenter = Color.black;
-
-    // ── Palette bouton GAMES ──────────────────────────────────────────────────
-
-    private static readonly Color ColGamesBtnBg  = new Color(1f, 1f, 1f, 0.08f);
-    private static readonly Color ColGamesBtnTxt = Color.white;
-
     // ── Inspector ─────────────────────────────────────────────────────────────
-
-    [Header("Fond 2D")]
-    [Tooltip("Sprite de fond custom. Laisse vide pour le placeholder coloré procédural.")]
-    [SerializeField] public Sprite backgroundSprite;
-
-    [Tooltip("Teinte appliquée sur le sprite de fond.")]
-    [SerializeField] public Color backgroundTint = Color.white;
 
     [Header("Porte — Intérieur")]
     [Tooltip("Image de fond de l'overlay intérieur porte (fond_interieur porte.png).")]
@@ -79,7 +63,7 @@ public class MenuMainSetup : MonoBehaviour
             PlayerLevelManager.Instance.OnLevelUp += lvl => LevelUpToast.Show(canvasRT, lvl);
     }
 
-    // ── Fond 2D (SpriteRenderer) ──────────────────────────────────────────────
+    // ── Fond 2D (quadrillage + balle rebondissante) ────────────────────────────
 
     private void BuildBackground2D()
     {
@@ -88,25 +72,53 @@ public class MenuMainSetup : MonoBehaviour
         {
             cam.orthographic    = true;
             cam.clearFlags      = CameraClearFlags.SolidColor;
-            cam.backgroundColor = ColBgTop;
+            cam.backgroundColor = Color.white;
         }
 
-        var go = new GameObject("Background2D");
+        BuildGridBackground();
+        BuildBouncingBall();
+    }
+
+    private static void BuildGridBackground()
+    {
+        var go = new GameObject("GridBackground");
         var sr = go.AddComponent<SpriteRenderer>();
+        sr.sprite       = CreateGridSprite();
+        sr.sortingOrder = -10;
+        go.transform.localScale = new Vector3(20f, 36f, 1f);
+    }
 
-        if (backgroundSprite != null)
+    /// <summary>Génère un sprite de quadrillage blanc sur fond blanc.</summary>
+    private static Sprite CreateGridSprite()
+    {
+        const int size      = 256;
+        const int cellSize  = 32;
+        const int lineWidth = 1;
+
+        var tex    = new Texture2D(size, size, TextureFormat.RGBA32, false);
+        tex.filterMode = FilterMode.Bilinear;
+        tex.wrapMode   = TextureWrapMode.Repeat;
+        var pixels = new Color[size * size];
+
+        var bgColor   = Color.white;
+        var lineColor = new Color(0.82f, 0.82f, 0.82f, 1f);
+
+        for (int y = 0; y < size; y++)
+        for (int x = 0; x < size; x++)
         {
-            sr.sprite = backgroundSprite;
-            sr.color  = backgroundTint;
+            bool onLine = (x % cellSize) < lineWidth || (y % cellSize) < lineWidth;
+            pixels[y * size + x] = onLine ? lineColor : bgColor;
         }
-        else
-        {
-            // Placeholder : rectangle teinté dégradé simulé avec deux plans superposés
-            sr.sprite        = SpriteGenerator.CreateWhiteSquare();
-            sr.color         = ColBgCenter;
-            sr.sortingOrder  = -10;
-            go.transform.localScale = new Vector3(20f, 36f, 1f);
-        }
+
+        tex.SetPixels(pixels);
+        tex.Apply(false, true);
+        return Sprite.Create(tex, new Rect(0, 0, size, size), new Vector2(0.5f, 0.5f), size);
+    }
+
+    private static void BuildBouncingBall()
+    {
+        var go = new GameObject("MenuBouncingBall");
+        go.AddComponent<MenuBouncingBall>();
     }
 
     // ── Canvas ────────────────────────────────────────────────────────────────
@@ -178,41 +190,61 @@ public class MenuMainSetup : MonoBehaviour
 
     private static void BuildGamesButton(RectTransform canvasRT)
     {
-        // Panneau (créé hors écran, à droite)
         var panel = MenuGameSelectPanel.Create(canvasRT);
 
-        // Bouton "GAMES" — bas-droite, au-dessus du bas du canvas
         var btnGO = new GameObject("GamesButton");
         btnGO.transform.SetParent(canvasRT, false);
 
-        var img      = btnGO.AddComponent<Image>();
-        img.sprite   = SpriteGenerator.CreateWhiteSquare();
-        img.color    = ColGamesBtnBg;
+        // Fond : cadre noir faible opacité, pas de sprite bouton UI
+        var img    = btnGO.AddComponent<Image>();
+        img.sprite = SpriteGenerator.CreateWhiteSquare();
+        img.color  = new Color(0f, 0f, 0f, 0.45f);
 
         var rt       = img.rectTransform;
         rt.anchorMin = new Vector2(1f, 0f);
         rt.anchorMax = new Vector2(1f, 0f);
         rt.pivot     = new Vector2(1f, 0f);
         rt.sizeDelta = new Vector2(220f, 80f);
-        // Positionné plus bas : même zone que le bas de la porte
         rt.anchoredPosition = new Vector2(-32f, 200f);
 
+        // Bordure fine
+        var frameGO  = new GameObject("Frame");
+        frameGO.transform.SetParent(rt, false);
+        var frameImg = frameGO.AddComponent<Image>();
+        frameImg.sprite       = SpriteGenerator.CreateWhiteSquare();
+        frameImg.color        = new Color(1f, 1f, 1f, 0.14f);
+        frameImg.raycastTarget = false;
+        var frameRT  = frameImg.rectTransform;
+        frameRT.anchorMin = Vector2.zero;
+        frameRT.anchorMax = Vector2.one;
+        frameRT.offsetMin = new Vector2(-1f, -1f);
+        frameRT.offsetMax = new Vector2( 1f,  1f);
+        frameGO.transform.SetAsFirstSibling();
+
+        // Label Michroma
         var labelGO       = new GameObject("Label");
         labelGO.transform.SetParent(rt, false);
-        var tmp           = labelGO.AddComponent<TMPro.TextMeshProUGUI>();
+        var tmp           = labelGO.AddComponent<TextMeshProUGUI>();
         tmp.text          = "GAMES";
         tmp.fontSize      = 34f;
-        tmp.fontStyle     = TMPro.FontStyles.Bold;
-        tmp.color         = ColGamesBtnTxt;
-        tmp.alignment     = TMPro.TextAlignmentOptions.Center;
+        tmp.fontStyle     = FontStyles.Bold;
+        tmp.color         = Color.white;
+        tmp.alignment     = TextAlignmentOptions.Center;
         tmp.raycastTarget = false;
-        var lrt           = tmp.rectTransform;
-        lrt.anchorMin     = Vector2.zero;
-        lrt.anchorMax     = Vector2.one;
-        lrt.offsetMin     = lrt.offsetMax = Vector2.zero;
+        MenuAssets.ApplyFont(tmp);
+        var lrt      = tmp.rectTransform;
+        lrt.anchorMin = Vector2.zero;
+        lrt.anchorMax = Vector2.one;
+        lrt.offsetMin = lrt.offsetMax = Vector2.zero;
 
         var btn           = btnGO.AddComponent<Button>();
         btn.targetGraphic = img;
+        var colors        = btn.colors;
+        colors.highlightedColor = new Color(1f, 1f, 1f, 0.10f);
+        colors.pressedColor     = new Color(1f, 1f, 1f, 0.18f);
+        colors.fadeDuration     = 0.08f;
+        btn.colors        = colors;
+
         bool gamesOpen = false;
         btn.onClick.AddListener(() =>
         {

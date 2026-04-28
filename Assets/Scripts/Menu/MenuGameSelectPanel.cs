@@ -21,17 +21,11 @@ public class MenuGameSelectPanel : MonoBehaviour
     public string SceneGame2 = "Minijeu-Bulles";
     [Tooltip("Nom exact de la scène dans les Build Settings")]
     public string SceneGame3 = "TiltBall";
-    [Tooltip("Nom exact de la scène dans les Build Settings")]
-    public string SceneGame4 = "GameAndWatch";
-    [Tooltip("Nom exact de la scène dans les Build Settings")]
-    public string SceneGame5 = "TiltBall";
 
     [Header("Labels affichés sur les boutons")]
     public string LabelGame1 = "GAME AND WATCH";
     public string LabelGame2 = "BUBBLE SHOOTER";
     public string LabelGame3 = "TILT BALL";
-    public string LabelGame4 = "GAME AND WATCH BUBBLE";
-    public string LabelGame5 = "TILT";
 
     // ── Timings ───────────────────────────────────────────────────────────────
 
@@ -46,18 +40,13 @@ public class MenuGameSelectPanel : MonoBehaviour
 
     // ── Palette ───────────────────────────────────────────────────────────────
 
-    private static readonly Color ColBg        = new Color(0.06f, 0.05f, 0.08f, 0.98f);
-    private static readonly Color ColAccentBtn  = new Color(0.85f, 0.78f, 1.00f, 1f);
-    private static readonly Color ColAccentTxt  = new Color(0.06f, 0.04f, 0.10f, 1f);
-    private static readonly Color ColSecondBtn  = new Color(0.14f, 0.12f, 0.18f, 1f);
-    private static readonly Color ColSecondTxt  = Color.white;
-    private static readonly Color ColBeigeBtn   = new Color(0.93f, 0.87f, 0.72f, 1f);
-    private static readonly Color ColBeigeTxt   = new Color(0.10f, 0.07f, 0.03f, 1f);
-    private static readonly Color ColOutline    = new Color(1f, 1f, 1f, 0.20f);
-    private static readonly Color ColSeparator  = new Color(1f, 1f, 1f, 0.14f);
-    private static readonly Color ColBackBtn    = new Color(1f, 1f, 1f, 0.06f);
-    private static readonly Color ColBackTxt    = Color.white;
-    private static readonly Color ColTitle      = Color.white;
+    private static readonly Color ColBg       = new Color(0f, 0f, 0f, 0.96f);
+    private static readonly Color ColBtnBg    = new Color(0f, 0f, 0f, 0.42f);
+    private static readonly Color ColBtnFrame = new Color(1f, 1f, 1f, 0.14f);
+    private static readonly Color ColBtnTxt   = Color.white;
+    private static readonly Color ColArrow    = new Color(1f, 1f, 1f, 0.28f);
+    private static readonly Color ColSep      = new Color(1f, 1f, 1f, 0.10f);
+    private static readonly Color ColTitle    = Color.white;
 
     // ── État ──────────────────────────────────────────────────────────────────
 
@@ -96,34 +85,39 @@ public class MenuGameSelectPanel : MonoBehaviour
 
     private void Build(RectTransform root)
     {
-        // Fond plein écran
-        MakeImage("PanelBg", root, ColBg, stretch: true);
+        // ── Fond plein écran quasi-noir ───────────────────────────────────────
+        var bgImg            = root.gameObject.AddComponent<Image>();
+        bgImg.sprite         = SpriteGenerator.CreateWhiteSquare();
+        bgImg.color          = ColBg;
+        bgImg.raycastTarget  = false;
 
-        // Titre
-        MakeLabel("SelectTitle", root, "JEUX",
-            anchorMin: new Vector2(0f, 0.88f), anchorMax: new Vector2(1f, 0.95f),
+        // ── Halos mystiques dans le fond ──────────────────────────────────────
+        root.gameObject.AddComponent<MenuSpaceHalos>();
+
+        // ── Titre "GAME" ──────────────────────────────────────────────────────
+        MakeLabel("SelectTitle", root, "GAME",
+            anchorMin: new Vector2(0f, 0.78f), anchorMax: new Vector2(1f, 0.86f),
             size: 58f, color: ColTitle, bold: true);
 
-        // Séparateur
-        var sepImg      = MakeImage("Sep", root, ColSeparator);
+        // ── Séparateur fin ────────────────────────────────────────────────────
+        var sepImg      = MakeImage("Sep", root, ColSep);
         var sepRT       = sepImg.rectTransform;
-        sepRT.anchorMin = new Vector2(0.08f, 0.875f);
-        sepRT.anchorMax = new Vector2(0.92f, 0.875f);
-        sepRT.sizeDelta = new Vector2(0f, 2f);
+        sepRT.anchorMin = new Vector2(0.08f, 0.775f);
+        sepRT.anchorMax = new Vector2(0.92f, 0.775f);
+        sepRT.sizeDelta = new Vector2(0f, 1f);
 
-        // Zone boutons : 5 jeux
-        float zoneH = BtnH * 5f + BtnGap * 4f;
+        // ── Zone boutons : 3 jeux ─────────────────────────────────────────────
+        float zoneH = BtnH * 3f + BtnGap * 2f;
 
         var zone   = new GameObject("BtnZone");
         zone.transform.SetParent(root, false);
         var zoneRT = zone.AddComponent<RectTransform>();
-        zoneRT.anchorMin = new Vector2(0.5f, 0.5f);
-        zoneRT.anchorMax = new Vector2(0.5f, 0.5f);
-        zoneRT.pivot     = new Vector2(0.5f, 0.5f);
-        zoneRT.sizeDelta = new Vector2(BtnW, zoneH);
-        zoneRT.anchoredPosition = new Vector2(0f, 10f);
+        zoneRT.anchorMin        = new Vector2(0.5f, 0.5f);
+        zoneRT.anchorMax        = new Vector2(0.5f, 0.5f);
+        zoneRT.pivot            = new Vector2(0.5f, 0.5f);
+        zoneRT.sizeDelta        = new Vector2(BtnW, zoneH);
+        zoneRT.anchoredPosition = new Vector2(0f, 0f);
 
-        // VerticalLayoutGroup pour empiler les boutons proprement
         var vlg = zone.AddComponent<VerticalLayoutGroup>();
         vlg.spacing              = BtnGap;
         vlg.childAlignment       = TextAnchor.UpperCenter;
@@ -133,89 +127,96 @@ public class MenuGameSelectPanel : MonoBehaviour
         vlg.childForceExpandHeight = false;
         vlg.padding = RectOffset_Zero();
 
-        MakeGameBtn(zoneRT, "Btn_Game1", LabelGame1, ColAccentBtn, ColAccentTxt,
-            () => LoadGame(SceneGame1, LabelGame1));
-
-        MakeGameBtn(zoneRT, "Btn_Game2", LabelGame2, ColSecondBtn, ColSecondTxt,
-            () => LoadGame(SceneGame2, LabelGame2));
-
-        MakeGameBtn(zoneRT, "Btn_Game3", LabelGame3, ColSecondBtn, ColSecondTxt,
-            () => LoadGame(SceneGame3, LabelGame3));
-
-        // Boutons beiges : GAME AND WATCH BUBBLE & TILT
-        MakeGameBtn(zoneRT, "Btn_Game4", LabelGame4, ColBeigeBtn, ColBeigeTxt,
-            () => LoadGame(SceneGame4, LabelGame4));
-
-        MakeGameBtn(zoneRT, "Btn_Game5", LabelGame5, ColBeigeBtn, ColBeigeTxt,
-            () => LoadGame(SceneGame5, LabelGame5));
+        MakeGameBtn(zoneRT, "Btn_Game1", LabelGame1, () => LoadGame(SceneGame1, LabelGame1));
+        MakeGameBtn(zoneRT, "Btn_Game2", LabelGame2, () => LoadGame(SceneGame2, LabelGame2));
+        MakeGameBtn(zoneRT, "Btn_Game3", LabelGame3, () => LoadGame(SceneGame3, LabelGame3));
     }
 
     // ── Helpers UI ────────────────────────────────────────────────────────────
 
+    /// <summary>
+    /// Crée un bouton de jeu : cadre noir à faible opacité + bordure fine + label Michroma.
+    /// Aucun sprite "bouton UI" — fond procédural uniquement.
+    /// </summary>
     private static void MakeGameBtn(RectTransform parent, string goName,
-                                    string title,
-                                    Color bgColor, Color txtColor,
-                                    System.Action onClick)
+                                    string title, System.Action onClick)
     {
+        // ── Conteneur ──────────────────────────────────────────────────────────
         var go  = new GameObject(goName);
         go.transform.SetParent(parent, false);
 
-        var img    = go.AddComponent<Image>();
-        img.sprite = SpriteGenerator.CreateWhiteSquare();
-        img.color  = bgColor;
+        var rt       = go.AddComponent<RectTransform>();
+        rt.sizeDelta = new Vector2(0f, BtnH);
 
-        // Hauteur fixe, la largeur est contrôlée par le VerticalLayoutGroup
-        var rt        = img.rectTransform;
-        rt.sizeDelta  = new Vector2(0f, BtnH);
+        // ── Fond : carré noir faible opacité ──────────────────────────────────
+        var bgImg           = go.AddComponent<Image>();
+        bgImg.sprite        = SpriteGenerator.CreateWhiteSquare();
+        bgImg.color         = ColBtnBg;
+        bgImg.type          = Image.Type.Simple;
+        bgImg.raycastTarget = true;
 
-        // Outline
-        var outGO    = new GameObject("Outline");
-        outGO.transform.SetParent(rt, false);
-        var outImg   = outGO.AddComponent<Image>();
-        outImg.sprite = SpriteGenerator.CreateWhiteSquare();
-        outImg.color  = ColOutline;
-        outImg.raycastTarget = false;
-        var outRT    = outImg.rectTransform;
-        outRT.anchorMin = Vector2.zero;
-        outRT.anchorMax = Vector2.one;
-        outRT.offsetMin = new Vector2(-1.5f, -1.5f);
-        outRT.offsetMax = new Vector2( 1.5f,  1.5f);
-        outGO.transform.SetAsFirstSibling();
+        // ── Bordure fine (frame) ───────────────────────────────────────────────
+        var frameGO         = new GameObject("Frame");
+        frameGO.transform.SetParent(rt, false);
+        var frameImg        = frameGO.AddComponent<Image>();
+        frameImg.sprite     = SpriteGenerator.CreateWhiteSquare();
+        frameImg.color      = ColBtnFrame;
+        frameImg.raycastTarget = false;
 
-        // Label centré
+        // La bordure est 1 px plus grande que le fond sur chaque côté
+        var frameRT         = frameImg.rectTransform;
+        frameRT.anchorMin   = Vector2.zero;
+        frameRT.anchorMax   = Vector2.one;
+        frameRT.offsetMin   = new Vector2(-1f, -1f);
+        frameRT.offsetMax   = new Vector2( 1f,  1f);
+        frameGO.transform.SetAsFirstSibling();
+
+        // ── Label Michroma centré ──────────────────────────────────────────────
         var lgo  = new GameObject("Label");
         lgo.transform.SetParent(rt, false);
         var ltmp = lgo.AddComponent<TextMeshProUGUI>();
-        ltmp.text      = title;
-        ltmp.fontSize  = 46f;
-        ltmp.fontStyle = FontStyles.Bold;
-        ltmp.color     = txtColor;
-        ltmp.alignment = TextAlignmentOptions.Center;
-        ltmp.raycastTarget = false;
+        ltmp.text              = title;
+        ltmp.fontSize          = 42f;
+        ltmp.fontStyle         = FontStyles.Bold;
+        ltmp.color             = ColBtnTxt;
+        ltmp.alignment         = TextAlignmentOptions.Center;
+        ltmp.enableWordWrapping = false;
+        ltmp.raycastTarget     = false;
         MenuAssets.ApplyFont(ltmp);
-        var lrt  = ltmp.rectTransform;
-        lrt.anchorMin = Vector2.zero;
-        lrt.anchorMax = Vector2.one;
-        lrt.offsetMin = new Vector2(20f, 0f);
-        lrt.offsetMax = new Vector2(-20f, 0f);
 
-        // Flèche droite
+        var lrt       = ltmp.rectTransform;
+        lrt.anchorMin = new Vector2(0.04f, 0f);
+        lrt.anchorMax = new Vector2(0.88f, 1f);
+        lrt.offsetMin = lrt.offsetMax = Vector2.zero;
+
+        // ── Flèche droite ─────────────────────────────────────────────────────
         var aGO  = new GameObject("Arrow");
         aGO.transform.SetParent(rt, false);
         var atmp = aGO.AddComponent<TextMeshProUGUI>();
-        atmp.text      = "›";
-        atmp.fontSize  = 64f;
-        atmp.color     = new Color(txtColor.r, txtColor.g, txtColor.b, 0.35f);
-        atmp.alignment = TextAlignmentOptions.Right;
-        atmp.raycastTarget = false;
+        atmp.text              = "›";
+        atmp.fontSize          = 60f;
+        atmp.color             = ColArrow;
+        atmp.alignment         = TextAlignmentOptions.Right;
+        atmp.enableWordWrapping = false;
+        atmp.raycastTarget     = false;
         MenuAssets.ApplyFont(atmp);
-        var aRT  = atmp.rectTransform;
+
+        var aRT       = atmp.rectTransform;
         aRT.anchorMin = Vector2.zero;
         aRT.anchorMax = Vector2.one;
-        aRT.offsetMax = new Vector2(-20f, 0f);
+        aRT.offsetMin = Vector2.zero;
+        aRT.offsetMax = new Vector2(-18f, 0f);
 
-        var btn           = go.AddComponent<Button>();
-        btn.targetGraphic = img;
+        // ── Bouton ────────────────────────────────────────────────────────────
+        var btn             = go.AddComponent<Button>();
+        btn.targetGraphic   = bgImg;
+        var colors          = btn.colors;
+        colors.normalColor      = ColBtnBg;
+        colors.highlightedColor = new Color(1f, 1f, 1f, 0.10f);
+        colors.pressedColor     = new Color(1f, 1f, 1f, 0.18f);
+        colors.selectedColor    = ColBtnBg;
+        colors.fadeDuration     = 0.08f;
+        btn.colors          = colors;
         btn.onClick.AddListener(() => onClick?.Invoke());
     }
 

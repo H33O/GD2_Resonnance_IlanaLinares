@@ -1,59 +1,68 @@
 using System.Collections;
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.SceneManagement;
-using TMPro;
 
 /// <summary>
-/// Cinématique d'intro de 4 secondes :
-///   Phase 1 (2.5 s) — Feuille qui tombe sur fond noir avec rotation douce.
+/// Cinématique d'intro en noir/blanc/gris :
+///   Phase 1 (3.0 s) — Balle qui rebondit sur un sol avec simulation d'eau (ondulations circulaires).
 ///   Phase 2 (0.8 s) — Fondu au noir progressif.
-///   Phase 3          — Chargement et reveal de la scène Menu.
-///
-/// Ce MonoBehaviour est placé dans la scène <c>Intro</c> et se détruit lui-même
-/// une fois la transition terminée.
+///   Phase 3          — Chargement de la scène Menu.
 /// </summary>
 public class IntroLeaf : MonoBehaviour
 {
     // ── Constantes de timing ──────────────────────────────────────────────────
 
-    /// <summary>Durée totale pendant laquelle la feuille tombe avant le fondu.</summary>
-    private const float FallDuration    = 2.5f;
+    private const float BallDuration  = 3.0f;
+    private const float FadeDuration  = 0.8f;
+    private const string TargetScene  = "Menu";
 
-    /// <summary>Durée du fondu au noir avant de charger la scène Menu.</summary>
-    private const float FadeDuration    = 0.8f;
+    // ── Mise en page balle ────────────────────────────────────────────────────
 
-    /// <summary>Nom de la scène à charger après la cinématique.</summary>
-    private const string TargetScene    = "Menu";
+    private const float BallSize       = 140f;
+    private const float FloorY         = -680f;
+    private const float BounceHeight   = 900f;
+    private const float BounceGravity  = 2.6f;
 
-    // ── Paramètres visuels ────────────────────────────────────────────────────
+    // ── Sol ───────────────────────────────────────────────────────────────────
 
-    /// <summary>Taille de la feuille en pixels canvas (référence 1080×1920).</summary>
-    private const float LeafSize        = 320f;
+    private const float FloorThickness = 3f;
+    private const float FloorWidth     = 1080f;
 
-    /// <summary>Position Y de départ de la feuille (hors écran vers le haut).</summary>
-    private const float LeafStartY      = 1100f;
+    // ── Eau / ondulations ─────────────────────────────────────────────────────
 
-    /// <summary>Position Y d'arrivée de la feuille (bas de l'écran).</summary>
-    private const float LeafEndY        = -800f;
+    private const float RippleSpawnInterval = 0.38f;
+    private const int   MaxRipples          = 6;
+    private const float RippleLifetime      = 1.2f;
+    private const float RippleMaxSize       = 480f;
+    private const float RippleInitSize      = 40f;
 
-    /// <summary>Amplitude du balancement horizontal (oscillation sinusoïdale).</summary>
-    private const float SwayAmplitude   = 180f;
+    // ── Palette noir/blanc/gris ───────────────────────────────────────────────
 
-    /// <summary>Fréquence du balancement horizontal (cycles par seconde).</summary>
-    private const float SwayFrequency   = 0.9f;
-
-    /// <summary>Rotation initiale de la feuille en degrés.</summary>
-    private const float RotationStart   = 15f;
-
-    /// <summary>Rotation finale de la feuille en degrés (sens contraire = -1 tour ~).</summary>
-    private const float RotationEnd     = -340f;
+    private static readonly Color ColorBg       = Color.black;
+    private static readonly Color ColorBall     = Color.white;
+    private static readonly Color ColorFloor    = new Color(0.85f, 0.85f, 0.85f, 1f);
+    private static readonly Color ColorRipple   = new Color(0.75f, 0.75f, 0.75f, 0.6f);
+    private static readonly Color ColorShadow   = new Color(0.3f, 0.3f, 0.3f, 0.5f);
+    private static readonly Color ColorWaterFill = new Color(0.08f, 0.08f, 0.08f, 0.85f);
 
     // ── Références internes ───────────────────────────────────────────────────
 
     private Canvas          _canvas;
     private Image           _fadeOverlay;
-    private RectTransform   _leafRT;
+    private RectTransform   _ballRT;
+    private RectTransform   _shadowRT;
+    private Image           _shadowImg;
+    private RectTransform   _waterRT;
+
+    private readonly List<RippleData> _ripples = new List<RippleData>();
+
+    private struct RippleData
+    {
+        public Image  Image;
+        public float  Age;
+    }
 
     // ── Lifecycle ─────────────────────────────────────────────────────────────
 
@@ -67,15 +76,13 @@ public class IntroLeaf : MonoBehaviour
 
     private void BuildCanvas()
     {
-        // ── Fond noir caméra ──────────────────────────────────────────────────
         var cam = Camera.main;
         if (cam != null)
         {
             cam.clearFlags      = CameraClearFlags.SolidColor;
-            cam.backgroundColor = Color.black;
+            cam.backgroundColor = ColorBg;
         }
 
-        // ── Canvas Screen Space Overlay ───────────────────────────────────────
         var canvasGO               = new GameObject("IntroCanvas");
         _canvas                    = canvasGO.AddComponent<Canvas>();
         _canvas.renderMode         = RenderMode.ScreenSpaceOverlay;
@@ -90,32 +97,89 @@ public class IntroLeaf : MonoBehaviour
 
         var canvasRT = _canvas.GetComponent<RectTransform>();
 
-        // ── Fond noir UI (sécurité) ───────────────────────────────────────────
-        var bgGO    = new GameObject("IntroBg");
+        // ── Fond noir ─────────────────────────────────────────────────────────
+        var bgGO  = new GameObject("IntroBg");
         bgGO.transform.SetParent(canvasRT, false);
-        var bgImg   = bgGO.AddComponent<Image>();
-        bgImg.color = Color.black;
-        bgImg.sprite = SpriteGenerator.CreateWhiteSquare();
+        var bgImg = bgGO.AddComponent<Image>();
+        bgImg.color       = ColorBg;
+        bgImg.sprite      = SpriteGenerator.CreateWhiteSquare();
         bgImg.raycastTarget = false;
         StretchFull(bgImg.rectTransform);
 
-        // ── Feuille ───────────────────────────────────────────────────────────
-        var leafGO  = new GameObject("Leaf");
-        leafGO.transform.SetParent(canvasRT, false);
-        var leafImg = leafGO.AddComponent<Image>();
-        leafImg.raycastTarget = false;
+        // ── Zone d'eau (fond de sol) ──────────────────────────────────────────
+        var waterGO  = new GameObject("Water");
+        waterGO.transform.SetParent(canvasRT, false);
+        var waterImg = waterGO.AddComponent<Image>();
+        waterImg.sprite      = SpriteGenerator.CreateWhiteSquare();
+        waterImg.color       = ColorWaterFill;
+        waterImg.raycastTarget = false;
+        _waterRT             = waterImg.rectTransform;
+        _waterRT.anchorMin   = new Vector2(0f, 0f);
+        _waterRT.anchorMax   = new Vector2(1f, 0f);
+        _waterRT.pivot       = new Vector2(0.5f, 1f);
+        _waterRT.sizeDelta   = new Vector2(0f, 220f);
+        _waterRT.anchoredPosition = new Vector2(0f, FloorY);
 
-        // Chargement du sprite anim_feuille via AssetDatabase en éditeur,
-        // ou Resources en build
-        leafImg.sprite = LoadLeafSprite();
+        // ── Sol (ligne horizontale) ───────────────────────────────────────────
+        var floorGO  = new GameObject("Floor");
+        floorGO.transform.SetParent(canvasRT, false);
+        var floorImg = floorGO.AddComponent<Image>();
+        floorImg.sprite      = SpriteGenerator.CreateWhiteSquare();
+        floorImg.color       = ColorFloor;
+        floorImg.raycastTarget = false;
+        var floorRT          = floorImg.rectTransform;
+        floorRT.anchorMin    = new Vector2(0.5f, 0f);
+        floorRT.anchorMax    = new Vector2(0.5f, 0f);
+        floorRT.pivot        = new Vector2(0.5f, 1f);
+        floorRT.sizeDelta    = new Vector2(FloorWidth, FloorThickness);
+        floorRT.anchoredPosition = new Vector2(0f, FloorY);
 
-        _leafRT = leafImg.rectTransform;
-        _leafRT.anchorMin        = new Vector2(0.5f, 0.5f);
-        _leafRT.anchorMax        = new Vector2(0.5f, 0.5f);
-        _leafRT.pivot            = new Vector2(0.5f, 0.5f);
-        _leafRT.sizeDelta        = new Vector2(LeafSize, LeafSize);
-        _leafRT.anchoredPosition = new Vector2(0f, LeafStartY);
-        _leafRT.localRotation   = Quaternion.Euler(0f, 0f, RotationStart);
+        // ── Ondulations pool ──────────────────────────────────────────────────
+        for (int i = 0; i < MaxRipples; i++)
+        {
+            var rGO  = new GameObject($"Ripple_{i}");
+            rGO.transform.SetParent(canvasRT, false);
+            var rImg = rGO.AddComponent<Image>();
+            rImg.sprite      = SpriteGenerator.CreateRing(128, 0.08f);
+            rImg.color       = new Color(ColorRipple.r, ColorRipple.g, ColorRipple.b, 0f);
+            rImg.raycastTarget = false;
+            var rRT          = rImg.rectTransform;
+            rRT.anchorMin    = new Vector2(0.5f, 0f);
+            rRT.anchorMax    = new Vector2(0.5f, 0f);
+            rRT.pivot        = new Vector2(0.5f, 0.5f);
+            rRT.sizeDelta    = Vector2.one * RippleInitSize;
+            rRT.anchoredPosition = new Vector2(0f, FloorY);
+            rImg.gameObject.SetActive(false);
+            _ripples.Add(new RippleData { Image = rImg, Age = RippleLifetime + 1f });
+        }
+
+        // ── Ombre de la balle ─────────────────────────────────────────────────
+        var shadowGO  = new GameObject("BallShadow");
+        shadowGO.transform.SetParent(canvasRT, false);
+        _shadowImg    = shadowGO.AddComponent<Image>();
+        _shadowImg.sprite      = SpriteGenerator.CreateCircle(128);
+        _shadowImg.color       = ColorShadow;
+        _shadowImg.raycastTarget = false;
+        _shadowRT    = _shadowImg.rectTransform;
+        _shadowRT.anchorMin    = new Vector2(0.5f, 0f);
+        _shadowRT.anchorMax    = new Vector2(0.5f, 0f);
+        _shadowRT.pivot        = new Vector2(0.5f, 0.5f);
+        _shadowRT.sizeDelta    = new Vector2(BallSize * 1.4f, BallSize * 0.35f);
+        _shadowRT.anchoredPosition = new Vector2(0f, FloorY - BallSize * 0.05f);
+
+        // ── Balle ─────────────────────────────────────────────────────────────
+        var ballGO  = new GameObject("Ball");
+        ballGO.transform.SetParent(canvasRT, false);
+        var ballImg = ballGO.AddComponent<Image>();
+        ballImg.sprite      = SpriteGenerator.CreateCircle(128);
+        ballImg.color       = ColorBall;
+        ballImg.raycastTarget = false;
+        _ballRT             = ballImg.rectTransform;
+        _ballRT.anchorMin   = new Vector2(0.5f, 0f);
+        _ballRT.anchorMax   = new Vector2(0.5f, 0f);
+        _ballRT.pivot       = new Vector2(0.5f, 0.5f);
+        _ballRT.sizeDelta   = new Vector2(BallSize, BallSize);
+        _ballRT.anchoredPosition = new Vector2(0f, FloorY + BounceHeight + BallSize * 0.5f);
 
         // ── Overlay de fondu (au-dessus de tout) ─────────────────────────────
         var fadeGO  = new GameObject("FadeOverlay");
@@ -127,51 +191,73 @@ public class IntroLeaf : MonoBehaviour
         StretchFull(_fadeOverlay.rectTransform);
     }
 
-    // ── Chargement sprite ─────────────────────────────────────────────────────
-
-    private static Sprite LoadLeafSprite()
-    {
-#if UNITY_EDITOR
-        var tex = UnityEditor.AssetDatabase.LoadAssetAtPath<Texture2D>(
-            "Assets/sprites/anim_feuille.png");
-        if (tex != null)
-        {
-            var objs = UnityEditor.AssetDatabase.LoadAllAssetsAtPath(
-                "Assets/sprites/anim_feuille.png");
-            foreach (var obj in objs)
-                if (obj is Sprite sp) return sp;
-
-            return Sprite.Create(tex,
-                new Rect(0, 0, tex.width, tex.height),
-                new Vector2(0.5f, 0.5f), 100f);
-        }
-#endif
-        return Resources.Load<Sprite>("anim_feuille") ?? SpriteGenerator.CreateWhiteSquare();
-    }
-
     // ── Séquence principale ───────────────────────────────────────────────────
 
     private IEnumerator PlaySequence()
     {
-        // ── Phase 1 : chute de la feuille ─────────────────────────────────────
-        float elapsed = 0f;
-        while (elapsed < FallDuration)
+        float elapsed         = 0f;
+        float rippleTimer     = 0f;
+        float bounceVelocity  = 0f;
+        float ballY           = FloorY + BounceHeight + BallSize * 0.5f;
+        bool  onGround        = false;
+
+        // Vitesse initiale vers le bas (chute libre)
+        bounceVelocity = -Mathf.Sqrt(2f * BounceGravity * 1000f * BounceHeight / 1920f) * 1920f;
+
+        while (elapsed < BallDuration)
         {
-            elapsed += Time.deltaTime;
-            float t = Mathf.Clamp01(elapsed / FallDuration);
+            elapsed    += Time.deltaTime;
+            rippleTimer += Time.deltaTime;
 
-            // Interpolation verticale EaseInQuad (accélération naturelle)
-            float tEased = t * t;
-            float posY = Mathf.LerpUnclamped(LeafStartY, LeafEndY, tEased);
+            // ── Physique de rebond ─────────────────────────────────────────────
+            bounceVelocity += BounceGravity * 1000f * Time.deltaTime;
+            ballY          -= bounceVelocity * Time.deltaTime;
 
-            // Balancement horizontal sinusoïdal
-            float posX = Mathf.Sin(elapsed * SwayFrequency * Mathf.PI * 2f) * SwayAmplitude;
+            float groundY = FloorY + BallSize * 0.5f;
+            if (ballY <= groundY)
+            {
+                ballY          = groundY;
+                bounceVelocity = -bounceVelocity * 0.72f;
+                onGround       = true;
+            }
+            else
+            {
+                onGround = false;
+            }
 
-            _leafRT.anchoredPosition = new Vector2(posX, posY);
+            // ── Position balle ────────────────────────────────────────────────
+            _ballRT.anchoredPosition = new Vector2(0f, ballY);
 
-            // Rotation continue
-            float angle = Mathf.LerpUnclamped(RotationStart, RotationEnd, t);
-            _leafRT.localRotation = Quaternion.Euler(0f, 0f, angle);
+            // ── Écrasement/étirement de la balle ─────────────────────────────
+            float distFromGround = (ballY - groundY) / BounceHeight;
+            float squash         = onGround
+                ? 1f + Mathf.Abs(bounceVelocity) / 4000f
+                : 1f + Mathf.Clamp(distFromGround * 0.12f, 0f, 0.15f);
+            float squashY = onGround
+                ? 1f - Mathf.Clamp(Mathf.Abs(bounceVelocity) / 6000f, 0f, 0.3f)
+                : 1f;
+
+            _ballRT.localScale = new Vector3(squash, squashY, 1f);
+
+            // ── Ombre ────────────────────────────────────────────────────────
+            float t        = Mathf.Clamp01(1f - (ballY - groundY) / BounceHeight);
+            float shadowW  = Mathf.Lerp(BallSize * 0.5f, BallSize * 1.6f, t);
+            float shadowH  = Mathf.Lerp(BallSize * 0.1f, BallSize * 0.4f, t);
+            _shadowRT.sizeDelta = new Vector2(shadowW, shadowH);
+            var shadowColor = _shadowImg.color;
+            shadowColor.a = Mathf.Lerp(0.05f, 0.5f, t);
+            _shadowImg.color = shadowColor;
+
+            // ── Ondulations ──────────────────────────────────────────────────
+            if (onGround || rippleTimer >= RippleSpawnInterval)
+            {
+                if (onGround || rippleTimer >= RippleSpawnInterval)
+                {
+                    SpawnRipple();
+                    rippleTimer = 0f;
+                }
+            }
+            UpdateRipples();
 
             yield return null;
         }
@@ -181,14 +267,55 @@ public class IntroLeaf : MonoBehaviour
         while (elapsed < FadeDuration)
         {
             elapsed += Time.deltaTime;
-            float alpha = Mathf.Clamp01(elapsed / FadeDuration);
-            _fadeOverlay.color = new Color(0f, 0f, 0f, alpha);
+            _fadeOverlay.color = new Color(0f, 0f, 0f, Mathf.Clamp01(elapsed / FadeDuration));
             yield return null;
         }
         _fadeOverlay.color = Color.black;
 
-        // ── Phase 3 : chargement de la scène Menu ─────────────────────────────
         yield return SceneManager.LoadSceneAsync(TargetScene);
+    }
+
+    // ── Gestion des ondulations ───────────────────────────────────────────────
+
+    private void SpawnRipple()
+    {
+        for (int i = 0; i < _ripples.Count; i++)
+        {
+            var r = _ripples[i];
+            if (r.Age > RippleLifetime)
+            {
+                r.Age = 0f;
+                r.Image.gameObject.SetActive(true);
+                r.Image.color = new Color(ColorRipple.r, ColorRipple.g, ColorRipple.b, ColorRipple.a);
+                r.Image.rectTransform.sizeDelta = Vector2.one * RippleInitSize;
+                _ripples[i] = r;
+                return;
+            }
+        }
+    }
+
+    private void UpdateRipples()
+    {
+        for (int i = 0; i < _ripples.Count; i++)
+        {
+            var r = _ripples[i];
+            if (r.Age > RippleLifetime) continue;
+
+            r.Age += Time.deltaTime;
+            float progress = r.Age / RippleLifetime;
+            float size     = Mathf.Lerp(RippleInitSize, RippleMaxSize, progress);
+            float alpha    = ColorRipple.a * (1f - progress);
+
+            r.Image.rectTransform.sizeDelta = new Vector2(size, size * 0.35f);
+            var c = r.Image.color;
+            c.a   = alpha;
+            r.Image.color = c;
+
+            if (r.Age >= RippleLifetime)
+                r.Image.gameObject.SetActive(false);
+
+            _ripples[i] = r;
+        }
     }
 
     // ── Utilitaire ────────────────────────────────────────────────────────────

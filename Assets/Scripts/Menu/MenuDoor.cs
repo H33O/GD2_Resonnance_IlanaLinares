@@ -6,9 +6,9 @@ using TMPro;
 /// <summary>
 /// Widget "Porte" du menu principal.
 ///
-/// - Affiche le sprite de porte centré bas-écran.
+/// - Affiche un rectangle blanc fluorescent centré bas-écran avec un halo mystique rayonnant.
 /// - Verrouillée : sprite cadenas + badge "Atteindre le niveau 4".
-/// - Déverrouillée : cadenas disparaît, porte pulse dorée, clic → <see cref="DoorManager"/>.
+/// - Déverrouillée : cadenas disparaît, porte pulse blanc intense, clic → <see cref="DoorManager"/>.
 /// </summary>
 public class MenuDoor : MonoBehaviour
 {
@@ -16,7 +16,7 @@ public class MenuDoor : MonoBehaviour
 
     private const float DoorW       = 620f;
     private const float DoorH       = 900f;
-    private const float DoorOffsetY = 120f;
+    private const float DoorOffsetY = 380f;  // remonté pour exposer les halos lumineux
 
     private const float LockW = 200f;
     private const float LockH = 200f;
@@ -26,10 +26,15 @@ public class MenuDoor : MonoBehaviour
     private const float TooltipDur  = 2.8f;
     private const float TooltipFade = 0.30f;
 
-    // ── Pulse dorée ───────────────────────────────────────────────────────────
+    // ── Pulse mystique ────────────────────────────────────────────────────────
 
-    private const float PulsePeriod  = 1.6f;
-    private const float PulseMaxGlow = 0.55f;
+    private const float PulsePeriod  = 2.2f;
+    private const float PulseMinAlpha = 0.88f;
+    private const float PulseMaxAlpha = 1.0f;
+
+    // ── Halo ──────────────────────────────────────────────────────────────────
+
+    private const int HaloLayerCount = 4;
 
     // ── Références runtime ────────────────────────────────────────────────────
 
@@ -38,8 +43,9 @@ public class MenuDoor : MonoBehaviour
     private RectTransform   _tooltipRT;
     private CanvasGroup     _tooltipGroup;
     private bool            _tooltipShowing;
-    private bool            _pulsingGold;
+    private bool            _pulsingGlow;
     private Coroutine       _pulseCoroutine;
+    private Image[]         _haloImages;
 
     // ── Sprites ───────────────────────────────────────────────────────────────
 
@@ -50,10 +56,72 @@ public class MenuDoor : MonoBehaviour
     /// <summary>Construit la porte dans le <paramref name="canvasRT"/> fourni.</summary>
     public void Init(RectTransform canvasRT)
     {
+        BuildHaloRays(canvasRT);
         var doorRT = BuildDoorImage(canvasRT);
+        BuildGlowLayers(canvasRT, doorRT);
         BuildLockImage(doorRT);
         BuildTooltip(canvasRT);
         RefreshLockVisual();
+    }
+
+    // ── Rayons de halo (fond) ─────────────────────────────────────────────────
+
+    private void BuildHaloRays(RectTransform parent)
+    {
+        // Couches de halo soft empilées pour simuler les rayons mystiques
+        _haloImages = new Image[HaloLayerCount];
+
+        float[] scales  = { 1.9f, 1.5f, 1.2f, 1.05f };
+        float[] alphas  = { 0.07f, 0.10f, 0.13f, 0.18f };
+
+        for (int i = 0; i < HaloLayerCount; i++)
+        {
+            var go  = new GameObject($"DoorHalo_{i}");
+            go.transform.SetParent(parent, false);
+
+            var img  = go.AddComponent<Image>();
+            img.sprite      = CreateRadialGlowSprite();
+            img.color       = new Color(1f, 1f, 1f, alphas[i]);
+            img.raycastTarget = false;
+
+            float w = DoorW * scales[i];
+            float h = DoorH * scales[i] * 1.4f;
+
+            var rt              = img.rectTransform;
+            rt.anchorMin        = new Vector2(0.5f, 0f);
+            rt.anchorMax        = new Vector2(0.5f, 0f);
+            rt.pivot            = new Vector2(0.5f, 0f);
+            rt.sizeDelta        = new Vector2(w, h);
+            rt.anchoredPosition = new Vector2(0f, DoorOffsetY - h * 0.15f);
+
+            _haloImages[i] = img;
+        }
+    }
+
+    // ── Couches de lueur autour de la porte ───────────────────────────────────
+
+    private static void BuildGlowLayers(RectTransform parent, RectTransform doorRT)
+    {
+        float[] expansions = { 80f, 40f, 18f };
+        float[] alphas     = { 0.12f, 0.22f, 0.35f };
+
+        foreach (var (exp, alpha) in ZipArrays(expansions, alphas))
+        {
+            var go  = new GameObject("DoorGlow");
+            go.transform.SetParent(parent, false);
+
+            var img  = go.AddComponent<Image>();
+            img.sprite       = SpriteGenerator.CreateWhiteSquare();
+            img.color        = new Color(1f, 1f, 1f, alpha);
+            img.raycastTarget = false;
+
+            var rt              = img.rectTransform;
+            rt.anchorMin        = new Vector2(0.5f, 0f);
+            rt.anchorMax        = new Vector2(0.5f, 0f);
+            rt.pivot            = new Vector2(0.5f, 0f);
+            rt.sizeDelta        = new Vector2(DoorW + exp * 2f, DoorH + exp);
+            rt.anchoredPosition = new Vector2(0f, DoorOffsetY - exp * 0.5f);
+        }
     }
 
     // ── Image de porte ────────────────────────────────────────────────────────
@@ -64,13 +132,9 @@ public class MenuDoor : MonoBehaviour
         go.transform.SetParent(parent, false);
 
         _doorImage              = go.AddComponent<Image>();
-        _doorImage.sprite       = DoorSprite;
+        _doorImage.sprite       = SpriteGenerator.CreateWhiteSquare();
         _doorImage.color        = Color.white;
-        _doorImage.preserveAspect = true;
         _doorImage.raycastTarget  = true;
-
-        if (DoorSprite == null)
-            _doorImage.color = new Color(1f, 1f, 1f, 0f);
 
         var rt              = _doorImage.rectTransform;
         rt.anchorMin        = new Vector2(0.5f, 0f);
@@ -82,8 +146,8 @@ public class MenuDoor : MonoBehaviour
         var btn                 = go.AddComponent<Button>();
         btn.targetGraphic       = _doorImage;
         var colors              = btn.colors;
-        colors.highlightedColor = new Color(1f, 1f, 1f, 0.85f);
-        colors.pressedColor     = new Color(0.8f, 0.8f, 0.8f, 1f);
+        colors.highlightedColor = new Color(0.9f, 0.9f, 1f, 1f);
+        colors.pressedColor     = new Color(0.7f, 0.7f, 0.85f, 1f);
         colors.fadeDuration     = 0.08f;
         btn.colors              = colors;
         btn.onClick.AddListener(OnClick);
@@ -100,12 +164,12 @@ public class MenuDoor : MonoBehaviour
 
         _lockImage                = go.AddComponent<Image>();
         _lockImage.sprite         = MenuAssets.LockSprite;
-        _lockImage.color          = Color.white;
+        _lockImage.color          = new Color(0.1f, 0.1f, 0.1f, 0.8f);
         _lockImage.preserveAspect = true;
         _lockImage.raycastTarget  = false;
 
         if (MenuAssets.LockSprite == null)
-            _lockImage.color = new Color(1f, 1f, 1f, 0f);
+            _lockImage.color = new Color(0f, 0f, 0f, 0f);
 
         var rt        = _lockImage.rectTransform;
         rt.anchorMin  = new Vector2(0.5f, 0.62f);
@@ -163,7 +227,7 @@ public class MenuDoor : MonoBehaviour
 
     /// <summary>
     /// Affiche/masque le cadenas.
-    /// Déclenche la pulse dorée si la porte vient d'être déverrouillée.
+    /// Déclenche la pulse lumineuse si la porte vient d'être déverrouillée.
     /// </summary>
     public void RefreshLockVisual()
     {
@@ -171,32 +235,48 @@ public class MenuDoor : MonoBehaviour
 
         if (_lockImage != null) _lockImage.gameObject.SetActive(locked);
 
-        if (!locked && !_pulsingGold)
-            StartGoldPulse();
+        if (!locked && !_pulsingGlow)
+            StartGlowPulse();
     }
 
-    // ── Pulse dorée ───────────────────────────────────────────────────────────
+    // ── Pulse lumineuse mystique ───────────────────────────────────────────────
 
-    /// <summary>Démarre la pulsation dorée infinie sur le sprite de la porte.</summary>
-    public void StartGoldPulse()
+    /// <summary>Démarre la pulsation blanche fluorescente infinie sur la porte.</summary>
+    public void StartGlowPulse()
     {
-        if (_pulsingGold) return;
-        _pulsingGold = true;
+        if (_pulsingGlow) return;
+        _pulsingGlow = true;
         if (_pulseCoroutine != null) StopCoroutine(_pulseCoroutine);
-        _pulseCoroutine = StartCoroutine(GoldPulseLoop());
+        _pulseCoroutine = StartCoroutine(GlowPulseLoop());
     }
 
-    private IEnumerator GoldPulseLoop()
+    private IEnumerator GlowPulseLoop()
     {
         float t = 0f;
-        while (_pulsingGold)
+        while (_pulsingGlow)
         {
             t += Time.deltaTime;
             float phase = Mathf.PingPong(t / PulsePeriod, 1f);
-            float glow  = Mathf.SmoothStep(0f, PulseMaxGlow, phase);
+            float alpha = Mathf.SmoothStep(PulseMinAlpha, PulseMaxAlpha, phase);
 
             if (_doorImage != null)
-                _doorImage.color = new Color(1f, 1f - glow * 0.35f, 1f - glow, 1f);
+                _doorImage.color = new Color(1f, 1f, 1f, alpha);
+
+            // Halo qui pulse légèrement en décalage
+            if (_haloImages != null)
+            {
+                for (int i = 0; i < _haloImages.Length; i++)
+                {
+                    float haloPhase = Mathf.PingPong((t + i * 0.3f) / PulsePeriod, 1f);
+                    float haloBase  = 0.05f + i * 0.04f;
+                    if (_haloImages[i] != null)
+                    {
+                        var c   = _haloImages[i].color;
+                        c.a     = Mathf.SmoothStep(haloBase, haloBase + 0.10f, haloPhase);
+                        _haloImages[i].color = c;
+                    }
+                }
+            }
 
             yield return null;
         }
@@ -250,5 +330,60 @@ public class MenuDoor : MonoBehaviour
         }
         if (_tooltipGroup != null)
             _tooltipGroup.alpha = to;
+    }
+
+    // ── Génération sprite halo radial ─────────────────────────────────────────
+
+    private static Sprite _radialGlowSprite;
+
+    /// <summary>
+    /// Génère un sprite de lueur radiale douce blanc → transparent.
+    /// Simule des rayons de lumière émanant du bas.
+    /// </summary>
+    private static Sprite CreateRadialGlowSprite()
+    {
+        if (_radialGlowSprite != null) return _radialGlowSprite;
+
+        const int size = 256;
+        var tex    = new Texture2D(size, size, TextureFormat.RGBA32, false);
+        tex.filterMode = FilterMode.Bilinear;
+        var pixels = new Color[size * size];
+
+        float cx = size * 0.5f;
+        float cy = 0f;   // Centre en bas
+
+        for (int y = 0; y < size; y++)
+        for (int x = 0; x < size; x++)
+        {
+            float dx   = x + 0.5f - cx;
+            float dy   = y + 0.5f - cy;
+            float dist = Mathf.Sqrt(dx * dx + dy * dy) / size;
+
+            // Atténuation radiale
+            float alpha = Mathf.Clamp01(1f - dist * 1.8f);
+            alpha = alpha * alpha;  // falloff quadratique plus doux
+
+            // Ajout de rayons angulaires simulés via bruit directionnel
+            float angle = Mathf.Atan2(dy, Mathf.Abs(dx));
+            float rays  = Mathf.Abs(Mathf.Sin(angle * 7f)) * 0.4f + 0.6f;
+            alpha *= rays;
+
+            pixels[y * size + x] = new Color(1f, 1f, 1f, alpha);
+        }
+
+        tex.SetPixels(pixels);
+        tex.Apply(false, true);
+
+        _radialGlowSprite = Sprite.Create(tex, new Rect(0, 0, size, size), new Vector2(0.5f, 0f), size);
+        return _radialGlowSprite;
+    }
+
+    // ── Helper zip ────────────────────────────────────────────────────────────
+
+    private static System.Collections.Generic.IEnumerable<(float, float)> ZipArrays(float[] a, float[] b)
+    {
+        int len = Mathf.Min(a.Length, b.Length);
+        for (int i = 0; i < len; i++)
+            yield return (a[i], b[i]);
     }
 }

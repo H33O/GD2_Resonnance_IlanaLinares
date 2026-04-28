@@ -8,26 +8,16 @@ using UnityEngine.UI;
 /// </summary>
 public class BubbleSceneSetup : MonoBehaviour
 {
-    // ── Palette (identique au menu) ───────────────────────────────────────────
+    // ── Palette ───────────────────────────────────────────────────────────────
 
-    private static readonly Color ColBg   = new Color(0.05f, 0.05f, 0.05f, 1f);
-    private static readonly Color ColGrid = new Color(1f, 1f, 1f, 0.04f);
+    private static readonly Color ColBg        = new Color(0.05f, 0.05f, 0.05f, 1f);
+    private static readonly Color ColGrid       = new Color(1f, 1f, 1f, 0.04f);
+    private static readonly Color ColPanelBg    = new Color(0f, 0f, 0f, 0.35f);
 
-    // ── Configuration du fond ─────────────────────────────────────────────────
-
-    [Header("Fond")]
-    [Tooltip("Sprite de fond affiché derrière la grille. Laisse vide pour utiliser la couleur unie.")]
-    [SerializeField] private Sprite backgroundSprite;
-
-    [Tooltip("Couleur appliquée sur le sprite de fond (teinte) ou couleur unie si aucun sprite.")]
-    [SerializeField] private Color backgroundColor = new Color(0.05f, 0.05f, 0.05f, 1f);
-
-    [Tooltip("Mode de remplissage du sprite de fond.")]
-    [SerializeField] private BackgroundFit backgroundFit = BackgroundFit.Fill;
-
+    /// <summary>Conservé pour compatibilité avec BubbleLevelData.</summary>
     public enum BackgroundFit { Fill, Contain }
 
-    // ── Instance courante (pour mise à jour runtime) ──────────────────────────
+    // ── Instance courante ─────────────────────────────────────────────────────
 
     private static BubbleSceneSetup _instance;
     private GameObject _bgObject;
@@ -36,37 +26,16 @@ public class BubbleSceneSetup : MonoBehaviour
 
     private void Start()
     {
-        // Caméra : fond correspondant à la couleur choisie
         if (Camera.main != null)
-            Camera.main.backgroundColor = backgroundColor;
+            Camera.main.backgroundColor = ColBg;
 
-        _bgObject = BuildWorldBackground(backgroundSprite, backgroundColor, backgroundFit);
+        _bgObject = BuildWorldBackground();
         BuildGrid();
     }
 
-    // ── API statique pour le LevelManager ─────────────────────────────────────
+    // ── Fond monde (carré noir semi-opaque) ───────────────────────────────────
 
-    /// <summary>
-    /// Applique le fond d'un niveau en remplaçant le fond existant.
-    /// Peut être appelé depuis <see cref="BubbleLevelManager"/> à chaque changement de niveau.
-    /// </summary>
-    public static void ApplyBackground(BubbleLevelData data)
-    {
-        if (_instance == null || data == null) return;
-        _instance.ApplyBackgroundInternal(data.backgroundSprite, data.backgroundColor, data.backgroundFit);
-    }
-
-    private void ApplyBackgroundInternal(Sprite sprite, Color color, BackgroundFit fit)
-    {
-        if (_bgObject != null) Destroy(_bgObject);
-        if (Camera.main != null) Camera.main.backgroundColor = color;
-        _bgObject = BuildWorldBackground(sprite, color, fit);
-    }
-
-    // ── Fond monde ────────────────────────────────────────────────────────────
-
-    /// <summary>SpriteRenderer plein écran en arrière-plan, avec sprite ou couleur unie.</summary>
-    private static GameObject BuildWorldBackground(Sprite sprite, Color color, BackgroundFit fit)
+    private static GameObject BuildWorldBackground()
     {
         Camera cam = Camera.main;
         if (cam == null) return null;
@@ -77,38 +46,30 @@ public class BubbleSceneSetup : MonoBehaviour
 
         var go = new GameObject("BubbleBG");
         var sr = go.AddComponent<SpriteRenderer>();
-
-        if (sprite != null)
-        {
-            sr.sprite      = sprite;
-            sr.color       = color;
-            sr.drawMode    = SpriteDrawMode.Simple;
-
-            float spriteW = sprite.bounds.size.x;
-            float spriteH = sprite.bounds.size.y;
-            float scaleX  = w / spriteW;
-            float scaleY  = h / spriteH;
-            float scale   = fit == BackgroundFit.Fill
-                ? Mathf.Max(scaleX, scaleY)
-                : Mathf.Min(scaleX, scaleY);
-
-            go.transform.localScale = new Vector3(scale, scale, 1f);
-        }
-        else
-        {
-            sr.sprite       = SpriteGenerator.CreateCircle(4);
-            sr.color        = color;
-            go.transform.localScale = new Vector3(w, h, 1f);
-        }
-
-        sr.sortingOrder       = -20;
-        go.transform.position = new Vector3(cp.x, cp.y, 1f);
+        sr.sprite       = SpriteGenerator.CreateWhiteSquare();
+        sr.color        = ColBg;
+        sr.sortingOrder = -20;
+        go.transform.localScale = new Vector3(w, h, 1f);
+        go.transform.position   = new Vector3(cp.x, cp.y, 1f);
         return go;
+    }
+
+    // ── API statique pour le LevelManager ─────────────────────────────────────
+
+    /// <summary>
+    /// Réinitialise le fond (plus de sprite externe — fond noir pur uniquement).
+    /// Conservé pour compatibilité avec <see cref="BubbleLevelManager"/>.
+    /// </summary>
+    public static void ApplyBackground(BubbleLevelData data)
+    {
+        if (_instance == null) return;
+        if (_instance._bgObject != null) Destroy(_instance._bgObject);
+        if (Camera.main != null) Camera.main.backgroundColor = ColBg;
+        _instance._bgObject = BuildWorldBackground();
     }
 
     // ── Grille monde ──────────────────────────────────────────────────────────
 
-    /// <summary>Lignes fines translucides dans l'espace monde, comme la grille du menu.</summary>
     private void BuildGrid()
     {
         Camera cam = Camera.main;

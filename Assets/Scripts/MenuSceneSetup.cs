@@ -1,7 +1,6 @@
 using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.EventSystems;
-using TMPro;
 
 /// <summary>
 /// Construit procéduralement le menu principal sur un Canvas Screen Space Overlay.
@@ -15,10 +14,6 @@ using TMPro;
 public class MenuSceneSetup : MonoBehaviour
 {
     // ── Inspector ─────────────────────────────────────────────────────────────
-
-    [Header("Fond")]
-    [Tooltip("Image de fond du menu (ex : foret.png). Si null, fond noir pur.")]
-    [SerializeField] public Sprite backgroundSprite;
 
     [Header("Porte")]
     [Tooltip("Sprite assigné au plane central de la porte.")]
@@ -41,26 +36,6 @@ public class MenuSceneSetup : MonoBehaviour
     [Tooltip("Sprite 9-slice appliqué à tous les boutons du menu (ex : bouton UI.png).")]
     [SerializeField] public Sprite buttonSprite;
 
-    [Header("Typographie & Icônes")]
-    [Tooltip("Police Michroma SDF (Michroma-Regular SDF.asset).")]
-    [SerializeField] public TMP_FontAsset michromatFont;
-
-    [Tooltip("Sprite cadenas affiché sur la porte verrouillée (cadena.png).")]
-    [SerializeField] public Sprite lockSprite;
-
-    [Tooltip("Sprite de fond affiché derrière tous les textes (jaugenormal.png).")]
-    [SerializeField] public Sprite textBadgeSprite;
-
-    [Header("Jauges — Sprites")]
-    [Tooltip("Sprite de la jauge Eau (jaugesoif.png). (Réservé pour usage futur.)")]
-    [SerializeField] public Sprite gaugeWaterSprite;
-
-    [Tooltip("Sprite de la jauge Nourriture (jaugemanger.png). (Réservé pour usage futur.)")]
-    [SerializeField] public Sprite gaugeFoodSprite;
-
-    [Tooltip("Sprite de la jauge Sommeil (jaugesommeil.png). (Réservé pour usage futur.)")]
-    [SerializeField] public Sprite gaugeSleepSprite;
-
     // ── Init ──────────────────────────────────────────────────────────────────
 
     private void Awake()
@@ -76,17 +51,13 @@ public class MenuSceneSetup : MonoBehaviour
         ShopManager.EnsureExists();
         ScoreManager.EnsureExists();
 
-        // Charger le fond jeu automatiquement si aucun sprite n'est assigné
-        if (backgroundSprite == null)
-            backgroundSprite = LoadFondJeu();
-
-        // Assets partagés pour tous les builders — JimNightshade prioritaire via MenuAssets.Init
-        MenuAssets.Init(buttonSprite, null, lockSprite);
+        // Assets partagés pour tous les builders — Michroma via MenuAssets.Init
+        MenuAssets.Init(buttonSprite);
 
         var canvasRT = BuildCanvas();
 
         BuildBackground(canvasRT);
-        BuildFireflies(canvasRT);
+        BuildBouncingDots(canvasRT);
         BuildHud(canvasRT);
         BuildDoorManager(canvasRT);   // DoorManager avant MenuDoor
         BuildDoor(canvasRT);
@@ -94,26 +65,7 @@ public class MenuSceneSetup : MonoBehaviour
     }
 
     // ── Chargement fond jeu ───────────────────────────────────────────────────
-
-    private static Sprite LoadFondJeu()
-    {
-#if UNITY_EDITOR
-        var tex = UnityEditor.AssetDatabase.LoadAssetAtPath<Texture2D>(
-            "Assets/sprites/fond jeu.png");
-        if (tex != null)
-        {
-            var objs = UnityEditor.AssetDatabase.LoadAllAssetsAtPath(
-                "Assets/sprites/fond jeu.png");
-            foreach (var obj in objs)
-                if (obj is Sprite sp) return sp;
-
-            return Sprite.Create(tex,
-                new Rect(0, 0, tex.width, tex.height),
-                new Vector2(0.5f, 0.5f), 100f);
-        }
-#endif
-        return Resources.Load<Sprite>("fond jeu");
-    }
+    // Supprimé — plus de sprite de fond externe.
 
     // ── Canvas ────────────────────────────────────────────────────────────────
 
@@ -133,24 +85,6 @@ public class MenuSceneSetup : MonoBehaviour
         return c.GetComponent<RectTransform>();
     }
 
-    // ── Lucioles ──────────────────────────────────────────────────────────────
-
-    /// <summary>Crée le système de lucioles UI par-dessus le fond, sous le HUD.</summary>
-    private static void BuildFireflies(RectTransform canvasRT)
-    {
-        var go = new GameObject("Fireflies");
-        go.transform.SetParent(canvasRT, false);
-        var rt = go.AddComponent<RectTransform>();
-        rt.anchorMin = Vector2.zero;
-        rt.anchorMax = Vector2.one;
-        rt.offsetMin = rt.offsetMax = Vector2.zero;
-
-        go.AddComponent<MenuFireflies>().Init(rt);
-
-        // Sibling index 1 : juste au-dessus du Background, sous tout le reste
-        go.transform.SetSiblingIndex(1);
-    }
-
     // ── Fond ──────────────────────────────────────────────────────────────────
 
     private void BuildBackground(RectTransform parent)
@@ -159,20 +93,23 @@ public class MenuSceneSetup : MonoBehaviour
         go.transform.SetParent(parent, false);
         var img           = go.AddComponent<Image>();
         img.raycastTarget = false;
+        img.sprite        = SpriteGenerator.CreateWhiteSquare();
+        img.color         = new Color(0.05f, 0.05f, 0.05f, 1f);
         StretchFull(img.rectTransform);
+    }
 
-        if (backgroundSprite != null)
-        {
-            img.sprite           = backgroundSprite;
-            img.color            = Color.white;
-            img.preserveAspect   = false;   // plein écran, on étire volontairement
-            img.type             = Image.Type.Simple;
-        }
-        else
-        {
-            img.sprite = SpriteGenerator.CreateWhiteSquare();
-            img.color  = new Color(0.05f, 0.04f, 0.07f, 1f);
-        }
+    // ── Points blancs rebondissants ───────────────────────────────────────────
+
+    private static void BuildBouncingDots(RectTransform canvasRT)
+    {
+        var go = new GameObject("BouncingDots");
+        go.transform.SetParent(canvasRT, false);
+        var rt = go.AddComponent<RectTransform>();
+        rt.anchorMin = Vector2.zero;
+        rt.anchorMax = Vector2.one;
+        rt.offsetMin = rt.offsetMax = Vector2.zero;
+        go.AddComponent<MenuBouncingDots>().Init(rt);
+        go.transform.SetSiblingIndex(1);
     }
 
     // ── HUD (Score + Horloge) ─────────────────────────────────────────────────
@@ -232,15 +169,15 @@ public class MenuSceneSetup : MonoBehaviour
 
         var img    = btnGO.AddComponent<Image>();
         img.sprite = SpriteGenerator.CreateWhiteSquare();
-        img.color  = new Color(0f, 0f, 0f, 0.55f);
-        MenuAssets.ApplyButtonSprite(img);
+        img.color  = new Color(0f, 0f, 0f, 0.45f);
+        img.type   = Image.Type.Simple;
 
         var rt             = img.rectTransform;
         rt.anchorMin       = new Vector2(0.5f, 0f);
         rt.anchorMax       = new Vector2(0.5f, 0f);
         rt.pivot           = new Vector2(0.5f, 0f);
         rt.sizeDelta       = new Vector2(380f, 110f);
-        rt.anchoredPosition = new Vector2(0f, 28f);
+        rt.anchoredPosition = new Vector2(0f, 180f);
 
         var lgo       = new GameObject("Label");
         lgo.transform.SetParent(rt, false);

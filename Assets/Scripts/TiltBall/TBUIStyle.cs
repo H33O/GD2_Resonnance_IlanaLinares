@@ -4,59 +4,58 @@ using UnityEngine.UI;
 
 /// <summary>
 /// Centralise la charte graphique UI du TiltBall :
-/// typographie JimNightshade + sprite jaugenormal sur tous les supports.
-///
-/// Initialisé une fois via <see cref="Init"/> (appelé par TBSceneSetup.BuildLevel),
-/// puis disponible partout avec <see cref="ApplyFont"/> et <see cref="ApplyJauge"/>.
+/// typographie Michroma (via MenuAssets) + fond carré noir semi-opaque.
+/// Plus aucun sprite jaugenormal n'est utilisé.
 /// </summary>
 public static class TBUIStyle
 {
     private static TMP_FontAsset _font;
-    private static Sprite        _jauge;
 
     // ── Initialisation ────────────────────────────────────────────────────────
 
     /// <summary>
-    /// Injecte la police SDF et le sprite jauge depuis TBLevelPrefabsData.
+    /// Injecte la police SDF. Le paramètre jaugeSprite est ignoré (supprimé).
     /// Appelé une fois par TBSceneSetup avant toute construction UI.
     /// </summary>
-    public static void Init(TMP_FontAsset font, Sprite jaugeSprite)
+    public static void Init(TMP_FontAsset font, Sprite jaugeSprite = null)
     {
-        if (font        != null) _font  = font;
-        if (jaugeSprite != null) _jauge = jaugeSprite;
+        // Priorité : font injectée, sinon MenuAssets.Font (Michroma)
+        _font = font != null ? font : MenuAssets.Font;
     }
 
     // ── Typographie ───────────────────────────────────────────────────────────
 
-    /// <summary>Applique JimNightshade sur un TextMeshProUGUI.</summary>
+    /// <summary>Applique Michroma sur un TextMeshProUGUI.</summary>
     public static void ApplyFont(TextMeshProUGUI tmp)
     {
-        if (tmp == null || _font == null) return;
-        tmp.font = _font;
+        if (tmp == null) return;
+        var f = _font ?? MenuAssets.Font;
+        if (f != null) tmp.font = f;
     }
 
     /// <summary>Applique la police sur tous les TMP enfants d'un Transform.</summary>
     public static void ApplyFontAll(Transform root)
     {
-        if (root == null || _font == null) return;
+        if (root == null) return;
+        var f = _font ?? MenuAssets.Font;
+        if (f == null) return;
         foreach (var tmp in root.GetComponentsInChildren<TextMeshProUGUI>(true))
-            tmp.font = _font;
+            tmp.font = f;
     }
 
-    // ── Sprite jauge ─────────────────────────────────────────────────────────
+    // ── Fond carré noir ───────────────────────────────────────────────────────
 
     /// <summary>
-    /// Applique jaugenormal en mode Sliced sur un fond Image.
-    /// Préserve les bords arrondis à toute taille.
+    /// Applique un fond carré noir semi-opaque sur une Image (remplace jaugenormal).
     /// </summary>
     public static void ApplyJauge(Image img)
     {
-        if (img == null || _jauge == null) return;
-        img.sprite = _jauge;
-        img.type   = Image.Type.Sliced;
+        if (img == null) return;
+        img.sprite = SpriteGenerator.CreateWhiteSquare();
+        img.type   = Image.Type.Simple;
     }
 
-    /// <summary>Applique jaugenormal + teinte sur un fond Image.</summary>
+    /// <summary>Applique le fond carré avec une teinte spécifique.</summary>
     public static void ApplyJauge(Image img, Color tint)
     {
         ApplyJauge(img);
@@ -64,12 +63,12 @@ public static class TBUIStyle
     }
 
     /// <summary>
-    /// Configure une barre de progression horizontale avec le sprite jauge.
+    /// Configure une barre de progression horizontale simple sans sprite jauge.
     /// </summary>
     public static void ApplyJaugeFill(Image img, Color fillColor, float fillAmount = 1f)
     {
-        if (img == null || _jauge == null) return;
-        img.sprite     = _jauge;
+        if (img == null) return;
+        img.sprite     = SpriteGenerator.CreateWhiteSquare();
         img.type       = Image.Type.Filled;
         img.fillMethod = Image.FillMethod.Horizontal;
         img.fillAmount = fillAmount;
@@ -77,8 +76,8 @@ public static class TBUIStyle
     }
 
     /// <summary>Retourne vrai si la police est prête à l'emploi.</summary>
-    public static bool HasFont  => _font  != null;
+    public static bool HasFont  => (_font ?? MenuAssets.Font) != null;
 
-    /// <summary>Retourne vrai si le sprite jauge est prêt à l'emploi.</summary>
-    public static bool HasJauge => _jauge != null;
+    /// <summary>Toujours vrai — plus de dépendance à un sprite jauge.</summary>
+    public static bool HasJauge => true;
 }

@@ -324,15 +324,15 @@ public class PGSceneSetup : MonoBehaviour
 
         var canvasRT = canvas.GetComponent<RectTransform>();
 
-        // ── Lucioles (derrière tout) ──────────────────────────────────────────
-        var fireflyGO = new GameObject("Fireflies");
+        // ── Points rebondissants (derrière tout) ──────────────────────────────
+        var fireflyGO = new GameObject("BouncingDots");
         fireflyGO.transform.SetParent(canvasRT, false);
         var fireflyRT        = fireflyGO.AddComponent<RectTransform>();
         fireflyRT.anchorMin  = Vector2.zero;
         fireflyRT.anchorMax  = Vector2.one;
         fireflyRT.offsetMin  = fireflyRT.offsetMax = Vector2.zero;
         fireflyGO.transform.SetAsFirstSibling();
-        var fireflies = fireflyGO.AddComponent<MenuFireflies>();
+        var fireflies = fireflyGO.AddComponent<MenuBouncingDots>();
         fireflies.Init(fireflyRT);
 
         // ── HUD ───────────────────────────────────────────────────────────────

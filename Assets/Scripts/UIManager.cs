@@ -8,7 +8,7 @@ public class UIManager : MonoBehaviour
     public static UIManager Instance { get; private set; }
 
     [Header("Background")]
-    [SerializeField] private Sprite backgroundSprite;
+    [SerializeField] private Sprite backgroundSprite;  // Conservé pour compatibilité Inspector — ignoré au runtime
 
     [Header("UI References")]
     [SerializeField] private TextMeshProUGUI scoreText;
@@ -24,10 +24,10 @@ public class UIManager : MonoBehaviour
     [SerializeField] private float popupRiseDistance = 60f;
 
     /// <summary>
-    /// Police JimNightshade partagée pour tous les feedbacks dynamiques.
-    /// Priorité : perfectFont (assigné dans l'Inspector), sinon speedUpFont.
+    /// Police Michroma partagée pour tous les feedbacks dynamiques.
+    /// Priorité : perfectFont (assigné dans l'Inspector), sinon MenuAssets.Font.
     /// </summary>
-    private TMP_FontAsset FeedbackFont => perfectFont != null ? perfectFont : speedUpFont;
+    private TMP_FontAsset FeedbackFont => perfectFont != null ? perfectFont : MenuAssets.Font;
 
     private void Awake()
     {
@@ -36,8 +36,7 @@ public class UIManager : MonoBehaviour
 
     private void Start()
     {
-        BuildBackground();
-
+        // Le fond est géré par BubbleSceneSetup ou MenuSceneSetup — UIManager ne crée plus de fond sprite.
         if (GameManager.Instance != null)
         {
             GameManager.Instance.OnScoreChanged.AddListener(UpdateScoreUI);
