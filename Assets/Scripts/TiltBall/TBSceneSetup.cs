@@ -46,6 +46,9 @@ public class TBSceneSetup : MonoBehaviour
     [Tooltip("Son joué quand une amélioration est achetée.")]
     [SerializeField] public AudioClip upgradeSfx;
 
+    [Tooltip("Son joué quand le joueur ramasse la clé.")]
+    [SerializeField] public AudioClip keySfx;
+
     [Tooltip("Son joué quand le joueur entre dans le goal.")]
     [SerializeField] public AudioClip goalSfx;
 
@@ -89,6 +92,7 @@ public class TBSceneSetup : MonoBehaviour
         if (TBGameManager.Instance != null)
         {
             if (upgradeSfx    != null) TBGameManager.Instance.upgradeSfx    = upgradeSfx;
+            if (keySfx        != null) TBGameManager.Instance.keySfx        = keySfx;
             if (goalSfx       != null) TBGameManager.Instance.goalSfx       = goalSfx;
             if (deathSfx      != null) TBGameManager.Instance.deathSfx      = deathSfx;
             if (enemyDeathSfx != null) TBGameManager.Instance.enemyDeathSfx = enemyDeathSfx;

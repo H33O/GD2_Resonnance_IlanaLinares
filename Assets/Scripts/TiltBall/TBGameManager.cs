@@ -35,6 +35,9 @@ public class TBGameManager : MonoBehaviour
     [Tooltip("Son joué quand une amélioration est achetée.")]
     public AudioClip upgradeSfx;
 
+    [Tooltip("Son joué quand le joueur ramasse la clé.")]
+    public AudioClip keySfx;
+
     [Tooltip("Son joué quand le joueur entre dans le goal.")]
     public AudioClip goalSfx;
 
@@ -87,6 +90,21 @@ public class TBGameManager : MonoBehaviour
     {
         if (!isRunning) return;
         ElapsedTime += Time.deltaTime;
+
+#if UNITY_EDITOR
+        // Debug : T → sauter directement au dernier niveau (index TotalLevels - 1)
+        if (Input.GetKeyDown(KeyCode.T))
+        {
+            int lastLevel = TotalLevels - 1;
+            if (LevelIndex != lastLevel)
+            {
+                LevelIndex = lastLevel;
+                HasKey     = false;
+                TBSceneSetup.RebuildLevel(lastLevel);
+                Debug.Log($"[TBDebug] Saut au dernier niveau (index {lastLevel}).");
+            }
+        }
+#endif
     }
 
     // ── API publique ──────────────────────────────────────────────────────────
@@ -128,7 +146,8 @@ public class TBGameManager : MonoBehaviour
             HasKey = false;
 
             // Victoire finale = 50 XP base × 2 (bonus difficulté) = 100 XP fixes
-            const int XpVictoryFixed = 50;
+            // 150 XP de base × 2 = 300 XP → niveau 4 atteint en une complétion
+            const int XpVictoryFixed = 150;
             int xp = Mathf.RoundToInt(XpVictoryFixed * XpVictoryMultiplier);
             GameEndData.SetWithXP(Score, xp, GameType.BallAndGoal);
 
@@ -237,10 +256,13 @@ public class TBGameManager : MonoBehaviour
     }
 
     /// <summary>Joue le son d'amélioration via l'AudioManager.</summary>
-    public static void PlayUpgradeSfx()   => AudioManager.Instance?.PlaySfx(Instance?.upgradeSfx);
+    public static void PlayUpgradeSfx()    => AudioManager.Instance?.PlaySfx(Instance?.upgradeSfx);
+
+    /// <summary>Joue le son de collecte de clé via l'AudioManager.</summary>
+    public static void PlayKeySfx()        => AudioManager.Instance?.PlaySfx(Instance?.keySfx);
 
     /// <summary>Joue le son d'entrée dans le goal via l'AudioManager.</summary>
-    public static void PlayGoalSfx()      => AudioManager.Instance?.PlaySfx(Instance?.goalSfx);
+    public static void PlayGoalSfx()       => AudioManager.Instance?.PlaySfx(Instance?.goalSfx);
 
     /// <summary>Joue le son de mort du joueur via l'AudioManager.</summary>
     public static void PlayDeathSfx()     => AudioManager.Instance?.PlaySfx(Instance?.deathSfx);

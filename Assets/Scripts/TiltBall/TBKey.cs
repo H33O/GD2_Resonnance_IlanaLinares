@@ -44,6 +44,7 @@ public class TBKey : MonoBehaviour
         if (other.GetComponent<TBPlayerController>() == null) return;
 
         collected = true;
+        TBGameManager.PlayKeySfx();
         TBGameManager.Instance?.CollectKey();
         StartCoroutine(CollectAnimation());
     }

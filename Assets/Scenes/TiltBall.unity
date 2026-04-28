@@ -167,6 +167,7 @@ MonoBehaviour:
   fightMusic: {fileID: 8300000, guid: f05a054bc259079499329bcb06df0c0f, type: 3}
   clickSfx: {fileID: 8300000, guid: e4f07c91a8c7a5a4fb84a7fc3b18da19, type: 3}
   upgradeSfx: {fileID: 8300000, guid: 7a81d24fd19176045966552335ea4e6b, type: 3}
+  keySfx: {fileID: 8300000, guid: 57e301db259d18446801bb42066aac69, type: 3}
   goalSfx: {fileID: 8300000, guid: 15eb0a13902f62741bec42e2e2d9aba1, type: 3}
   deathSfx: {fileID: 8300000, guid: 042fb8f7ba87ef34fbcd4413a6640c43, type: 3}
   enemyDeathSfx: {fileID: 8300000, guid: 2ca9c4b8baab42944bca458e70799d9b, type: 3}

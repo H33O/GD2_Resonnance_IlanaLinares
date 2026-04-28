@@ -1,4 +1,5 @@
 using System.Collections;
+using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
@@ -6,6 +7,7 @@ using UnityEngine;
 /// Fait apparaître des ennemis sur les bords du niveau à intervalle croissant,
 /// jusqu'à une limite max qui augmente avec le niveau.
 /// Le compte d'ennemis vivants est borné à <see cref="MaxEnemiesOnScreen"/>.
+/// Les ennemis ne spawnent jamais à moins de <see cref="MinSpawnDistFromPlayer"/> du joueur.
 /// </summary>
 public class TBEnemySpawner : MonoBehaviour
 {
@@ -14,15 +16,18 @@ public class TBEnemySpawner : MonoBehaviour
     public const int ActivationLevel = 3;   // Premier niveau avec spawner actif
 
     // Intervalle (secondes) entre chaque spawn, diminue avec les niveaux
-    private const float SpawnIntervalBase = 2.5f;   // était 5.0 — spawn nettement plus rapide
-    private const float SpawnIntervalMin  = 0.7f;   // était 1.8 — pression max très élevée
+    private const float SpawnIntervalBase = 2.5f;
+    private const float SpawnIntervalMin  = 0.7f;
 
     // Nombre max d'ennemis sur l'écran à la fois (augmente avec le niveau)
-    private const int MaxEnemiesBase = 4;    // était 3
-    private const int MaxEnemiesMax  = 14;   // était 10
+    private const int MaxEnemiesBase = 4;
+    private const int MaxEnemiesMax  = 14;
 
-    // Délai initial avant le premier spawn (réduit pour entrer dans l'action plus vite)
-    private const float InitialDelay = 1.2f;  // était 2.0
+    // Délai initial avant le premier spawn
+    private const float InitialDelay = 1.2f;
+
+    /// <summary>Distance minimale entre le point de spawn et le joueur.</summary>
+    private const float MinSpawnDistFromPlayer = 4.0f;
 
     // ── État ──────────────────────────────────────────────────────────────────
 
@@ -99,8 +104,9 @@ public class TBEnemySpawner : MonoBehaviour
 
     private void SpawnOne()
     {
-        // Choisit une position de spawn aléatoire sur les bords
-        Vector2 pos = SpawnEdgePositions[Random.Range(0, SpawnEdgePositions.Length)];
+        // Filtre les positions trop proches du joueur
+        Vector2 playerPos = GetPlayerPosition();
+        Vector2 pos       = PickSpawnPosition(playerPos);
 
         // Décale légèrement pour éviter les doublons exacts
         pos += new Vector2(Random.Range(-0.5f, 0.5f), Random.Range(-0.5f, 0.5f));
@@ -126,5 +132,33 @@ public class TBEnemySpawner : MonoBehaviour
         col.radius    = 0.22f;
 
         go.AddComponent<TBEnemyController>();
+    }
+
+    /// <summary>Retourne la position courante du joueur, ou zéro si introuvable.</summary>
+    private static Vector2 GetPlayerPosition()
+    {
+        var player = FindFirstObjectByType<TBPlayerController>();
+        return player != null ? (Vector2)player.transform.position : Vector2.zero;
+    }
+
+    /// <summary>
+    /// Choisit une position de spawn parmi celles suffisamment éloignées du joueur.
+    /// Si toutes sont trop proches (cas extrême), retourne une position aléatoire.
+    /// </summary>
+    private static Vector2 PickSpawnPosition(Vector2 playerPos)
+    {
+        var candidates = new List<Vector2>(SpawnEdgePositions.Length);
+
+        foreach (var p in SpawnEdgePositions)
+        {
+            if (Vector2.Distance(p, playerPos) >= MinSpawnDistFromPlayer)
+                candidates.Add(p);
+        }
+
+        // Fallback : toutes les positions si aucune ne passe le filtre
+        if (candidates.Count == 0)
+            return SpawnEdgePositions[Random.Range(0, SpawnEdgePositions.Length)];
+
+        return candidates[Random.Range(0, candidates.Count)];
     }
 }
