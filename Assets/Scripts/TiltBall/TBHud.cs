@@ -134,10 +134,14 @@ public class TBHud : MonoBehaviour
         if (requireKey)
             BuildKeyIndicator(widgetRT);
 
-        // Le bouton menu est créé avant le joystick pour qu'il soit en dessous
-        // dans la hiérarchie → le joystick reçoit les touches en priorité.
-        BuildMenuButton();
+        // ── Ordre de création = ordre des siblings dans le Canvas ─────────────
+        // Le dernier sibling reçoit les raycasts en priorité.
+        //   1. Joystick   — le plus bas → reçoit tout l'écran sauf ce que les suivants couvrent
+        //   2. MenuButton — au-dessus du joystick → son rect est prioritaire sur le joystick
+        //   3. PausePanel — tout en haut → bloque tout quand visible, invisible sinon
         TBJoystick.Create(container);
+        BuildMenuButton();
+        TBPausePanel.Create(container);
     }
 
     private void BuildScoreColumn(RectTransform parent, float rowYMin)
@@ -221,18 +225,18 @@ public class TBHud : MonoBehaviour
         rt.anchorMin   = new Vector2(0f, 0f);
         rt.anchorMax   = new Vector2(0f, 0f);
         rt.pivot       = new Vector2(0f, 0f);
-        rt.sizeDelta   = new Vector2(220f, 80f);
-        rt.anchoredPosition = new Vector2(20f, 20f);
+        rt.sizeDelta   = new Vector2(190f, 100f);
+        rt.anchoredPosition = new Vector2(50f, 30f);
 
         var btn = go.AddComponent<Button>();
         btn.targetGraphic = img;
-        btn.onClick.AddListener(() => TBGameManager.Instance?.GoToMenu());
+        btn.onClick.AddListener(() => TBPausePanel.Toggle());
 
         var labelGO = new GameObject("Label");
         labelGO.transform.SetParent(go.transform, false);
         var tmp        = labelGO.AddComponent<TextMeshProUGUI>();
-        tmp.text       = "← MENU";
-        tmp.fontSize   = 32f;
+        tmp.text       = "II";
+        tmp.fontSize   = 36f;
         tmp.color      = new Color(1f, 1f, 1f, 0.85f);
         tmp.alignment  = TextAlignmentOptions.Center;
         tmp.fontStyle  = FontStyles.Bold;

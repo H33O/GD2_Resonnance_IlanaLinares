@@ -289,7 +289,7 @@ MonoBehaviour:
   doorSprite: {fileID: -7341407202210888751, guid: de0f1bd5bbec2f549a304ece85af65dd, type: 3}
   doorInteriorSprite: {fileID: 8377078638110343992, guid: 602135f898d902d4fbf254a51ff6a400, type: 3}
   doorButtonSprite: {fileID: -5966942925417321714, guid: 9ed0a603228752a49a8f36fc2f7569bc, type: 3}
-  doorTargetScene: CircleArena
+  doorTargetScene: ParryGame
   doorButtonLabel: JOUER
   buttonSprite: {fileID: -5966942925417321714, guid: 9ed0a603228752a49a8f36fc2f7569bc, type: 3}
 --- !u!4 &1712787627

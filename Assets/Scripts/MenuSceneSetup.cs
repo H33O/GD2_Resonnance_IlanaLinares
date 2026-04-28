@@ -200,7 +200,7 @@ public class MenuSceneSetup : MonoBehaviour
         colors.pressedColor     = new Color(0.4f, 0.4f, 0.4f, 1.00f);
         colors.fadeDuration     = 0.08f;
         btn.colors = colors;
-        btn.onClick.AddListener(panel.Show);
+        btn.onClick.AddListener(panel.Toggle);
     }
 
     // ── Utilitaires ───────────────────────────────────────────────────────────

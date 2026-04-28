@@ -36,7 +36,8 @@ public class TBJoystick : MonoBehaviour, IPointerDownHandler, IDragHandler, IPoi
     /// <summary>Direction normalisée [-1,1] lue par TBPlayerController.</summary>
     public Vector2 Direction { get; private set; }
 
-    private RectTransform zoneRT;       // zone de touch (toute la largeur, 22% bas)
+    private RectTransform zoneRT;       // zone de touch (tout l'écran)
+    private RectTransform canvasRT;     // Canvas racine — référence pour la conversion de coordonnées
     private RectTransform visualRT;     // conteneur visuel — repositionné à chaque PointerDown
     private RectTransform knobRT;
     private int           touchId = -1;
@@ -55,8 +56,8 @@ public class TBJoystick : MonoBehaviour, IPointerDownHandler, IDragHandler, IPoi
         zoneImg.raycastTarget = true;
 
         var zRT       = zoneImg.rectTransform;
-        zRT.anchorMin = new Vector2(0f,  0f);
-        zRT.anchorMax = new Vector2(1f,  0.22f);
+        zRT.anchorMin = new Vector2(0f, 0f);
+        zRT.anchorMax = new Vector2(1f, 1f);
         zRT.offsetMin = zRT.offsetMax = Vector2.zero;
 
         // ── Conteneur visuel : ancré en bas-centre par défaut ─────────────────
@@ -104,6 +105,7 @@ public class TBJoystick : MonoBehaviour, IPointerDownHandler, IDragHandler, IPoi
 
         var js         = zoneGO.AddComponent<TBJoystick>();
         js.zoneRT      = zRT;
+        js.canvasRT    = canvasRT;
         js.visualRT    = visualRT;
         js.knobRT      = kRT;
         Instance       = js;
@@ -139,22 +141,30 @@ public class TBJoystick : MonoBehaviour, IPointerDownHandler, IDragHandler, IPoi
         knobRT.anchoredPosition = Vector2.zero;
     }
 
+    /// <summary>
+    /// Réinitialise l'état du joystick (direction + knob).
+    /// Appelé par TBPausePanel à la reprise pour éviter une direction bloquée
+    /// si le joueur a levé le doigt pendant que le panneau était ouvert.
+    /// </summary>
+    public void ResetInput()
+    {
+        touchId                 = -1;
+        Direction               = Vector2.zero;
+        knobRT.anchoredPosition = Vector2.zero;
+    }
+
     // ── Repositionnement de la base ───────────────────────────────────────────
 
     /// <summary>
     /// Déplace le conteneur visuel pour que la base soit centrée sur <paramref name="screenPos"/>.
-    /// Utilise le parent (zone) comme référence de coordonnées locales.
+    /// Utilise le Canvas comme référence de coordonnées pour un positionnement correct sur tout l'écran.
     /// </summary>
     private void RepositionBase(Vector2 screenPos)
     {
-        // Convertit la position écran en local de la zone de touch
         RectTransformUtility.ScreenPointToLocalPointInRectangle(
-            zoneRT, screenPos, null, out Vector2 localInZone);
+            canvasRT, screenPos, null, out Vector2 localInCanvas);
 
-        // Convertit en anchoredPosition dans la zone
-        // La zone a des anchors étirés → son pivot est en bas-gauche par défaut.
-        // On positionne le visual en coordonnées locales de la zone directement.
-        visualRT.localPosition = localInZone;
+        visualRT.anchoredPosition = localInCanvas;
     }
 
     // ── Calcul direction ──────────────────────────────────────────────────────

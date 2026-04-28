@@ -54,6 +54,9 @@ public class MenuGameSelectPanel : MonoBehaviour
     private CanvasGroup   group;
     private bool          isAnimating;
 
+    /// <summary>Vrai si le panneau est visible (ou en train de s'ouvrir).</summary>
+    public bool IsOpen { get; private set; }
+
     // ── Factory ───────────────────────────────────────────────────────────────
 
     /// <summary>Crée le panneau hors écran (à droite) et retourne l'instance.</summary>
@@ -272,6 +275,7 @@ public class MenuGameSelectPanel : MonoBehaviour
     {
         if (isAnimating) return;
         isAnimating          = true;
+        IsOpen               = true;
         group.blocksRaycasts = true;
         group.interactable   = true;
 
@@ -285,11 +289,19 @@ public class MenuGameSelectPanel : MonoBehaviour
     {
         if (isAnimating) return;
         isAnimating          = true;
+        IsOpen               = false;
         group.blocksRaycasts = false;
         group.interactable   = false;
 
         StopAllCoroutines();
         StartCoroutine(Slide(panelRT.anchoredPosition.x, CanvasRefWidth, () => isAnimating = false));
+    }
+
+    /// <summary>Ouvre si fermé, ferme si ouvert. Ignoré pendant une animation.</summary>
+    public void Toggle()
+    {
+        if (isAnimating) return;
+        if (IsOpen) Hide(); else Show();
     }
 
     private IEnumerator Slide(float fromX, float toX, System.Action onComplete)

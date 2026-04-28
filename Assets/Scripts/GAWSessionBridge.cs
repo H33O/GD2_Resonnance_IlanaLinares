@@ -54,12 +54,12 @@ public class GAWSessionBridge : MonoBehaviour
         es.AddComponent<StandaloneInputModule>();
     }
 
-    // ── Bouton retour menu ────────────────────────────────────────────────────
+    // ── Bouton pause + panneau ────────────────────────────────────────────────
 
-    /// <summary>Crée un canvas HUD avec un bouton retour menu discret en haut-gauche.</summary>
+    /// <summary>Crée un Canvas HUD avec le bouton II et le panneau de pause (bas-gauche).</summary>
     private static void BuildMenuButton()
     {
-        // Canvas
+        // Canvas dédié (overlay par-dessus le jeu GameAndWatch)
         var canvasGO = new GameObject("GAWMenuButtonCanvas");
         var canvas   = canvasGO.AddComponent<Canvas>();
         canvas.renderMode   = RenderMode.ScreenSpaceOverlay;
@@ -74,48 +74,17 @@ public class GAWSessionBridge : MonoBehaviour
 
         var canvasRT = canvas.GetComponent<RectTransform>();
 
-        // Bouton
-        const float BtnW = 220f;
-        const float BtnH = 80f;
-
-        var go  = new GameObject("MenuButton");
-        go.transform.SetParent(canvasRT, false);
-
-        var img   = go.AddComponent<Image>();
-        img.sprite = SpriteGenerator.CreateWhiteSquare();
-        img.color  = new Color(0f, 0f, 0f, 0.60f);
-
-        var rt         = img.rectTransform;
-        rt.anchorMin   = new Vector2(0f, 1f);
-        rt.anchorMax   = new Vector2(0f, 1f);
-        rt.pivot       = new Vector2(0f, 1f);
-        rt.sizeDelta   = new Vector2(BtnW, BtnH);
-        rt.anchoredPosition = new Vector2(20f, -48f);
-
-        var btn = go.AddComponent<Button>();
-        btn.targetGraphic = img;
-        btn.onClick.AddListener(() =>
-        {
-            if (SceneTransition.Instance != null)
-                SceneTransition.Instance.LoadScene(SceneMenu, SceneMenu);
-            else
-                SceneManager.LoadScene(SceneMenu);
-        });
-
-        var labelGO = new GameObject("Label");
-        labelGO.transform.SetParent(go.transform, false);
-        var tmp        = labelGO.AddComponent<TextMeshProUGUI>();
-        tmp.text       = "← MENU";
-        tmp.fontSize   = 32f;
-        tmp.color      = new Color(1f, 1f, 1f, 0.85f);
-        tmp.alignment  = TextAlignmentOptions.Center;
-        tmp.fontStyle  = FontStyles.Bold;
-        tmp.raycastTarget = false;
-        MenuAssets.ApplyFont(tmp);
-        var textRT       = tmp.rectTransform;
-        textRT.anchorMin = Vector2.zero;
-        textRT.anchorMax = Vector2.one;
-        textRT.offsetMin = textRT.offsetMax = Vector2.zero;
+        // Ordre de sibling : bouton d'abord, panneau ensuite (panneau au-dessus).
+        GamePausePanel.CreatePauseButton(canvasRT);
+        GamePausePanel.Create(canvasRT,
+            onResume: null,
+            onMenu: () =>
+            {
+                if (SceneTransition.Instance != null)
+                    SceneTransition.Instance.LoadScene(SceneMenu, SceneMenu);
+                else
+                    SceneManager.LoadScene(SceneMenu);
+            });
 
         // S'assure que le ButtonClickAudio est actif pour capter le son de clic
         if (FindFirstObjectByType<ButtonClickAudio>() == null)

@@ -395,7 +395,7 @@ public class TBSceneSetup : MonoBehaviour
 
             var sr          = go.AddComponent<SpriteRenderer>();
             sr.sprite       = SpriteGenerator.CreateCircle(128);
-            sr.color        = Color.white;
+            sr.color        = ColPlayer;
             sr.sortingOrder = 3;
             go.transform.position   = spawnPos;
             go.transform.localScale = new Vector3(0.85f, 0.85f, 1f);

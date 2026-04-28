@@ -249,11 +249,7 @@ public class MenuMainSetup : MonoBehaviour
         btn.colors        = colors;
 
         bool gamesOpen = false;
-        btn.onClick.AddListener(() =>
-        {
-            gamesOpen = !gamesOpen;
-            if (gamesOpen) panel.Show(); else panel.Hide();
-        });
+        btn.onClick.AddListener(() => panel.Toggle());
     }
 
     // ── EventSystem ───────────────────────────────────────────────────────────

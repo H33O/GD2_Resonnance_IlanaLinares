@@ -751,54 +751,26 @@ public class BubbleGameManager : MonoBehaviour
                                  TextAlignmentOptions.Center, 55f, center: true);
         statusText.gameObject.SetActive(false);
 
-        // — Bouton retour menu (coin haut-droit)
+        // — Bouton pause + panneau (bas-gauche)
         BuildMenuButton(ct);
     }
 
-    /// <summary>Construit le bouton retour menu coin haut-droit.</summary>
+    /// <summary>Crée le bouton II (pause) et le panneau de pause en bas-gauche.</summary>
     private void BuildMenuButton(Transform parent)
     {
-        const float BtnW = 220f;
-        const float BtnH = 80f;
+        var canvasRT = parent as RectTransform ?? parent.GetComponent<RectTransform>();
 
-        var go  = new GameObject("MenuButton");
-        go.transform.SetParent(parent, false);
-
-        var img   = go.AddComponent<Image>();
-        img.sprite = SpriteGenerator.CreateWhiteSquare();
-        img.color  = new Color(0f, 0f, 0f, 0.60f);
-
-        var rt         = img.rectTransform;
-        rt.anchorMin   = new Vector2(1f, 1f);
-        rt.anchorMax   = new Vector2(1f, 1f);
-        rt.pivot       = new Vector2(1f, 1f);
-        rt.sizeDelta   = new Vector2(BtnW, BtnH);
-        rt.anchoredPosition = new Vector2(-20f, -40f);
-
-        var btn = go.AddComponent<Button>();
-        btn.targetGraphic = img;
-        btn.onClick.AddListener(() =>
-        {
-            if (SceneTransition.Instance != null)
-                SceneTransition.Instance.LoadScene(SceneMenu, SceneMenu);
-            else
-                SceneManager.LoadScene(SceneMenu);
-        });
-
-        var labelGO = new GameObject("Label");
-        labelGO.transform.SetParent(go.transform, false);
-        var tmp        = labelGO.AddComponent<TextMeshProUGUI>();
-        tmp.text       = "← MENU";
-        tmp.fontSize   = 32f;
-        tmp.color      = new Color(1f, 1f, 1f, 0.85f);
-        tmp.alignment  = TextAlignmentOptions.Center;
-        tmp.fontStyle  = FontStyles.Bold;
-        tmp.raycastTarget = false;
-        ApplyMichroma(tmp);
-        var textRT       = tmp.rectTransform;
-        textRT.anchorMin = Vector2.zero;
-        textRT.anchorMax = Vector2.one;
-        textRT.offsetMin = textRT.offsetMax = Vector2.zero;
+        // Ordre de sibling : bouton d'abord, panneau ensuite (panneau au-dessus).
+        GamePausePanel.CreatePauseButton(canvasRT);
+        GamePausePanel.Create(canvasRT,
+            onResume: null,
+            onMenu: () =>
+            {
+                if (SceneTransition.Instance != null)
+                    SceneTransition.Instance.LoadScene(SceneMenu, SceneMenu);
+                else
+                    SceneManager.LoadScene(SceneMenu);
+            });
     }
 
     /// <summary>Adds Restart and Menu buttons after the game ends.</summary>

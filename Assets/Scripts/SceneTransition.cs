@@ -86,6 +86,16 @@ public class SceneTransition : MonoBehaviour
 
         // ── 2. Chargement de la scène ─────────────────────────────────────────
         AsyncOperation load = SceneManager.LoadSceneAsync(sceneName);
+
+        if (load == null)
+        {
+            Debug.LogError($"[SceneTransition] Scène introuvable : '{sceneName}'. Vérifie les Build Settings.");
+            yield return StartCoroutine(Fade(1f, 0f, fadeOutDuration));
+            overlayCanvas.gameObject.SetActive(false);
+            canvasGroup.blocksRaycasts = false;
+            yield break;
+        }
+
         load.allowSceneActivation = false;
         while (load.progress < 0.9f) yield return null;
         load.allowSceneActivation = true;
@@ -125,7 +135,7 @@ public class SceneTransition : MonoBehaviour
                 ? new Color(0f, 0f, 0f, 1f)
                 : new Color(Random.Range(0f, 0.08f), 0f, Random.Range(0f, 0.08f), 1f);
 
-            yield return new WaitForSeconds(glitchFrameTime);
+            yield return new WaitForSecondsRealtime(glitchFrameTime);
         }
 
         // Remettre à plein noir propre avant le fade out
@@ -144,7 +154,7 @@ public class SceneTransition : MonoBehaviour
         float elapsed = 0f;
         while (elapsed < duration)
         {
-            elapsed           += Time.deltaTime;
+            elapsed           += Time.unscaledDeltaTime;
             canvasGroup.alpha  = Mathf.Lerp(from, to, Mathf.Clamp01(elapsed / duration));
             yield return null;
         }
