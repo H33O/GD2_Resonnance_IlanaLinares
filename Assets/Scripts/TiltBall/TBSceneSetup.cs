@@ -153,7 +153,7 @@ public class TBSceneSetup : MonoBehaviour
                       "KillZoneTop", "KillZoneBottom", "KillZoneLeft", "KillZoneRight",
                       "TBFireflies", "TBGrid");
 
-        for (int i = 1; i <= 10; i++)
+        for (int i = 1; i <= 7; i++)
             DestroyByName($"Enemy{i}", $"Obs{i}A", $"Obs{i}B", $"Obs{i}C");
 
         var setup = new GameObject("__LevelSetup__").AddComponent<TBSceneSetup>();
@@ -181,7 +181,7 @@ public class TBSceneSetup : MonoBehaviour
     {
         bool requireKey   = (levelIndex % 2 == 1);
         int  enemyCount   = Mathf.Min(1 + levelIndex / 2, 5);
-        float moveInterval = Mathf.Lerp(0.50f, 0.20f, levelIndex / 9f);
+        float moveInterval = Mathf.Lerp(0.50f, 0.20f, levelIndex / 6f);   // 7 niveaux → index max 6
 
         TBGrid.MoveInterval = moveInterval;
         TBGrid.MaxY         = HalfH - WallThickness - 0.5f;
@@ -191,15 +191,15 @@ public class TBSceneSetup : MonoBehaviour
 
         SetupCamera();
         BuildBackground(null);   // fond noir procédural, sprite ignoré
-        BuildBoundaries(d != null ? d.wallColor : ColWall);
+        BuildBoundaries(d != null ? d.wallColor : ColWall);   // murs invisibles
         BuildObstaclesForLevel(levelIndex, d != null ? d.obstacleColor : ColObstacle,
                                d?.obstacleSprite, d?.obstaclePrefab);
         BuildHole(levelIndex, requireKey, d, null);   // glow vert, sprite ignoré
         BuildPlayer(d);
-        BuildEnemies(levelIndex, enemyCount, d, null);  // balle rouge procédurale
+        BuildEnemies(levelIndex, enemyCount, d, null);
         if (requireKey) BuildKey(levelIndex, d);
 
-        TBEnemySpawner.Create(levelIndex, new Color(1f, 0.07f, 0.07f, 1f), null);
+        // Le TBEnemySpawner est volontairement absent — pas de mini-projectiles rouges.
 
         SpawnUpgrades();
     }
@@ -317,30 +317,29 @@ public class TBSceneSetup : MonoBehaviour
             : new Vector3(length, 0.02f, 1f);
     }
 
-    // ── Murs — cadre exact du monde ───────────────────────────────────────────
+    // ── Murs — cadre exact du monde (invisibles, colliders seuls) ────────────
 
-    private static void BuildBoundaries(Color wallColor)
+    private static void BuildBoundaries(Color _)   // couleur ignorée — murs invisibles
     {
         float t = WallThickness;
-        // Le centre du mur est décalé vers l'extérieur afin que le bord interne
-        // soit exactement aligné sur le bord écran (±HalfH / ±HalfW = 1920/1080 px).
-        MakeWall("WallTop",    0f,               HalfH + t * 0.5f,  HalfW * 2f + t * 2f, t,           wallColor);
-        MakeWall("WallBottom", 0f,              -HalfH - t * 0.5f,  HalfW * 2f + t * 2f, t,           wallColor);
-        MakeWall("WallLeft",  -HalfW - t * 0.5f, 0f,                t,                   HalfH * 2f + t * 2f, wallColor);
-        MakeWall("WallRight",  HalfW + t * 0.5f, 0f,                t,                   HalfH * 2f + t * 2f, wallColor);
+        // Bord interne aligné exactement sur le bord écran (±HalfH / ±HalfW).
+        MakeInvisibleWall("WallTop",    0f,                HalfH + t * 0.5f,  HalfW * 2f + t * 2f, t);
+        MakeInvisibleWall("WallBottom", 0f,               -HalfH - t * 0.5f,  HalfW * 2f + t * 2f, t);
+        MakeInvisibleWall("WallLeft",  -HalfW - t * 0.5f,  0f,                t, HalfH * 2f + t * 2f);
+        MakeInvisibleWall("WallRight",  HalfW + t * 0.5f,  0f,                t, HalfH * 2f + t * 2f);
     }
 
     // ── Trou / Goal ───────────────────────────────────────────────────────────
 
     private static readonly float[] HoleXByLevel = {
         0.0f, -3.5f,  3.5f, -3.0f,  2.5f,
-       -4.0f,  3.5f, -2.0f,  1.0f, -3.5f,
+       -4.0f,  3.5f,
     };
 
     private static void BuildHole(int levelIndex, bool requireKey,
                                    TBLevelPrefabsData d, Sprite _)   // sprite ignoré
     {
-        float x   = HoleXByLevel[Mathf.Clamp(levelIndex, 0, 9)];
+        float x   = HoleXByLevel[Mathf.Clamp(levelIndex, 0, 6)];
         float y   = HoleY - (levelIndex % 3) * 0.4f;
         var   pos = new Vector3(x, y, 0f);
 
@@ -422,25 +421,22 @@ public class TBSceneSetup : MonoBehaviour
         fx.Init(sr);
     }
 
-    // ── Ennemis — positions dans y ∈ [−8, 6] pour rester dans le monde ────────
+    // ── Ennemis — 7 niveaux avec progression de difficulté ─────────────────────
 
     private static readonly Vector2[][] EnemyPositionsByLevel =
     {
         /* 0 */ new[] { new Vector2( 2.5f,  0.0f) },
         /* 1 */ new[] { new Vector2(-2.5f,  2.0f), new Vector2( 2.5f, -3.0f) },
-        /* 2 */ new[] { new Vector2(-3.0f,  3.5f), new Vector2( 3.0f, -1.5f) },
+        /* 2 */ new[] { new Vector2(-3.0f,  3.5f), new Vector2( 3.0f, -1.5f), new Vector2( 0.0f, -5.0f) },
         /* 3 */ new[] { new Vector2( 3.0f,  4.5f), new Vector2(-3.0f, -2.5f), new Vector2( 0.0f,  1.5f) },
-        /* 4 */ new[] { new Vector2(-3.5f,  4.0f), new Vector2( 3.5f, -1.0f), new Vector2(-1.0f, -5.0f) },
-        /* 5 */ new[] { new Vector2( 3.5f,  5.0f), new Vector2(-3.0f,  0.5f), new Vector2( 1.5f, -3.5f), new Vector2(-2.0f,-6.5f) },
-        /* 6 */ new[] { new Vector2(-4.0f,  5.5f), new Vector2( 4.0f,  1.5f), new Vector2(-2.0f, -2.5f), new Vector2( 2.0f,-6.0f) },
-        /* 7 */ new[] { new Vector2( 3.5f,  5.5f), new Vector2(-3.5f,  2.0f), new Vector2( 3.0f, -1.5f), new Vector2(-3.0f,-5.5f), new Vector2( 0.0f,-7.0f) },
-        /* 8 */ new[] { new Vector2(-4.0f,  5.0f), new Vector2( 4.0f,  2.0f), new Vector2(-2.0f, -1.0f), new Vector2( 2.0f,-5.0f), new Vector2( 0.0f,-7.0f) },
-        /* 9 */ new[] { new Vector2( 4.0f,  5.5f), new Vector2(-4.0f,  2.5f), new Vector2( 3.0f, -0.5f), new Vector2(-3.0f,-4.5f), new Vector2( 0.5f,-7.0f) },
+        /* 4 */ new[] { new Vector2(-3.5f,  4.0f), new Vector2( 3.5f, -1.0f), new Vector2(-1.0f, -5.0f), new Vector2( 2.0f, 2.5f) },
+        /* 5 */ new[] { new Vector2( 3.5f,  5.0f), new Vector2(-3.0f,  0.5f), new Vector2( 1.5f, -3.5f), new Vector2(-2.0f,-6.5f), new Vector2( 0.5f, 3.0f) },
+        /* 6 */ new[] { new Vector2(-4.0f,  5.5f), new Vector2( 4.0f,  1.5f), new Vector2(-2.0f, -2.5f), new Vector2( 2.0f,-6.0f), new Vector2( 0.0f, 3.5f) },
     };
 
     private static void BuildEnemies(int levelIndex, int enemyCount, TBLevelPrefabsData d, Sprite fallbackEnemySprite)
     {
-        var positions = EnemyPositionsByLevel[Mathf.Clamp(levelIndex, 0, 9)];
+        var positions = EnemyPositionsByLevel[Mathf.Clamp(levelIndex, 0, 6)];
         int count     = Mathf.Min(enemyCount, positions.Length);
         for (int i = 0; i < count; i++)
             SpawnEnemy($"Enemy{i + 1}", positions[i], d, fallbackEnemySprite);
@@ -501,14 +497,11 @@ public class TBSceneSetup : MonoBehaviour
         Vector2.zero,               // 4
         new Vector2(-2.5f,  2.0f),  // 5
         Vector2.zero,               // 6
-        new Vector2( 2.5f,  3.0f),  // 7
-        Vector2.zero,               // 8
-        new Vector2(-3.0f,  1.5f),  // 9
     };
 
     private static void BuildKey(int levelIndex, TBLevelPrefabsData d)
     {
-        Vector2 pos = KeyPositionsByLevel[Mathf.Clamp(levelIndex, 0, 9)];
+        Vector2 pos = KeyPositionsByLevel[Mathf.Clamp(levelIndex, 0, 6)];
         var go = new GameObject("Key");
         var sr = go.AddComponent<SpriteRenderer>();
         sr.sprite       = d?.keySprite != null ? d.keySprite : SpriteGenerator.CreatePolygon(4, 64);
@@ -566,6 +559,15 @@ public class TBSceneSetup : MonoBehaviour
         sr.sprite       = SpriteGenerator.CreateWhiteSquare();
         sr.color        = color;
         sr.sortingOrder = 1;
+        go.transform.position   = new Vector3(x, y, 0f);
+        go.transform.localScale = new Vector3(w, h, 1f);
+        go.AddComponent<BoxCollider2D>();
+    }
+
+    /// <summary>Mur avec collider uniquement — totalement invisible à l'écran.</summary>
+    private static void MakeInvisibleWall(string name, float x, float y, float w, float h)
+    {
+        var go = new GameObject(name);
         go.transform.position   = new Vector3(x, y, 0f);
         go.transform.localScale = new Vector3(w, h, 1f);
         go.AddComponent<BoxCollider2D>();

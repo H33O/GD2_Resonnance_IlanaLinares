@@ -10,6 +10,8 @@ using TMPro;
 ///   - En haut à droite  : widget Horloge (fond semi-transparent, heure système en temps réel)
 ///
 /// Référence de résolution : 1080 × 1920 (portrait 9:16).
+///
+/// Easter egg : cliquer 3 fois sur l'horloge déverrouille la porte immédiatement.
 /// </summary>
 public class MenuMainHud : MonoBehaviour
 {
@@ -20,6 +22,12 @@ public class MenuMainHud : MonoBehaviour
     private const float MarginX  = 32f;
     private const float MarginY  = 48f;
 
+    /// <summary>Nombre de clics requis sur l'horloge pour déverrouiller la porte.</summary>
+    private const int ClockUnlockClicks = 3;
+
+    /// <summary>Fenêtre de temps (en secondes) entre les clics pour qu'ils soient comptabilisés.</summary>
+    private const float ClockClickWindow = 3f;
+
     // ── Palette ───────────────────────────────────────────────────────────────
 
     private static readonly Color ColWidgetBg = new Color(0.04f, 0.04f, 0.08f, 0.78f);
@@ -29,6 +37,11 @@ public class MenuMainHud : MonoBehaviour
     // ── Références ────────────────────────────────────────────────────────────
 
     private TextMeshProUGUI clockLabel;
+
+    // ── État easter egg ────────────────────────────────────────────────────────
+
+    private int   _clockClickCount;
+    private float _lastClockClickTime;
 
     // ── Initialisation ────────────────────────────────────────────────────────
 
@@ -49,6 +62,10 @@ public class MenuMainHud : MonoBehaviour
             var now = System.DateTime.Now;
             clockLabel.text = $"{now.Hour:00}:{now.Minute:00}";
         }
+
+        // Réinitialise le compteur si la fenêtre de temps est dépassée
+        if (_clockClickCount > 0 && Time.unscaledTime - _lastClockClickTime > ClockClickWindow)
+            _clockClickCount = 0;
     }
 
     // ── Construction du ScorePanel (haut-gauche) ──────────────────────────────
@@ -85,6 +102,47 @@ public class MenuMainHud : MonoBehaviour
             alignment: TextAlignmentOptions.BottomRight);
 
         clockLabel = valueGO.GetComponent<TextMeshProUGUI>();
+
+        // Bouton invisible sur le widget entier pour détecter les triples clics
+        var clickOverlayGO  = new GameObject("ClockClickOverlay");
+        clickOverlayGO.transform.SetParent(widget.rt, false);
+        var overlayImg      = clickOverlayGO.AddComponent<Image>();
+        overlayImg.color    = Color.clear;
+        overlayImg.raycastTarget = true;
+        var overlayRT       = overlayImg.rectTransform;
+        overlayRT.anchorMin = Vector2.zero;
+        overlayRT.anchorMax = Vector2.one;
+        overlayRT.offsetMin = overlayRT.offsetMax = Vector2.zero;
+
+        var btn = clickOverlayGO.AddComponent<Button>();
+        btn.targetGraphic = overlayImg;
+        var colors        = btn.colors;
+        colors.normalColor      = Color.clear;
+        colors.highlightedColor = Color.clear;
+        colors.pressedColor     = Color.clear;
+        colors.selectedColor    = Color.clear;
+        btn.colors = colors;
+        btn.onClick.AddListener(OnClockClicked);
+    }
+
+    /// <summary>Gère les clics sur l'horloge — 3 clics dans la fenêtre de temps déverrouillent la porte.</summary>
+    private void OnClockClicked()
+    {
+        float now = Time.unscaledTime;
+
+        // Réinitialise le compteur si trop de temps s'est écoulé
+        if (_clockClickCount > 0 && now - _lastClockClickTime > ClockClickWindow)
+            _clockClickCount = 0;
+
+        _clockClickCount++;
+        _lastClockClickTime = now;
+
+        if (_clockClickCount >= ClockUnlockClicks)
+        {
+            _clockClickCount = 0;
+            DoorManager.Instance?.ForceUnlock();
+            Debug.Log("[MenuMainHud] Porte déverrouillée via triple clic sur l'horloge.");
+        }
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────

@@ -8,11 +8,15 @@ using UnityEngine.SceneManagement;
 /// Singleton gérant l'état persistant du jeu TiltBall.
 /// Persiste via DontDestroyOnLoad.
 ///
-/// Flux de jeu (10 niveaux, index 0 → 9) :
+/// Flux de jeu (7 niveaux, index 0 → 6) :
 ///   Le joueur entre dans le trou → boutique d'améliorations → niveau suivant.
 ///   Niveaux impairs : clé requise avant le trou.
-///   Après le niveau 9 (10ème) : victoire finale + XP ×2 → retour au menu.
+///   Après le niveau 6 (7ème) : victoire finale → retour au menu.
 ///   Mort du joueur : retour au niveau 1 (index 0), score réinitialisé.
+///
+/// Progression XP :
+///   1ère complétion (joueur niveau 1) → 100 XP → atteint niveau 2.
+///   2ème complétion (joueur niveau 2 ou 3) → 200 XP → atteint niveau 4.
 /// </summary>
 public class TBGameManager : MonoBehaviour
 {
@@ -20,11 +24,8 @@ public class TBGameManager : MonoBehaviour
 
     // ── Constantes ────────────────────────────────────────────────────────────
 
-    public const int    TotalLevels  = 10;
+    public const int    TotalLevels = 7;
     public const string SceneMenu   = "Menu";
-
-    /// <summary>Multiplicateur XP accordé à la victoire finale (10 niveaux complétés).</summary>
-    private const float XpVictoryMultiplier = 2f;
 
     // ── Inspector ─────────────────────────────────────────────────────────────
 
@@ -140,18 +141,22 @@ public class TBGameManager : MonoBehaviour
 
         if (nextLevel >= TotalLevels)
         {
-            // ── Victoire finale — 10 niveaux complétés ────────────────────────
+            // ── Victoire finale — 7 niveaux complétés ─────────────────────────
             ScoreManager.EnsureExists();
-
             HasKey = false;
 
-            // Victoire finale = 50 XP base × 2 (bonus difficulté) = 100 XP fixes
-            // 150 XP de base × 2 = 300 XP → niveau 4 atteint en une complétion
-            const int XpVictoryFixed = 150;
-            int xp = Mathf.RoundToInt(XpVictoryFixed * XpVictoryMultiplier);
-            GameEndData.SetWithXP(Score, xp, GameType.BallAndGoal);
+            // XP selon le niveau de jeu actuel du joueur :
+            //   Niveau joueur 1 (1ère complétion) → 100 XP → atteint niveau 2
+            //   Niveau joueur 2–3                 → 200 XP → atteint niveau 4
+            GameLevelManager.EnsureExists();
+            int currentPlayerLevel = GameLevelManager.Instance != null
+                ? GameLevelManager.Instance.GetLevel(GameType.BallAndGoal)
+                : 1;
 
-            TBWinWidget.ShowVictory(ElapsedTime, Score, xp, XpVictoryFixed, GoToMenuDirect);
+            int xp = currentPlayerLevel <= 1 ? 100 : 200;
+
+            GameEndData.SetWithXP(Score, xp, GameType.BallAndGoal);
+            TBWinWidget.ShowVictory(ElapsedTime, Score, xp, xp, GoToMenuDirect);
         }
         else
         {
@@ -270,5 +275,3 @@ public class TBGameManager : MonoBehaviour
     /// <summary>Joue le son de mort d'un ennemi via l'AudioManager.</summary>
     public static void PlayEnemyDeathSfx() => AudioManager.Instance?.PlaySfx(Instance?.enemyDeathSfx);
 }
-
-

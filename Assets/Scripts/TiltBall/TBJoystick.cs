@@ -3,14 +3,18 @@ using UnityEngine.EventSystems;
 using UnityEngine.UI;
 
 /// <summary>
-/// Joystick virtuel affiché en bas au centre de l'écran.
-/// Se crée entièrement en code, aucun prefab requis.
+/// Joystick virtuel dynamique pour TiltBall.
 ///
-/// Utilisation :
-///   Vector2 dir = TBJoystick.Instance?.Direction ?? Vector2.zero;
+/// Comportement :
+///   - Quand le joueur pose le doigt n'importe où sur la zone de touch, la BASE du joystick
+///     se repositionne instantanément à l'endroit du toucher. C'est ce nouveau point
+///     qui devient l'origine des calculs de direction.
+///   - Le joueur peut ensuite glisser dans n'importe quelle direction depuis ce point,
+///     comme un joystick classique.
+///   - Si le joueur lève le doigt et en repose un autre ailleurs, la base se déplace
+///     de nouveau au nouvel endroit.
 ///
 /// Direction est un Vector2 normalisé dans [-1, 1] avec zone morte.
-/// Le joystick suit le premier doigt posé (multi-touch safe).
 /// </summary>
 public class TBJoystick : MonoBehaviour, IPointerDownHandler, IDragHandler, IPointerUpHandler
 {
@@ -32,13 +36,14 @@ public class TBJoystick : MonoBehaviour, IPointerDownHandler, IDragHandler, IPoi
     /// <summary>Direction normalisée [-1,1] lue par TBPlayerController.</summary>
     public Vector2 Direction { get; private set; }
 
-    private RectTransform visualRT;   // conteneur centré — sert de référence pour UpdateKnob
+    private RectTransform zoneRT;       // zone de touch (toute la largeur, 22% bas)
+    private RectTransform visualRT;     // conteneur visuel — repositionné à chaque PointerDown
     private RectTransform knobRT;
     private int           touchId = -1;
 
     // ── Création statique ─────────────────────────────────────────────────────
 
-    /// <summary>Crée le joystick centré en bas du Canvas.</summary>
+    /// <summary>Crée le joystick couvrant toute la zone basse du Canvas.</summary>
     public static TBJoystick Create(RectTransform canvasRT)
     {
         // ── Zone de touch : toute la largeur, 22% bas de l'écran ──────────────
@@ -49,13 +54,13 @@ public class TBJoystick : MonoBehaviour, IPointerDownHandler, IDragHandler, IPoi
         zoneImg.color         = Color.clear;
         zoneImg.raycastTarget = true;
 
-        var zRT          = zoneImg.rectTransform;
-        zRT.anchorMin    = new Vector2(0f,  0f);
-        zRT.anchorMax    = new Vector2(1f,  0.22f);
-        zRT.offsetMin    = zRT.offsetMax = Vector2.zero;
+        var zRT       = zoneImg.rectTransform;
+        zRT.anchorMin = new Vector2(0f,  0f);
+        zRT.anchorMax = new Vector2(1f,  0.22f);
+        zRT.offsetMin = zRT.offsetMax = Vector2.zero;
 
-        // ── Conteneur visuel centré dans la zone ──────────────────────────────
-        var visualGO = new GameObject("JoystickVisual");
+        // ── Conteneur visuel : ancré en bas-centre par défaut ─────────────────
+        var visualGO         = new GameObject("JoystickVisual");
         visualGO.transform.SetParent(zoneGO.transform, false);
 
         var visualRT         = visualGO.AddComponent<RectTransform>();
@@ -74,12 +79,12 @@ public class TBJoystick : MonoBehaviour, IPointerDownHandler, IDragHandler, IPoi
         baseImg.color         = ColBase;
         baseImg.raycastTarget = false;
 
-        var bRT               = baseImg.rectTransform;
-        bRT.anchorMin         = new Vector2(0.5f, 0.5f);
-        bRT.anchorMax         = new Vector2(0.5f, 0.5f);
-        bRT.pivot             = new Vector2(0.5f, 0.5f);
-        bRT.sizeDelta         = new Vector2(BaseRadius * 2f, BaseRadius * 2f);
-        bRT.anchoredPosition  = Vector2.zero;
+        var bRT              = baseImg.rectTransform;
+        bRT.anchorMin        = new Vector2(0.5f, 0.5f);
+        bRT.anchorMax        = new Vector2(0.5f, 0.5f);
+        bRT.pivot            = new Vector2(0.5f, 0.5f);
+        bRT.sizeDelta        = new Vector2(BaseRadius * 2f, BaseRadius * 2f);
+        bRT.anchoredPosition = Vector2.zero;
 
         // ── Knob ──────────────────────────────────────────────────────────────
         var knobGO = new GameObject("Knob");
@@ -90,17 +95,18 @@ public class TBJoystick : MonoBehaviour, IPointerDownHandler, IDragHandler, IPoi
         knobImg.color         = ColKnob;
         knobImg.raycastTarget = false;
 
-        var kRT               = knobImg.rectTransform;
-        kRT.anchorMin         = new Vector2(0.5f, 0.5f);
-        kRT.anchorMax         = new Vector2(0.5f, 0.5f);
-        kRT.pivot             = new Vector2(0.5f, 0.5f);
-        kRT.sizeDelta         = new Vector2(KnobRadius * 2f, KnobRadius * 2f);
-        kRT.anchoredPosition  = Vector2.zero;
+        var kRT              = knobImg.rectTransform;
+        kRT.anchorMin        = new Vector2(0.5f, 0.5f);
+        kRT.anchorMax        = new Vector2(0.5f, 0.5f);
+        kRT.pivot            = new Vector2(0.5f, 0.5f);
+        kRT.sizeDelta        = new Vector2(KnobRadius * 2f, KnobRadius * 2f);
+        kRT.anchoredPosition = Vector2.zero;
 
-        var js            = zoneGO.AddComponent<TBJoystick>();
-        js.visualRT       = visualRT;   // pivot (0.5,0.5) centré → localPos (0,0) = centre
-        js.knobRT         = kRT;
-        Instance          = js;
+        var js         = zoneGO.AddComponent<TBJoystick>();
+        js.zoneRT      = zRT;
+        js.visualRT    = visualRT;
+        js.knobRT      = kRT;
+        Instance       = js;
 
         return js;
     }
@@ -111,7 +117,12 @@ public class TBJoystick : MonoBehaviour, IPointerDownHandler, IDragHandler, IPoi
     {
         if (touchId != -1) return;
         touchId = e.pointerId;
-        UpdateKnob(e.position);
+
+        // Reposition de la base au point de contact
+        RepositionBase(e.position);
+        // Knob centré sur la base (pas encore de drag)
+        knobRT.anchoredPosition = Vector2.zero;
+        Direction               = Vector2.zero;
     }
 
     public void OnDrag(PointerEventData e)
@@ -126,6 +137,24 @@ public class TBJoystick : MonoBehaviour, IPointerDownHandler, IDragHandler, IPoi
         touchId               = -1;
         Direction             = Vector2.zero;
         knobRT.anchoredPosition = Vector2.zero;
+    }
+
+    // ── Repositionnement de la base ───────────────────────────────────────────
+
+    /// <summary>
+    /// Déplace le conteneur visuel pour que la base soit centrée sur <paramref name="screenPos"/>.
+    /// Utilise le parent (zone) comme référence de coordonnées locales.
+    /// </summary>
+    private void RepositionBase(Vector2 screenPos)
+    {
+        // Convertit la position écran en local de la zone de touch
+        RectTransformUtility.ScreenPointToLocalPointInRectangle(
+            zoneRT, screenPos, null, out Vector2 localInZone);
+
+        // Convertit en anchoredPosition dans la zone
+        // La zone a des anchors étirés → son pivot est en bas-gauche par défaut.
+        // On positionne le visual en coordonnées locales de la zone directement.
+        visualRT.localPosition = localInZone;
     }
 
     // ── Calcul direction ──────────────────────────────────────────────────────

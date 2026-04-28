@@ -67,7 +67,7 @@ public class TBEnemySpawner : MonoBehaviour
         spawner.enemyColor   = enemyColor;
         spawner.enemySprite  = enemySprite;
 
-        // Intervalle de spawn décroissant avec le niveau
+        // Intervalle de spawn décroissant avec le niveau (base sur 7 niveaux)
         float t              = Mathf.InverseLerp(ActivationLevel, TBGameManager.TotalLevels - 1, levelIndex);
         spawner.spawnInterval = Mathf.Lerp(SpawnIntervalBase, SpawnIntervalMin, t);
 

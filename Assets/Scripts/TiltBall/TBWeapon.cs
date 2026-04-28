@@ -2,19 +2,20 @@ using System.Collections;
 using UnityEngine;
 
 /// <summary>
-/// Arme du joueur TiltBall : tire automatiquement un projectile vers l'ennemi le plus proche
-/// toutes les <see cref="FireInterval"/> secondes.
-/// Spawné par TBSceneSetup si l'amélioration "Arme" a été achetée.
-/// S'attache au joueur et le suit.
+/// Arme du joueur TiltBall.
+///
+/// Quand l'arme est débloquée, des mini-projectiles bleus partent du joueur
+/// dans toutes les directions (en cercle) à intervalles réguliers pour tuer les ennemis.
+/// Plus besoin de cibler l'ennemi le plus proche.
 /// </summary>
 public class TBWeapon : MonoBehaviour
 {
     // ── Configuration ─────────────────────────────────────────────────────────
 
-    private const float FireInterval    = 2.0f;  // secondes entre chaque tir
+    private const float FireInterval    = 1.8f;   // secondes entre chaque salve
     private const float ProjectileSpeed = 9f;
-    private const float ProjectileSize  = 0.25f;
-    private const float MaxRange        = 12f;   // portée max de détection d'ennemi
+    private const float ProjectileSize  = 0.22f;
+    private const int   BulletsPerSalvo = 12;     // 12 directions = cercle complet (30° chacun)
 
     // ── Couleurs ──────────────────────────────────────────────────────────────
 
@@ -40,7 +41,7 @@ public class TBWeapon : MonoBehaviour
             transform.position = (Vector2)player.transform.position + new Vector2(0.55f, 0.55f);
     }
 
-    // ── Tir automatique ───────────────────────────────────────────────────────
+    // ── Tir en cercle ─────────────────────────────────────────────────────────
 
     private IEnumerator FireRoutine()
     {
@@ -50,39 +51,29 @@ public class TBWeapon : MonoBehaviour
 
             if (player == null || !player.IsAlive) continue;
 
-            TBEnemyController target = FindClosestEnemy();
-            if (target == null) continue;
-
-            FireAt(target.transform.position);
+            FireCircle();
         }
     }
 
-    private static TBEnemyController FindClosestEnemy()
+    /// <summary>Tire <see cref="BulletsPerSalvo"/> projectiles en cercle depuis la position du joueur.</summary>
+    private void FireCircle()
     {
-        TBEnemyController closest  = null;
-        float             minDist  = MaxRange;
+        Vector2 origin     = player.transform.position;
+        float   angleStep  = 360f / BulletsPerSalvo;
+        float   startAngle = Random.Range(0f, angleStep);   // rotation aléatoire de la salve
 
-        foreach (var enemy in FindObjectsByType<TBEnemyController>(FindObjectsSortMode.None))
+        for (int i = 0; i < BulletsPerSalvo; i++)
         {
-            float d = Vector2.Distance(
-                enemy.transform.position,
-                FindFirstObjectByType<TBPlayerController>()?.transform.position ?? Vector2.zero);
+            float   angle = startAngle + i * angleStep;
+            float   rad   = angle * Mathf.Deg2Rad;
+            Vector2 dir   = new Vector2(Mathf.Cos(rad), Mathf.Sin(rad));
 
-            if (d < minDist)
-            {
-                minDist = d;
-                closest = enemy;
-            }
+            FireAt(origin, dir);
         }
-
-        return closest;
     }
 
-    private void FireAt(Vector2 target)
+    private static void FireAt(Vector2 origin, Vector2 direction)
     {
-        Vector2 origin    = transform.position;
-        Vector2 direction = (target - origin).normalized;
-
         var go = new GameObject("Projectile");
         go.tag = TBSceneSetup.LevelContentTag;
 
