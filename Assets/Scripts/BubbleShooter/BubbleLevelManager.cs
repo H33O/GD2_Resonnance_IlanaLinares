@@ -168,7 +168,23 @@ public class BubbleLevelManager : MonoBehaviour
         tmp.alignment   = TextAlignmentOptions.Center;
         tmp.characterSpacing = 8f;
 
+        // Michroma
+        var font = LoadMichroma();
+        if (font != null) tmp.font = font;
+
         return go;
+    }
+
+    private static TMP_FontAsset LoadMichroma()
+    {
+        var f = Resources.Load<TMP_FontAsset>("Michroma-Regular SDF");
+        if (f != null) return f;
+#if UNITY_EDITOR
+        f = UnityEditor.AssetDatabase.LoadAssetAtPath<TMP_FontAsset>("Assets/font/Michroma-Regular SDF.asset");
+        if (f != null) return f;
+        f = UnityEditor.AssetDatabase.LoadAssetAtPath<TMP_FontAsset>("Assets/sprites/Michroma/Michroma-Regular SDF.asset");
+#endif
+        return f;
     }
 
     private static IEnumerator FadeOverlay(Image img, float from, float to, float duration)

@@ -303,6 +303,7 @@ public class BubbleGameManager : MonoBehaviour
         labelTMP.fontStyle  = FontStyles.Bold;
         labelTMP.color      = new Color(1f, 0.5f, 0.05f);
         labelTMP.alignment  = TextAlignmentOptions.Center;
+        ApplyMichroma(labelTMP);
 
         // ── Swallow scale animation on the shots border ────────────────────────
         isSwallowing = true;
@@ -428,15 +429,15 @@ public class BubbleGameManager : MonoBehaviour
         MakePanelText(panel.transform, $"Score  {Score}", new Vector2(0f, -270f), new Vector2(620f, 55f),
                       30, FontStyles.Normal, new Color(1f, 1f, 1f, 0.40f));
 
-        // ── Boutons (DA menu : blanc = accent, dark = secondaire) ─────────────
+        // ── Boutons (DA menu : gris = restart secondaire, dark = menu tertiaire) ──
         MakeButton(panel.transform, "RESTART",
                    new Vector2(0f, -375f),
-                   Color.white,
+                   ColorBtnRestart,
                    () => SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex));
 
         MakeButton(panel.transform, "MENU",
                    new Vector2(0f, -500f),
-                   new Color(0.12f, 0.12f, 0.12f),
+                   ColorBtnMenu,
                    () => SceneManager.LoadScene(SceneMenu));
     }
 
@@ -456,6 +457,7 @@ public class BubbleGameManager : MonoBehaviour
         tmp.color      = color;
         tmp.alignment  = TextAlignmentOptions.Center;
         tmp.characterSpacing = 2f;
+        ApplyMichroma(tmp);
     }
 
     /// <summary>Séparateur horizontal fine ligne (DA menu).</summary>
@@ -587,15 +589,57 @@ public class BubbleGameManager : MonoBehaviour
         // ── Restart ───────────────────────────────────────────────────────────
         MakeButton(panel.transform, "RESTART",
                    new Vector2(0f, -310f),
-                   Color.white,
+                   ColorBtnRestart,
                    () => SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex));
 
         // ── Menu ──────────────────────────────────────────────────────────────
         MakeButton(panel.transform, "MENU",
                    new Vector2(0f, -435f),
-                   new Color(0.12f, 0.12f, 0.12f),
+                   ColorBtnMenu,
                    () => SceneManager.LoadScene(SceneMenu));
     }
+
+    // ── Michroma ──────────────────────────────────────────────────────────────
+
+    private static TMP_FontAsset _michroma;
+
+    /// <summary>
+    /// Charge la font Michroma depuis les chemins connus du projet.
+    /// Résultat mis en cache — un seul AssetDatabase.Load par session.
+    /// </summary>
+    private static TMP_FontAsset LoadMichroma()
+    {
+        if (_michroma != null) return _michroma;
+
+        _michroma = Resources.Load<TMP_FontAsset>("Michroma-Regular SDF");
+        if (_michroma != null) return _michroma;
+
+#if UNITY_EDITOR
+        _michroma = UnityEditor.AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(
+            "Assets/font/Michroma-Regular SDF.asset");
+        if (_michroma != null) return _michroma;
+
+        _michroma = UnityEditor.AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(
+            "Assets/sprites/Michroma/Michroma-Regular SDF.asset");
+#endif
+        return _michroma;
+    }
+
+    /// <summary>Applique Michroma sur un TMP si la font est disponible.</summary>
+    private static void ApplyMichroma(TextMeshProUGUI tmp)
+    {
+        if (tmp == null) return;
+        TMP_FontAsset font = LoadMichroma();
+        if (font != null) tmp.font = font;
+    }
+
+    // ── Couleurs boutons ──────────────────────────────────────────────────────
+
+    /// <summary>Gris neutre utilisé pour le bouton RESTART (secondaire).</summary>
+    private static readonly Color ColorBtnRestart = new Color(0.35f, 0.35f, 0.35f, 1f);
+
+    /// <summary>Noir foncé utilisé pour le bouton MENU (tertiaire).</summary>
+    private static readonly Color ColorBtnMenu    = new Color(0.12f, 0.12f, 0.12f, 1f);
 
     private void MakeButton(Transform parent, string label, Vector2 pos, Color color,
                              UnityEngine.Events.UnityAction onClick)
@@ -643,6 +687,7 @@ public class BubbleGameManager : MonoBehaviour
         tmp.color            = Color.white;
         tmp.alignment        = TextAlignmentOptions.Center;
         tmp.characterSpacing = 4f;
+        ApplyMichroma(tmp);
     }
 
     private void RefreshUI()
@@ -695,6 +740,7 @@ public class BubbleGameManager : MonoBehaviour
         countTMP.fontStyle = FontStyles.Bold;
         countTMP.color     = ColorShotsNormal;
         countTMP.alignment = TextAlignmentOptions.Center;
+        ApplyMichroma(countTMP);
         return countTMP;
     }
 
@@ -713,6 +759,7 @@ public class BubbleGameManager : MonoBehaviour
         tmp.color            = Color.white;
         tmp.alignment        = align;
         tmp.characterSpacing = 2f;
+        ApplyMichroma(tmp);
         return tmp;
     }
 

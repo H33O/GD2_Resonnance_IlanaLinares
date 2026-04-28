@@ -61,6 +61,7 @@ public class BubbleGrid : MonoBehaviour
     private float     topY, startX, rowH, radius;
     private int       spawnedRows;          // nombre de rangées réellement spawn
     private int       fallingBubbleCount;
+    private bool      isTransitioning;      // vrai pendant un changement de niveau
 
     // ── Lifecycle ─────────────────────────────────────────────────────────────
 
@@ -75,7 +76,10 @@ public class BubbleGrid : MonoBehaviour
     private void Start()
     {
         ComputeLayout();
-        SpawnInitial();
+        // Si un BubbleLevelManager est présent, c'est lui qui se charge du spawn initial via ApplyLevel(0).
+        // On évite le double spawn en ne l'appelant qu'en l'absence de level manager.
+        if (BubbleLevelManager.Instance == null)
+            SpawnInitial();
     }
 
     // ── Calcul du layout ──────────────────────────────────────────────────────
@@ -136,6 +140,9 @@ public class BubbleGrid : MonoBehaviour
         ClearGrid();
         ComputeLayout();
         SpawnInitial();
+
+        // Autorise à nouveau la détection de grille vide.
+        isTransitioning = false;
     }
 
     /// <summary>Appelé par <see cref="Bubble"/> quand son animation de chute est terminée.</summary>
@@ -251,7 +258,8 @@ public class BubbleGrid : MonoBehaviour
     private IEnumerator CheckGridClearedRoutine()
     {
         yield return new WaitUntil(() => fallingBubbleCount <= 0);
-        if (IsEmpty())
+        // Ne pas déclencher OnGridCleared pendant une transition de niveau.
+        if (!isTransitioning && IsEmpty())
             BubbleLevelManager.Instance?.OnGridCleared();
     }
 
@@ -358,6 +366,9 @@ public class BubbleGrid : MonoBehaviour
     /// <summary>Détruit tous les GameObjects Bubble et réinitialise le tableau logique.</summary>
     private void ClearGrid()
     {
+        isTransitioning = true;
+        StopAllCoroutines();
+
         for (int r = 0; r < maxRows; r++)
         for (int c = 0; c < cols; c++)
         {

@@ -195,9 +195,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 955b2b29f076fc744a2906fe6c9e035c, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  backgroundSprite: {fileID: 0}
-  backgroundColor: {r: 0.05, g: 0.05, b: 0.05, a: 1}
-  backgroundFit: 0
 --- !u!114 &826354956
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -375,11 +372,9 @@ MonoBehaviour:
   cols: 9
   maxRows: 14
   diameter: 1
-  startRows: 12
   minMatch: 3
   topOffset: -1
-  shotsPerDescend: 0
-  descendDuration: 1.2
+  shooterZoneH: 3.2
   colorCount: 4
   bubbleSprites:
   - {fileID: 9156068287239568053, guid: f9e3ca7179371d348af82b4d7850cbc3, type: 3}
@@ -621,9 +616,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 955b2b29f076fc744a2906fe6c9e035c, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  backgroundSprite: {fileID: 0}
-  backgroundColor: {r: 0.05, g: 0.05, b: 0.05, a: 1}
-  backgroundFit: 0
 --- !u!114 &1876382002
 MonoBehaviour:
   m_ObjectHideFlags: 0

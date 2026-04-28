@@ -10,7 +10,7 @@ using TMPro;
 public class OWMiniGameBridge : MonoBehaviour
 {
     [Header("HUD Retour")]
-    [SerializeField] private bool showReturnButton    = true;
+    [SerializeField] private bool showReturnButton    = false;
     [SerializeField] private bool countAsCompletion   = true;
 
     [Header("Position du bouton (Viewport)")]
