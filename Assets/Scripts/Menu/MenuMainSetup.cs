@@ -55,13 +55,9 @@ public class MenuMainSetup : MonoBehaviour
         BuildDoorManager(canvasRT);
         BuildDoor(canvasRT);
         BuildGamesButton(canvasRT);
-        MenuXPBar.Create(canvasRT);           // Barre XP avec boules bleues et pulse
         MenuXPReceiver.Create(canvasRT);
+        MenuLevelWidget.Create(canvasRT);
         EnsureSceneTransition();
-
-        // Feedback "Niveau +1"
-        if (PlayerLevelManager.Instance != null)
-            PlayerLevelManager.Instance.OnLevelUp += lvl => LevelUpToast.Show(canvasRT, lvl);
     }
 
     // ── Fond 2D (quadrillage + balle rebondissante) ────────────────────────────
@@ -252,6 +248,19 @@ public class MenuMainSetup : MonoBehaviour
             gamesOpen = !gamesOpen;
             if (gamesOpen) panel.Show(); else panel.Hide();
         });
+    }
+
+    // ── Debug ─────────────────────────────────────────────────────────────────
+
+    private void Update()
+    {
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+        if (Input.GetKeyDown(KeyCode.N))
+        {
+            Debug.Log("[DEBUG] Touche N — forcer niveau 4");
+            PlayerLevelManager.Instance?.ForceLevel(4);
+        }
+#endif
     }
 
     // ── EventSystem ───────────────────────────────────────────────────────────

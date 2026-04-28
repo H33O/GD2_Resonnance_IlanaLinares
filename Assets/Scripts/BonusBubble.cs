@@ -24,14 +24,16 @@ public class BonusBubble : MonoBehaviour
         float diameter    = transform.localScale.x;
         float scaleComp   = diameter > 0.001f ? 1f / diameter : 2f;
 
-        // ── Golden glow ring (behind the bubble sprite) ───────────────────────
+        // ── Glow ring coloré (couleur de la bulle, pas doré) ─────────────────
         var glowGO = new GameObject("BonusGlow");
         glowGO.transform.SetParent(transform, false);
         glowGO.transform.localPosition = Vector3.zero;
-        glowGO.transform.localScale    = Vector3.one * 1.35f;
+        glowGO.transform.localScale    = Vector3.one * 1.40f;
         glowSR              = glowGO.AddComponent<SpriteRenderer>();
         glowSR.sprite       = SpriteGenerator.Circle();
-        glowSR.color        = new Color(1f, 0.85f, 0.1f, 0.55f);
+        // Couleur de la bulle bonus pour indiquer quelle couleur est requise
+        Color bubbleCol     = color.ToUnityColor();
+        glowSR.color        = new Color(bubbleCol.r, bubbleCol.g, bubbleCol.b, 0.55f);
         glowSR.sortingOrder = -1;
 
         // ── "+X" white label centred on the bubble ────────────────────────────
@@ -48,16 +50,16 @@ public class BonusBubble : MonoBehaviour
         tmp.alignment  = TextAlignmentOptions.Center;
         tmp.sortingOrder = 3;
 
-        StartCoroutine(GlowPulseRoutine());
+        StartCoroutine(GlowPulseRoutine(bubbleCol));
     }
 
-    private IEnumerator GlowPulseRoutine()
+    private IEnumerator GlowPulseRoutine(Color bubbleCol)
     {
         while (true)
         {
             float a = 0.35f + 0.25f * Mathf.Sin(Time.time * 4f);
             if (glowSR != null)
-                glowSR.color = new Color(1f, 0.85f, 0.1f, a);
+                glowSR.color = new Color(bubbleCol.r, bubbleCol.g, bubbleCol.b, a);
             yield return null;
         }
     }

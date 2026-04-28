@@ -71,6 +71,20 @@ public class GameEndScreen : MonoBehaviour
             GameManager.Instance.OnGameOver.RemoveListener(Trigger);
     }
 
+    // ── Debug ─────────────────────────────────────────────────────────────────
+
+    private void Update()
+    {
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+        if (Input.GetKeyDown(KeyCode.N))
+        {
+            Debug.Log("[DEBUG] Touche N — forcer niveau 4");
+            PlayerLevelManager.EnsureExists();
+            PlayerLevelManager.Instance.ForceLevel(4);
+        }
+#endif
+    }
+
     // ── Conversion score → XP ─────────────────────────────────────────────────
 
     /// <summary>1 XP par tranche de 5 points, minimum 1 si score > 0.</summary>

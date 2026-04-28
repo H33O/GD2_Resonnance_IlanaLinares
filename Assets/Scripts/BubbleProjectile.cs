@@ -98,12 +98,21 @@ public class BubbleProjectile : MonoBehaviour
         Collider2D[] hits = Physics2D.OverlapCircleAll(transform.position, detectionRadius);
         foreach (Collider2D hit in hits)
         {
-            // Bulle bonus : récompense + destruction spéciale
+            // Bulle bonus : récompense uniquement si la couleur du projectile correspond
             if (hit.TryGetComponent<BonusBubble>(out var bonus))
             {
-                BubbleGameManager.Instance?.AwardBonusShots(bonus.BonusAmount);
-                BubbleGrid.Instance?.RemoveBonusBubble(hit.GetComponent<Bubble>());
-                NotifyAndDestroy();
+                if (bonus.ColorType == color)
+                {
+                    // Bonne couleur → récompense et destruction
+                    BubbleGameManager.Instance?.AwardBonusShots(bonus.BonusAmount);
+                    BubbleGrid.Instance?.RemoveBonusBubble(hit.GetComponent<Bubble>());
+                    NotifyAndDestroy();
+                }
+                else
+                {
+                    // Mauvaise couleur → se colle normalement comme sur une bulle ordinaire
+                    Land();
+                }
                 return;
             }
 

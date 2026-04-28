@@ -381,9 +381,26 @@ public class BubbleGameManager : MonoBehaviour
         ScoreManager.Instance.AddScore(GameType.BubbleShooter, Score);
 
         if (win)
-            CreateVictoryScreen();
+            ShowVictoryXPSequence();
         else
             CreateDefeatScreen();
+    }
+
+    /// <summary>
+    /// Victoire : lance directement la séquence XP (comme GameAndWatch)
+    /// sans écran intermédiaire.
+    /// </summary>
+    private void ShowVictoryXPSequence()
+    {
+        int xp = Mathf.Max(1, Score / 5);
+        MiniGameXPSequence.Show(Score, xp, GameType.BubbleShooter,
+            () =>
+            {
+                if (SceneTransition.Instance != null)
+                    SceneTransition.Instance.LoadScene(SceneMenu, SceneMenu);
+                else
+                    SceneManager.LoadScene(SceneMenu);
+            });
     }
 
     private void CreateVictoryScreen()

@@ -321,7 +321,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 72115dfa3f7c0214daeb498e2476592e, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  showReturnButton: 1
+  showReturnButton: 0
   countAsCompletion: 1
   buttonAnchorMin: {x: 0, y: 0.9}
   buttonAnchorMax: {x: 0.3, y: 1}

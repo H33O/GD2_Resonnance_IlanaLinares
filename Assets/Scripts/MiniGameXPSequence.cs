@@ -47,7 +47,7 @@ public class MiniGameXPSequence : MonoBehaviour
     private static readonly Color ColLvlMax   = new Color(1.00f, 0.88f, 0.10f, 1.00f);
     private static readonly Color ColHint     = new Color(1.00f, 1.00f, 1.00f, 0.50f);
 
-    private const int MaxLevel = 4;
+    private const int MaxLevel = PlayerLevelManager.MaxLevel;
 
     // ── Références runtime ────────────────────────────────────────────────────
 
@@ -240,9 +240,9 @@ public class MiniGameXPSequence : MonoBehaviour
         fillRT.anchorMax = Vector2.one;
         fillRT.offsetMin = fillRT.offsetMax = Vector2.zero;
 
-        // Label XP
+        // Texte XP bar simplifié : compteur XX / 100
         _xpBarLbl = MakeTmp("XPBarLbl", _barRoot,
-            maxed ? "MAX" : $"{plm.CurrentXP}/{plm.XPToNextLevel} XP",
+            maxed ? "MAX" : $"{plm.CurrentXP} / {PlayerLevelManager.XPPerLevel}",
             18f, ColLvlLbl, FontStyles.Normal,
             Vector2.zero, Vector2.one);
         _xpBarLbl.alignment = TMPro.TextAlignmentOptions.Center;
@@ -351,20 +351,26 @@ public class MiniGameXPSequence : MonoBehaviour
     private void RefreshBarVisual(PlayerLevelManager plm, int xpAdded)
     {
         // Simulation de la progression XP future (sera réellement créditée au menu)
-        int   level     = Mathf.Clamp(plm.Level, 1, MaxLevel);
-        bool  maxed     = level >= MaxLevel;
+        int   level     = Mathf.Clamp(plm.Level, 1, PlayerLevelManager.MaxLevel);
+        bool  maxed     = level >= PlayerLevelManager.MaxLevel;
         int   simXP     = plm.CurrentXP + xpAdded;
-        float simRatio  = maxed ? 1f : Mathf.Clamp01((float)simXP / plm.XPToNextLevel);
+        float simRatio  = maxed ? 1f : Mathf.Clamp01((float)simXP / PlayerLevelManager.XPPerLevel);
 
         if (simRatio >= 1f && !maxed)
         {
-            level = Mathf.Min(level + 1, MaxLevel);
-            maxed = level >= MaxLevel;
+            level = Mathf.Min(level + 1, PlayerLevelManager.MaxLevel);
+            maxed = level >= PlayerLevelManager.MaxLevel;
             simRatio = maxed ? 1f : 0f;
         }
 
         _lvlVal.text  = level.ToString();
         _lvlVal.color = maxed ? ColLvlMax : ColLvlVal;
+
+        if (_xpBarLbl != null)
+        {
+            int simXPDisplay = maxed ? PlayerLevelManager.XPPerLevel : Mathf.Clamp(simXP, 0, PlayerLevelManager.XPPerLevel - 1);
+            _xpBarLbl.text = maxed ? "MAX" : $"{simXPDisplay} / {PlayerLevelManager.XPPerLevel}";
+        }
 
         StartCoroutine(AnimateFillTo(simRatio, maxed));
     }
@@ -387,8 +393,8 @@ public class MiniGameXPSequence : MonoBehaviour
         _barFill.fillAmount = targetFill;
         _barFill.color      = maxed ? ColBarMaxed : ColBarFill;
 
-        if (_xpBarLbl != null)
-            _xpBarLbl.text = maxed ? "MAX - PORTE DÉVERROUILLÉE !" : _xpBarLbl.text;
+        if (_xpBarLbl != null && !maxed)
+            _xpBarLbl.text = "MAX - PORTE DÉVERROUILLÉE !";
     }
 
     private IEnumerator PulseBar()

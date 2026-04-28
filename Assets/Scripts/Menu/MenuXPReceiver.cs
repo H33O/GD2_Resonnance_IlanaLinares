@@ -121,15 +121,15 @@ public class MenuXPReceiver : MonoBehaviour
             StartCoroutine(FlyToken(xpLabelRT, delay));
         }
 
-        // Créditer quand les premiers tokens atteignent le HUD (~30% du vol)
+        // Créditer l'XP quand les premiers tokens atteignent le widget
         yield return new WaitForSeconds(TransferDur * 0.30f);
 
         ScoreManager.EnsureExists();
         ScoreManager.Instance.AddXP(xp);
 
-        // Animer la barre XP avec les boules bleues
-        var xpBar = FindFirstObjectByType<MenuXPBar>();
-        xpBar?.AnimateXPGain(xp);
+        // Animer la jauge et le compteur XP intégrés dans le MenuLevelWidget
+        var levelWidget = FindFirstObjectByType<MenuLevelWidget>();
+        levelWidget?.AnimateXPGain(xp);
 
         yield return new WaitForSeconds(TransferDur * 0.70f);
     }
@@ -154,10 +154,11 @@ public class MenuXPReceiver : MonoBehaviour
         Vector2 startAP = WorldToCanvasAnchoredPos(origin.TransformPoint(Vector3.zero))
                         + new Vector2(Random.Range(-40f, 40f), Random.Range(-20f, 20f));
 
-        // Arrivée : zone HUD niveau en haut (anchorY ≈ 0.92)
-        Vector2 endAP = new Vector2(
-            Random.Range(-80f, 80f),
-            (0.92f - 0.5f) * canvasRT.rect.height);
+        // Arrivée : centre du MenuLevelWidget
+        var levelWidget = FindFirstObjectByType<MenuLevelWidget>();
+        Vector2 endAP = levelWidget != null
+            ? WorldToCanvasAnchoredPos(levelWidget.GetWorldCenter())
+            : new Vector2(0f, (0.90f - 0.5f) * canvasRT.rect.height);
 
         Vector2 ctrl = Vector2.Lerp(startAP, endAP, 0.40f)
                      + new Vector2(Random.Range(-160f, 160f), Random.Range(40f, 160f));

@@ -15,14 +15,13 @@ public class PlayerLevelData
 /// <summary>
 /// Singleton persistant gérant le niveau et l'XP du joueur.
 ///
-/// Seuil XP par palier : chaque palier demande <c>BaseXP + Level × StepXP</c>.
+/// Chaque palier demande exactement <see cref="XPPerLevel"/> XP (100).
 ///   Level 1 → 2 : 100 XP
-///   Level 2 → 3 : 150 XP
-///   Level 3 → 4 : 200 XP
-///   … +50 XP par palier
+///   Level 2 → 3 : 100 XP
+///   Level 3 → 4 : 100 XP
+///   Level 4      : niveau maximum — porte ParryGame déverrouillée.
 ///
-/// L'XP est accordée directement via <see cref="AddXP(int)"/>.
-/// Le gain de niveau déclenche <see cref="OnLevelUp"/>.
+/// L'XP est accordée via <see cref="AddXP(int)"/>.
 /// </summary>
 public class PlayerLevelManager : MonoBehaviour
 {
@@ -34,11 +33,11 @@ public class PlayerLevelManager : MonoBehaviour
 
     private const string SaveFileName = "player_level.json";
 
-    /// <summary>XP de base requis pour le premier palier.</summary>
-    public const int BaseXP = 100;
+    /// <summary>XP requis pour chaque palier (fixe).</summary>
+    public const int XPPerLevel = 100;
 
-    /// <summary>XP supplémentaire requis par palier supérieur.</summary>
-    public const int StepXP = 50;
+    /// <summary>Niveau maximum déverrouillant le ParryGame.</summary>
+    public const int MaxLevel = 4;
 
     // ── Événements ────────────────────────────────────────────────────────────
 
@@ -54,17 +53,20 @@ public class PlayerLevelManager : MonoBehaviour
 
     // ── Propriétés ────────────────────────────────────────────────────────────
 
-    /// <summary>Niveau actuel du joueur (commence à 1).</summary>
+    /// <summary>Niveau actuel du joueur (1 à <see cref="MaxLevel"/>).</summary>
     public int Level => _data.Level;
 
-    /// <summary>XP actuelle dans le palier courant.</summary>
+    /// <summary>XP actuelle dans le palier courant (0–99).</summary>
     public int CurrentXP => _data.XP;
 
-    /// <summary>XP totale requise pour passer au niveau suivant depuis le niveau actuel.</summary>
-    public int XPToNextLevel => BaseXP + (_data.Level - 1) * StepXP;
+    /// <summary>XP requis pour passer au niveau suivant (toujours 100).</summary>
+    public int XPToNextLevel => XPPerLevel;
 
-    /// <summary>Ratio [0..1] de remplissage de la barre XP.</summary>
-    public float XPRatio => XPToNextLevel > 0 ? Mathf.Clamp01((float)_data.XP / XPToNextLevel) : 1f;
+    /// <summary>Ratio [0..1] de remplissage du palier courant.</summary>
+    public float XPRatio => Mathf.Clamp01((float)_data.XP / XPPerLevel);
+
+    /// <summary>Vrai quand le niveau maximum est atteint.</summary>
+    public bool IsMaxLevel => _data.Level >= MaxLevel;
 
     // ── Lifecycle ─────────────────────────────────────────────────────────────
 
@@ -79,23 +81,25 @@ public class PlayerLevelManager : MonoBehaviour
     // ── API publique ──────────────────────────────────────────────────────────
 
     /// <summary>
-    /// Ajoute <paramref name="amount"/> XP au joueur.
-    /// Monte le niveau autant de fois que nécessaire si l'XP dépasse le seuil.
+    /// Ajoute <paramref name="amount"/> XP. Monte de niveau autant de fois
+    /// que nécessaire, plafonne à <see cref="MaxLevel"/>.
     /// </summary>
     public void AddXP(int amount)
     {
-        if (amount <= 0) return;
+        if (amount <= 0 || IsMaxLevel) return;
 
         _data.XP += amount;
-        bool leveledUp = false;
 
-        while (_data.XP >= XPToNextLevel)
+        while (_data.XP >= XPPerLevel && _data.Level < MaxLevel)
         {
-            _data.XP -= XPToNextLevel;
+            _data.XP -= XPPerLevel;
             _data.Level++;
-            leveledUp = true;
             OnLevelUp?.Invoke(_data.Level);
         }
+
+        // Plafonner l'XP au max si on est déjà niveau max
+        if (_data.Level >= MaxLevel)
+            _data.XP = 0;
 
         Save();
         OnProgressChanged?.Invoke();
@@ -125,6 +129,20 @@ public class PlayerLevelManager : MonoBehaviour
     }
 
     private string SavePath => Path.Combine(Application.persistentDataPath, SaveFileName);
+
+    /// <summary>
+    /// Force immédiatement le joueur au niveau cible avec 0 XP dans le palier.
+    /// Usage debug uniquement — déclenche <see cref="OnLevelUp"/> et <see cref="OnProgressChanged"/>.
+    /// </summary>
+    public void ForceLevel(int targetLevel)
+    {
+        targetLevel    = Mathf.Max(1, targetLevel);
+        _data.Level    = targetLevel;
+        _data.XP       = 0;
+        Save();
+        OnLevelUp?.Invoke(_data.Level);
+        OnProgressChanged?.Invoke();
+    }
 
     // ── EnsureExists ──────────────────────────────────────────────────────────
 
