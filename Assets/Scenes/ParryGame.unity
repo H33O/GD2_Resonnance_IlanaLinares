@@ -301,6 +301,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   settings: {fileID: 11400000, guid: 4effca968b160a1498e1bb6902e0e4cf, type: 2}
+  parryMusic: {fileID: 8300000, guid: 792b7bd969484a548beb6e814520576e, type: 3}
+  clickSfx: {fileID: 8300000, guid: e4f07c91a8c7a5a4fb84a7fc3b18da19, type: 3}
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0

@@ -255,8 +255,7 @@ public class QuestManager : MonoBehaviour
     /// </summary>
     public int GetMinScore()
     {
-        int level = PlayerLevelManager.Instance?.Level ?? 1;
-        return BaseMinScore + (level - 1) * MinScorePerLevel;
+        return BaseMinScore;
     }
 
     // ── Lifecycle ─────────────────────────────────────────────────────────────
@@ -330,7 +329,6 @@ public class QuestManager : MonoBehaviour
                 if (pProg.Count >= ParentQuestDefinition.RequiredCount)
                 {
                     pProg.Completed = true;
-                    PlayerLevelManager.Instance?.AddXP(ParentQuestDefinition.RewardXP);
                     OnQuestCompleted?.Invoke(ParentQuestDefinition);
                 }
                 Save();
@@ -380,12 +378,6 @@ public class QuestManager : MonoBehaviour
     private void CompleteQuest(QuestDefinition def, QuestProgress prog)
     {
         prog.Completed = true;
-
-        // Récompense XP (utilise RewardXP, ou RewardCoins pour rétro-compat)
-        int xpReward = def.RewardXP > 0 ? def.RewardXP : def.RewardCoins;
-        if (xpReward > 0)
-            PlayerLevelManager.Instance?.AddXP(xpReward);
-
         OnQuestCompleted?.Invoke(def);
     }
 
@@ -420,10 +412,9 @@ public class QuestManager : MonoBehaviour
         _save.ActiveWave.Clear();
         _save.Progresses.Clear();
 
-        int level   = PlayerLevelManager.Instance?.Level ?? 1;
         int waveIdx = _save.WaveIndex;
 
-        var templates = BuildTemplates(level, waveIdx);
+        var templates = BuildTemplates(1, waveIdx);
         Shuffle(templates);
 
         int count = Mathf.Min(QuestsPerWave, templates.Count);

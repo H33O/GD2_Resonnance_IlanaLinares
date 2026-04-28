@@ -150,6 +150,7 @@ public class TBProjectile : MonoBehaviour
     {
         if (other.GetComponent<TBEnemyController>() != null)
         {
+            TBGameManager.PlayEnemyDeathSfx();
             Destroy(other.gameObject);
             Destroy(gameObject);
         }

@@ -89,6 +89,7 @@ public class CGGameManager : MonoBehaviour
         // Persistance du score Circle Game (Ball & Goal)
         ScoreManager.EnsureExists();
         ScoreManager.Instance.AddScore(GameType.BallAndGoal, Score);
+        GameEndData.Set(Score, GameType.BallAndGoal);
     }
 
     private void OnDestroy()

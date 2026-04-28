@@ -116,6 +116,7 @@ public class TPMGameManager : MonoBehaviour
     {
         if (State != GameState.Playing) return;
         State = GameState.Victory;
+        GameEndData.Set(Score, GameType.TetrisPacMan);
         OnVictory?.Invoke();
         StartCoroutine(GoToGameAndWatchAfterDelay(2.5f));
     }
@@ -150,6 +151,7 @@ public class TPMGameManager : MonoBehaviour
     private void TriggerDefeat()
     {
         State = GameState.Defeat;
+        GameEndData.Set(Score, GameType.TetrisPacMan);
         OnDefeat?.Invoke();
     }
 

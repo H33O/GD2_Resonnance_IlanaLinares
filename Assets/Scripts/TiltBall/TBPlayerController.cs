@@ -126,6 +126,7 @@ public class TBPlayerController : MonoBehaviour
         isDead = true;
         StopAllCoroutines();
         rb.linearVelocity = Vector2.zero;
+        TBGameManager.PlayDeathSfx();
         StartCoroutine(DieRoutine());
     }
 
@@ -156,6 +157,7 @@ public class TBPlayerController : MonoBehaviour
         isEnteringHole = true;
         StopAllCoroutines();
         rb.linearVelocity = Vector2.zero;
+        TBGameManager.PlayGoalSfx();
         StartCoroutine(EnterHoleRoutine(holeCenter));
     }
 

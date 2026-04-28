@@ -266,6 +266,7 @@ GameObject:
   m_Component:
   - component: {fileID: 1712787627}
   - component: {fileID: 1712787626}
+  - component: {fileID: 1712787628}
   m_Layer: 0
   m_Name: MenuSetup
   m_TagString: Untagged
@@ -306,6 +307,24 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1712787628
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1712787625}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: fcfb45688b5fc3146aa1fe1e2462ca73, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  doorInteriorSprite: {fileID: 0}
+  doorButtonSprite: {fileID: 0}
+  doorTargetScene: ParryGame
+  doorButtonLabel: JOUER
+  menuMusic: {fileID: 8300000, guid: 50957615192c85449bf9aedbb1da352e, type: 3}
+  clickSfx: {fileID: 8300000, guid: e4f07c91a8c7a5a4fb84a7fc3b18da19, type: 3}
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0

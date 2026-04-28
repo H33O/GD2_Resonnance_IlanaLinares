@@ -81,9 +81,14 @@ public class DoorManager : MonoBehaviour
 
     private void Start()
     {
-        // Ré-évaluer le verrou si le joueur monte de niveau pendant la session
+        PlayerLevelManager.EnsureExists();
+        PlayerLevelManager.Instance.OnLevelUp += _ => EvaluateUnlock();
+    }
+
+    private void OnDestroy()
+    {
         if (PlayerLevelManager.Instance != null)
-            PlayerLevelManager.Instance.OnLevelUp += _ => EvaluateUnlock();
+            PlayerLevelManager.Instance.OnLevelUp -= _ => EvaluateUnlock();
     }
 
     private void Update()
@@ -109,14 +114,15 @@ public class DoorManager : MonoBehaviour
     // ── Logique de déverrouillage ─────────────────────────────────────────────
 
     /// <summary>
-    /// La porte se déverrouille quand le joueur atteint le niveau <see cref="UnlockLevel"/>.
+    /// La porte se déverrouille quand le joueur atteint le niveau 4.
+    /// Appelé depuis <see cref="Init"/> et depuis <see cref="MenuXPWidget"/> lors du level-up.
     /// </summary>
     public void EvaluateUnlock()
     {
         if (_unlocked) return;
 
-        int level = PlayerLevelManager.Instance?.Level ?? 1;
-        if (level >= UnlockLevel)
+        PlayerLevelManager.EnsureExists();
+        if (PlayerLevelManager.Instance.IsMaxLevel)
             ForceUnlock();
     }
 
@@ -206,14 +212,15 @@ public class DoorManager : MonoBehaviour
 
     private void ShowLockToast()
     {
-        // Mise à jour dynamique au cas où le niveau a changé entre deux affichages
-        int level = PlayerLevelManager.Instance?.Level ?? 1;
-        int need  = UnlockLevel - level;
+        int  currentLevel = PlayerLevelManager.Instance?.Level ?? 1;
+        int  need         = PlayerLevelManager.MaxLevel - currentLevel;
 
         if (_lockToastLabel != null)
+        {
             _lockToastLabel.text = need <= 0
-                ? $"Atteindre le niveau {UnlockLevel} pour déverrouiller la porte"
-                : $"Il te manque {need} niveau{(need > 1 ? "x" : "")} — atteins le niveau {UnlockLevel} !";
+                ? "Atteins le niveau 4 pour déverrouiller !"
+                : $"Niveau {currentLevel} / {PlayerLevelManager.MaxLevel} — encore {need} niveau{(need > 1 ? "x" : "")} !";
+        }
 
         if (_lockToastCoroutine != null) StopCoroutine(_lockToastCoroutine);
         _lockToastCoroutine = StartCoroutine(ToastSequence());

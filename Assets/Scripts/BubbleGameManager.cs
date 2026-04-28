@@ -21,6 +21,12 @@ public class BubbleGameManager : MonoBehaviour
     [Header("Audio")]
     [SerializeField] private AudioClip backgroundMusic;
 
+    [Tooltip("Son joué quand une bulle est récoltée / matchée.")]
+    [SerializeField] private AudioClip bubbleCollectSfx;
+
+    [Tooltip("Son joué quand le joueur perd (fin de coups).")]
+    [SerializeField] private AudioClip loseLifeSfx;
+
     private const string SceneMenu = "Menu";
 
     public int Score { get; private set; }
@@ -38,7 +44,7 @@ public class BubbleGameManager : MonoBehaviour
     private static readonly Color ColorShotsNormal = new Color(1f, 0.85f, 0.2f, 1f);
     private static readonly Color ColorShotsDanger = new Color(1f, 0.18f, 0.18f, 1f);
 
-    // Audio
+    // Audio (conservé pour compatibilité ascendante, non utilisé si AudioManager est présent)
     private AudioSource audioSource;
 
     // Glitch caméra
@@ -51,11 +57,23 @@ public class BubbleGameManager : MonoBehaviour
         ShotsLeft = maxShots;
         IsGameActive = true;
 
-        audioSource = gameObject.AddComponent<AudioSource>();
-        audioSource.clip   = backgroundMusic;
-        audioSource.loop   = true;
-        audioSource.volume = 0.75f;
-        if (backgroundMusic != null) audioSource.Play();
+        // Si l'AudioManager persistant est disponible, on lui délègue la musique
+        if (AudioManager.Instance != null && backgroundMusic != null)
+        {
+            AudioManager.Instance.bubbleMusic = backgroundMusic;
+            AudioManager.Instance.PlayMusic(backgroundMusic);
+        }
+        else
+        {
+            // Fallback : AudioSource local
+            audioSource        = gameObject.AddComponent<AudioSource>();
+            audioSource.clip   = backgroundMusic;
+            audioSource.loop   = true;
+            audioSource.volume = 0.75f;
+            if (backgroundMusic != null) audioSource.Play();
+        }
+
+        ButtonClickAudio.HookAllButtons();
 
         CreateUI();
         SpawnGoal();
@@ -246,6 +264,7 @@ public class BubbleGameManager : MonoBehaviour
         if (!IsGameActive) return;
         Score += amount;
         RefreshUI();
+        AudioManager.Instance?.PlaySfx(bubbleCollectSfx);
     }
 
     /// <summary>Consumes one shot. Returns false if out of shots or game over.</summary>
@@ -376,31 +395,31 @@ public class BubbleGameManager : MonoBehaviour
     {
         IsGameActive = false;
 
+        if (!win)
+            AudioManager.Instance?.PlaySfx(loseLifeSfx);
+
         // Persistance du score Bubble Shooter
         ScoreManager.EnsureExists();
         ScoreManager.Instance.AddScore(GameType.BubbleShooter, Score);
 
+        // Préparer l'XP pour le menu (victoire = bonus x1.5)
+        int xp = win
+            ? Mathf.Max(8, Mathf.RoundToInt(GameEndData.ComputeXP(Score) * 1.5f))
+            : GameEndData.ComputeXP(Score);
+        GameEndData.SetWithXP(Score, xp, GameType.BubbleShooter);
+
         if (win)
-            ShowVictoryXPSequence();
+            ShowVictoryScreen();
         else
             CreateDefeatScreen();
     }
 
-    /// <summary>
-    /// Victoire : lance directement la séquence XP (comme GameAndWatch)
-    /// sans écran intermédiaire.
-    /// </summary>
-    private void ShowVictoryXPSequence()
+    private void ShowVictoryScreen()
     {
-        int xp = Mathf.Max(1, Score / 5);
-        MiniGameXPSequence.Show(Score, xp, GameType.BubbleShooter,
-            () =>
-            {
-                if (SceneTransition.Instance != null)
-                    SceneTransition.Instance.LoadScene(SceneMenu, SceneMenu);
-                else
-                    SceneManager.LoadScene(SceneMenu);
-            });
+        if (SceneTransition.Instance != null)
+            SceneTransition.Instance.LoadScene(SceneMenu, SceneMenu);
+        else
+            SceneManager.LoadScene(SceneMenu);
     }
 
     private void CreateVictoryScreen()
@@ -457,16 +476,10 @@ public class BubbleGameManager : MonoBehaviour
                    ColorBtnMenu,
                    () =>
                    {
-                       // Séquence boules XP avant retour menu
-                       int xp = Mathf.Max(1, Score / 5);
-                       MiniGameXPSequence.Show(Score, xp, GameType.BubbleShooter,
-                           () =>
-                           {
-                               if (SceneTransition.Instance != null)
-                                   SceneTransition.Instance.LoadScene(SceneMenu, SceneMenu);
-                               else
-                                   SceneManager.LoadScene(SceneMenu);
-                           });
+                       if (SceneTransition.Instance != null)
+                           SceneTransition.Instance.LoadScene(SceneMenu, SceneMenu);
+                       else
+                           SceneManager.LoadScene(SceneMenu);
                    });
     }
 

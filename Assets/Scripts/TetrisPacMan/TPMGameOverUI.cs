@@ -1,5 +1,6 @@
 using System.Collections;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 using TMPro;
 
@@ -15,6 +16,7 @@ public class TPMGameOverUI : MonoBehaviour
     private TextMeshProUGUI titleLabel;
     private TextMeshProUGUI scoreLabel;
     private Button     restartButton;
+    private Button     menuButton;
 
     // ── Lifecycle ─────────────────────────────────────────────────────────────
 
@@ -36,18 +38,22 @@ public class TPMGameOverUI : MonoBehaviour
     /// Reçoit les références UI construites par <see cref="TPMSceneSetup"/>.
     /// </summary>
     public void Init(Canvas canvas, Image bg, TextMeshProUGUI title,
-                     TextMeshProUGUI score, Button restart)
+                     TextMeshProUGUI score, Button restart, Button menu = null)
     {
         overlayCanvas  = canvas;
         background     = bg;
         titleLabel     = title;
         scoreLabel     = score;
         restartButton  = restart;
+        menuButton     = menu;
 
         overlayCanvas.gameObject.SetActive(false);
 
         restartButton.onClick.AddListener(() =>
             TPMGameManager.Instance?.Restart());
+
+        if (menuButton != null)
+            menuButton.onClick.AddListener(GoToMenu);
     }
 
     // ── Affichage ─────────────────────────────────────────────────────────────
@@ -71,6 +77,18 @@ public class TPMGameOverUI : MonoBehaviour
             scoreLabel.text = $"SCORE  {TPMGameManager.Instance?.Score ?? 0:D6}";
 
         StartCoroutine(FadeIn());
+    }
+
+    // ── Navigation ────────────────────────────────────────────────────────────
+
+    /// <summary><see cref="GameEndData"/> est déjà renseigné par <see cref="TPMGameManager"/>.</summary>
+    private void GoToMenu()
+    {
+        string scene = MenuMainSetup.SceneName;
+        if (SceneTransition.Instance != null)
+            SceneTransition.Instance.LoadScene(scene, scene);
+        else
+            SceneManager.LoadScene(scene);
     }
 
     private IEnumerator FadeIn()

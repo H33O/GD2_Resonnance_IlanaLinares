@@ -138,6 +138,7 @@ public class ArenaGameManager : MonoBehaviour
         // Persistance du score Arena (Ball & Goal)
         ScoreManager.EnsureExists();
         ScoreManager.Instance.AddScore(GameType.BallAndGoal, Score);
+        GameEndData.Set(Score, GameType.BallAndGoal);
 
         if (gameOverPanel != null)
             gameOverPanel.SetActive(true);

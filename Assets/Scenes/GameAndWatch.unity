@@ -2324,6 +2324,7 @@ MonoBehaviour:
   currentLives: 0
   isGameActive: 0
   highScore: 0
+  loseLifeSfx: {fileID: 8300000, guid: 9b50f8cca52bfc34ea61046ff9a99b1b, type: 3}
   OnScoreChanged:
     m_PersistentCalls:
       m_Calls: []

@@ -195,6 +195,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 955b2b29f076fc744a2906fe6c9e035c, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  clickSfx: {fileID: 0}
 --- !u!114 &826354956
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -430,7 +431,9 @@ MonoBehaviour:
   maxShots: 30
   targetScore: 500
   lowShotsThreshold: 6
-  backgroundMusic: {fileID: 8300000, guid: 0bea440fd6099e44a8ed8ce670893cc9, type: 3}
+  backgroundMusic: {fileID: 8300000, guid: 1a04e0f2b3a1880458e06298caeb5d1d, type: 3}
+  bubbleCollectSfx: {fileID: 8300000, guid: ea103016ad3bd33489c921247ec8eed6, type: 3}
+  loseLifeSfx: {fileID: 8300000, guid: 9b50f8cca52bfc34ea61046ff9a99b1b, type: 3}
 --- !u!114 &1502494751
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -616,6 +619,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 955b2b29f076fc744a2906fe6c9e035c, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  clickSfx: {fileID: 0}
 --- !u!114 &1876382002
 MonoBehaviour:
   m_ObjectHideFlags: 0

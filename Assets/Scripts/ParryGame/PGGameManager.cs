@@ -18,6 +18,10 @@ public class PGGameManager : MonoBehaviour
     [Header("Settings")]
     public PGSettings settings;
 
+    [Header("Audio")]
+    [Tooltip("Musique du Parry Game (parrygame music.mp3).")]
+    public AudioClip parryMusic;
+
     // ── Events ────────────────────────────────────────────────────────────────
 
     public static event Action<int>   OnScoreChanged;
@@ -58,6 +62,14 @@ public class PGGameManager : MonoBehaviour
 
     private void Start()
     {
+        if (AudioManager.Instance != null && parryMusic != null)
+        {
+            AudioManager.Instance.parryMusic = parryMusic;
+            AudioManager.Instance.PlayMusic(parryMusic);
+        }
+
+        ButtonClickAudio.HookAllButtons();
+
         OnGameStarted?.Invoke();
         OnHpChanged?.Invoke(Hp);
     }
@@ -140,7 +152,11 @@ public class PGGameManager : MonoBehaviour
     public void ReturnToMenu()
     {
         Time.timeScale = 1f;
-        SceneManager.LoadScene("Menu");
+        string scene = MenuMainSetup.SceneName;
+        if (SceneTransition.Instance != null)
+            SceneTransition.Instance.LoadScene(scene, scene);
+        else
+            SceneManager.LoadScene(scene);
     }
 
     // ── Current difficulty ────────────────────────────────────────────────────
@@ -172,6 +188,7 @@ public class PGGameManager : MonoBehaviour
         Time.timeScale = 1f;
 
         State = GameState.GameOver;
+        GameEndData.Set(Score, GameType.ParryGame);
         OnGameOver?.Invoke();
     }
 

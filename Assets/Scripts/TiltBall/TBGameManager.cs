@@ -26,6 +26,24 @@ public class TBGameManager : MonoBehaviour
     /// <summary>Multiplicateur XP accordé à la victoire finale (10 niveaux complétés).</summary>
     private const float XpVictoryMultiplier = 2f;
 
+    // ── Inspector ─────────────────────────────────────────────────────────────
+
+    [Header("Audio")]
+    [Tooltip("Musique du TiltBall (fightgame music.mp3).")]
+    public AudioClip fightMusic;
+
+    [Tooltip("Son joué quand une amélioration est achetée.")]
+    public AudioClip upgradeSfx;
+
+    [Tooltip("Son joué quand le joueur entre dans le goal.")]
+    public AudioClip goalSfx;
+
+    [Tooltip("Son joué quand le joueur meurt.")]
+    public AudioClip deathSfx;
+
+    [Tooltip("Son joué quand un ennemi est tué.")]
+    public AudioClip enemyDeathSfx;
+
     // ── État ──────────────────────────────────────────────────────────────────
 
     public int   LevelIndex  { get; private set; }
@@ -61,6 +79,14 @@ public class TBGameManager : MonoBehaviour
         Instance = this;
         DontDestroyOnLoad(gameObject);
         Screen.orientation = ScreenOrientation.Portrait;
+
+        if (AudioManager.Instance != null && fightMusic != null)
+        {
+            AudioManager.Instance.tiltBallMusic = fightMusic;
+            AudioManager.Instance.PlayMusic(fightMusic);
+        }
+
+        ButtonClickAudio.HookAllButtons();
     }
 
     private void Update()
@@ -105,16 +131,13 @@ public class TBGameManager : MonoBehaviour
             // ── Victoire finale — 10 niveaux complétés ────────────────────────
             ScoreManager.EnsureExists();
 
-            int baseXp  = Mathf.Max(1, Score / 10);
-            int totalXp = Mathf.RoundToInt(baseXp * XpVictoryMultiplier);
-
             HasKey = false;
 
-            // Affiche d'abord le widget victoire, puis la séquence XP avant le retour menu
-            TBWinWidget.ShowVictory(ElapsedTime, Score, totalXp, baseXp, () =>
-            {
-                MiniGameXPSequence.Show(Score, totalXp, GameType.BallAndGoal, GoToMenuDirect);
-            });
+            // XP victoire (bonus x2 pour la difficulté)
+            int xp = Mathf.Max(10, Mathf.RoundToInt(GameEndData.ComputeXP(Score) * 2f));
+            GameEndData.SetWithXP(Score, xp, GameType.BallAndGoal);
+
+            TBWinWidget.ShowVictory(ElapsedTime, Score, 0, 0, GoToMenuDirect);
         }
         else
         {
@@ -217,6 +240,18 @@ public class TBGameManager : MonoBehaviour
         go.AddComponent<TBGameManager>();
         Debug.LogWarning("[TBGameManager] Créé à la volée — démarrage direct depuis une scène de jeu.");
     }
+
+    /// <summary>Joue le son d'amélioration via l'AudioManager.</summary>
+    public static void PlayUpgradeSfx()   => AudioManager.Instance?.PlaySfx(Instance?.upgradeSfx);
+
+    /// <summary>Joue le son d'entrée dans le goal via l'AudioManager.</summary>
+    public static void PlayGoalSfx()      => AudioManager.Instance?.PlaySfx(Instance?.goalSfx);
+
+    /// <summary>Joue le son de mort du joueur via l'AudioManager.</summary>
+    public static void PlayDeathSfx()     => AudioManager.Instance?.PlaySfx(Instance?.deathSfx);
+
+    /// <summary>Joue le son de mort d'un ennemi via l'AudioManager.</summary>
+    public static void PlayEnemyDeathSfx() => AudioManager.Instance?.PlaySfx(Instance?.enemyDeathSfx);
 }
 
 

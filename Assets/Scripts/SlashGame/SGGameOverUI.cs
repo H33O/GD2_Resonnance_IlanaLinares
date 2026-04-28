@@ -1,10 +1,11 @@
 using System.Collections;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 using TMPro;
 
 /// <summary>
-/// Shows the game-over panel with final score and restart button.
+/// Shows the game-over panel with final score, restart and menu buttons.
 /// Attach to the "GameOverPanel" GameObject (disabled at start).
 /// </summary>
 public class SGGameOverUI : MonoBehaviour
@@ -14,6 +15,7 @@ public class SGGameOverUI : MonoBehaviour
     [Header("References")]
     public TextMeshProUGUI finalScoreText;
     public Button          restartButton;
+    public Button          menuButton;
     public CanvasGroup     panelGroup;
 
     // ── Lifecycle ─────────────────────────────────────────────────────────────
@@ -23,6 +25,8 @@ public class SGGameOverUI : MonoBehaviour
         gameObject.SetActive(false);
         if (restartButton != null)
             restartButton.onClick.AddListener(OnRestartClicked);
+        if (menuButton != null)
+            menuButton.onClick.AddListener(OnMenuClicked);
     }
 
     private void OnEnable()  => SGGameManager.OnGameOver += HandleGameOver;
@@ -45,6 +49,16 @@ public class SGGameOverUI : MonoBehaviour
     }
 
     private void OnRestartClicked() => SGGameManager.Instance?.Restart();
+
+    /// <summary>Returns to the menu. <see cref="GameEndData"/> is already set by <see cref="SGGameManager"/>.</summary>
+    private void OnMenuClicked()
+    {
+        string scene = MenuMainSetup.SceneName;
+        if (SceneTransition.Instance != null)
+            SceneTransition.Instance.LoadScene(scene, scene);
+        else
+            SceneManager.LoadScene(scene);
+    }
 
     // ── Fade in ───────────────────────────────────────────────────────────────
 

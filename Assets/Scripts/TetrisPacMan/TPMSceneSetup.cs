@@ -280,7 +280,26 @@ public class TPMSceneSetup : MonoBehaviour
         lblTMP.text   = "REJOUER"; lblTMP.fontSize = 24f;
         lblTMP.color  = Color.white; lblTMP.alignment = TextAlignmentOptions.Center;
 
-        gameOverUI.Init(goCanvas, bgImg, title, scoreF, btn);
+        // Bouton MENU
+        var menuBtnGO   = new GameObject("MenuButton");
+        menuBtnGO.transform.SetParent(goCanvas.transform, false);
+        var menuBtnRT   = menuBtnGO.AddComponent<RectTransform>();
+        menuBtnRT.anchorMin = menuBtnRT.anchorMax = new Vector2(0.5f, 0.18f);
+        menuBtnRT.pivot     = new Vector2(0.5f, 0.5f);
+        menuBtnRT.sizeDelta = new Vector2(220f, 55f);
+        menuBtnGO.AddComponent<Image>().color = new Color(0.25f, 0.60f, 1f, 0.28f);
+        var menuBtn     = menuBtnGO.AddComponent<Button>();
+
+        var menuLblGO   = new GameObject("Label");
+        menuLblGO.transform.SetParent(menuBtnGO.transform, false);
+        var menuLblRT   = menuLblGO.AddComponent<RectTransform>();
+        menuLblRT.anchorMin = Vector2.zero; menuLblRT.anchorMax = Vector2.one;
+        menuLblRT.offsetMin = menuLblRT.offsetMax = Vector2.zero;
+        var menuLblTMP  = menuLblGO.AddComponent<TextMeshProUGUI>();
+        menuLblTMP.text = "MENU"; menuLblTMP.fontSize = 24f;
+        menuLblTMP.color = Color.white; menuLblTMP.alignment = TextAlignmentOptions.Center;
+
+        gameOverUI.Init(goCanvas, bgImg, title, scoreF, btn, menuBtn);
     }
 
     // ── Helpers UI ────────────────────────────────────────────────────────────

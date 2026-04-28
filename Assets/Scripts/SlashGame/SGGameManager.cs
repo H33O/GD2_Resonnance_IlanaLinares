@@ -217,6 +217,7 @@ public class SGGameManager : MonoBehaviour
         Time.timeScale = 1f;
 
         State = GameState.GameOver;
+        GameEndData.Set(Score, GameType.SlashGame);
         OnGameOver?.Invoke();
     }
 

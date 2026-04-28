@@ -36,6 +36,25 @@ public class TBSceneSetup : MonoBehaviour
     [Tooltip("ScriptableObject de sprites. Si null, des sprites procéduraux sont utilisés.")]
     [SerializeField] public TBLevelPrefabsData prefabsData;
 
+    [Header("Audio")]
+    [Tooltip("Musique du TiltBall (fightgame music.mp3).")]
+    [SerializeField] public AudioClip fightMusic;
+
+    [Tooltip("Son de clic UI (clic.mp3) — utilisé si l'AudioManager est absent.")]
+    [SerializeField] public AudioClip clickSfx;
+
+    [Tooltip("Son joué quand une amélioration est achetée.")]
+    [SerializeField] public AudioClip upgradeSfx;
+
+    [Tooltip("Son joué quand le joueur entre dans le goal.")]
+    [SerializeField] public AudioClip goalSfx;
+
+    [Tooltip("Son joué quand le joueur meurt.")]
+    [SerializeField] public AudioClip deathSfx;
+
+    [Tooltip("Son joué quand un ennemi est tué.")]
+    [SerializeField] public AudioClip enemyDeathSfx;
+
     // ── Référence statique (accessible par RebuildLevel) ──────────────────────
 
     private static TBLevelPrefabsData s_prefabsData;
@@ -61,6 +80,37 @@ public class TBSceneSetup : MonoBehaviour
     {
         TBGameManager.EnsureExists();
         if (prefabsData != null) s_prefabsData = prefabsData;
+
+        // Injecte la musique dans le TBGameManager (persistant DontDestroyOnLoad)
+        if (TBGameManager.Instance != null && fightMusic != null)
+            TBGameManager.Instance.fightMusic = fightMusic;
+
+        // Injecte les SFX dans le TBGameManager
+        if (TBGameManager.Instance != null)
+        {
+            if (upgradeSfx    != null) TBGameManager.Instance.upgradeSfx    = upgradeSfx;
+            if (goalSfx       != null) TBGameManager.Instance.goalSfx       = goalSfx;
+            if (deathSfx      != null) TBGameManager.Instance.deathSfx      = deathSfx;
+            if (enemyDeathSfx != null) TBGameManager.Instance.enemyDeathSfx = enemyDeathSfx;
+        }
+
+        // Bootstrap AudioManager si la scène est démarrée directement
+        if (AudioManager.Instance == null)
+        {
+            var amGO = new GameObject("AudioManager");
+            var am   = amGO.AddComponent<AudioManager>();
+            am.tiltBallMusic = fightMusic;
+            am.clickSfx      = clickSfx;
+        }
+        else
+        {
+            if (fightMusic != null) AudioManager.Instance.tiltBallMusic = fightMusic;
+            if (clickSfx   != null) AudioManager.Instance.clickSfx      = clickSfx;
+        }
+
+        // ButtonClickAudio
+        if (FindFirstObjectByType<ButtonClickAudio>() == null)
+            new GameObject("ButtonClickAudio").AddComponent<ButtonClickAudio>();
     }
 
     private void Start()

@@ -17,6 +17,10 @@ public class GameManager : MonoBehaviour
     [SerializeField] private bool isGameActive = false;
     [SerializeField] private int highScore = 0;
 
+    [Header("Audio")]
+    [Tooltip("Son joué quand le joueur perd une vie (perte de vie.mp3).")]
+    [SerializeField] private AudioClip loseLifeSfx;
+
     [Header("Events")]
     public UnityEvent<int> OnScoreChanged;
     public UnityEvent<int> OnLivesChanged;
@@ -116,6 +120,7 @@ public class GameManager : MonoBehaviour
         if (!isGameActive) return;
 
         currentLives--;
+        AudioManager.Instance?.PlaySfx(loseLifeSfx);
         OnLivesChanged?.Invoke(currentLives);
 
         if (currentLives <= 0)

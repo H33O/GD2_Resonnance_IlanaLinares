@@ -21,6 +21,13 @@ public class PGSceneSetup : MonoBehaviour
     [Header("Settings (assign in Inspector)")]
     public PGSettings settings;
 
+    [Header("Audio")]
+    [Tooltip("Musique du Parry Game (parrygame music.mp3).")]
+    public AudioClip parryMusic;
+
+    [Tooltip("Son de clic UI (clic.mp3) — utilisé si l'AudioManager est absent.")]
+    public AudioClip clickSfx;
+
     // ── Cached references ─────────────────────────────────────────────────────
 
     private Camera            gameCamera;
@@ -162,7 +169,26 @@ public class PGSceneSetup : MonoBehaviour
     {
         var go      = new GameObject("PGGameManager");
         gameManager = go.AddComponent<PGGameManager>();
-        gameManager.settings = settings;
+        gameManager.settings   = settings;
+        gameManager.parryMusic = parryMusic;
+
+        // Bootstrap AudioManager si la scène est démarrée directement
+        if (AudioManager.Instance == null)
+        {
+            var amGO = new GameObject("AudioManager");
+            var am   = amGO.AddComponent<AudioManager>();
+            am.parryMusic = parryMusic;
+            am.clickSfx   = clickSfx;
+        }
+        else
+        {
+            if (parryMusic != null) AudioManager.Instance.parryMusic = parryMusic;
+            if (clickSfx   != null) AudioManager.Instance.clickSfx   = clickSfx;
+        }
+
+        // ButtonClickAudio
+        if (FindFirstObjectByType<ButtonClickAudio>() == null)
+            new GameObject("ButtonClickAudio").AddComponent<ButtonClickAudio>();
     }
 
     // ── Player ────────────────────────────────────────────────────────────────

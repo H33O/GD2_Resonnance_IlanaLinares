@@ -37,13 +37,19 @@ public class MenuMainSetup : MonoBehaviour
     [Tooltip("Libellé affiché sur le bouton de l'overlay intérieur porte.")]
     [SerializeField] public string doorButtonLabel = "JOUER";
 
+    [Header("Audio")]
+    [Tooltip("Musique d'ambiance du menu principal (ambiance menu.mp3).")]
+    [SerializeField] private AudioClip menuMusic;
+
+    [Tooltip("Son joué au clic sur les boutons UI (clic.mp3).")]
+    [SerializeField] private AudioClip clickSfx;
+
     // ── Lifecycle ─────────────────────────────────────────────────────────────
 
     private void Awake() => EnsureEventSystem();
 
     private void Start()
     {
-        // ── Ordre critique : Score → Level ────────────────────────────────────
         ScoreManager.EnsureExists();
         PlayerLevelManager.EnsureExists();
 
@@ -55,9 +61,10 @@ public class MenuMainSetup : MonoBehaviour
         BuildDoorManager(canvasRT);
         BuildDoor(canvasRT);
         BuildGamesButton(canvasRT);
+        MenuXPWidget.Create(canvasRT);
         MenuXPReceiver.Create(canvasRT);
-        MenuLevelWidget.Create(canvasRT);
         EnsureSceneTransition();
+        EnsureAudio();
     }
 
     // ── Fond 2D (quadrillage + balle rebondissante) ────────────────────────────
@@ -250,19 +257,6 @@ public class MenuMainSetup : MonoBehaviour
         });
     }
 
-    // ── Debug ─────────────────────────────────────────────────────────────────
-
-    private void Update()
-    {
-#if UNITY_EDITOR || DEVELOPMENT_BUILD
-        if (Input.GetKeyDown(KeyCode.N))
-        {
-            Debug.Log("[DEBUG] Touche N — forcer niveau 4");
-            PlayerLevelManager.Instance?.ForceLevel(4);
-        }
-#endif
-    }
-
     // ── EventSystem ───────────────────────────────────────────────────────────
 
     private static void EnsureEventSystem()
@@ -271,6 +265,32 @@ public class MenuMainSetup : MonoBehaviour
         var es = new GameObject("EventSystem");
         es.AddComponent<EventSystem>();
         es.AddComponent<StandaloneInputModule>();
+    }
+
+    // ── Audio ─────────────────────────────────────────────────────────────────
+
+    private void EnsureAudio()
+    {
+        // Crée ou récupère l'AudioManager persistant
+        if (AudioManager.Instance == null)
+        {
+            var go = new GameObject("AudioManager");
+            var am = go.AddComponent<AudioManager>();
+            am.menuMusic  = menuMusic;
+            am.clickSfx   = clickSfx;
+        }
+        else
+        {
+            // Réassigne les clips si le manager existait déjà
+            if (menuMusic != null)  AudioManager.Instance.menuMusic = menuMusic;
+            if (clickSfx  != null)  AudioManager.Instance.clickSfx  = clickSfx;
+        }
+
+        AudioManager.Instance.PlayMusic(AudioManager.Instance.menuMusic);
+
+        // Crée ou récupère le ButtonClickAudio persistant
+        if (FindFirstObjectByType<ButtonClickAudio>() == null)
+            new GameObject("ButtonClickAudio").AddComponent<ButtonClickAudio>();
     }
 
     // ── SceneTransition ───────────────────────────────────────────────────────

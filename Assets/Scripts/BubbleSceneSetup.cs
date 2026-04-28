@@ -17,6 +17,12 @@ public class BubbleSceneSetup : MonoBehaviour
     /// <summary>Conservé pour compatibilité avec BubbleLevelData.</summary>
     public enum BackgroundFit { Fill, Contain }
 
+    // ── Inspector ─────────────────────────────────────────────────────────────
+
+    [Header("Audio")]
+    [Tooltip("Son de clic UI (clic.mp3) — utilisé si l'AudioManager est absent.")]
+    [SerializeField] private AudioClip clickSfx;
+
     // ── Instance courante ─────────────────────────────────────────────────────
 
     private static BubbleSceneSetup _instance;
@@ -31,6 +37,22 @@ public class BubbleSceneSetup : MonoBehaviour
     {
         if (Camera.main != null)
             Camera.main.backgroundColor = ColBg;
+
+        // Bootstrap AudioManager si la scène est démarrée directement sans passer par le menu
+        if (AudioManager.Instance == null)
+        {
+            var amGO = new GameObject("AudioManager");
+            var am   = amGO.AddComponent<AudioManager>();
+            am.clickSfx = clickSfx;
+        }
+        else if (clickSfx != null)
+        {
+            AudioManager.Instance.clickSfx = clickSfx;
+        }
+
+        // ButtonClickAudio
+        if (FindFirstObjectByType<ButtonClickAudio>() == null)
+            new GameObject("ButtonClickAudio").AddComponent<ButtonClickAudio>();
 
         _bgObject = BuildWorldBackground();
         BuildGrid();

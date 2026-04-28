@@ -61,7 +61,10 @@ public class TBAlly : MonoBehaviour
     {
         // L'allié détruit les ennemis au contact
         if (other.GetComponent<TBEnemyController>() != null)
+        {
+            TBGameManager.PlayEnemyDeathSfx();
             Destroy(other.gameObject);
+        }
     }
 
     // ── Spawn statique ────────────────────────────────────────────────────────

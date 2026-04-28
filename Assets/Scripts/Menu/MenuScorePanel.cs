@@ -71,36 +71,20 @@ public class MenuScorePanel : MonoBehaviour
     /// <summary>Appelé par <see cref="MenuMainHud.Init"/>.</summary>
     public void Init(RectTransform canvasRT)
     {
-        // PlayerLevelManager est garanti d'exister (créé avant MenuMainHud dans MenuMainSetup)
         BuildWidget(canvasRT);
         BuildPanel(canvasRT);
         RefreshAll(animate: false);
-
-        // Abonnement PlayerLevelManager (existe déjà)
-        if (PlayerLevelManager.Instance != null)
-        {
-            PlayerLevelManager.Instance.OnLevelUp        += OnLevelUp;
-            PlayerLevelManager.Instance.OnProgressChanged += OnXPChanged;
-        }
-        // ⚠️  QuestManager n'est PAS encore créé ici (BuildHud < QuestManager.EnsureExists)
-        // L'abonnement QuestManager est fait dans Start().
     }
 
     private void Start()
     {
-        // Refresh initial après que tout le monde est créé
         RefreshAll(animate: false);
     }
 
-    private void OnXPChanged()        => RefreshAll(animate: true);
+    private void OnXPChanged() => RefreshAll(animate: true);
 
     private void OnDestroy()
     {
-        if (PlayerLevelManager.Instance != null)
-        {
-            PlayerLevelManager.Instance.OnLevelUp        -= OnLevelUp;
-            PlayerLevelManager.Instance.OnProgressChanged -= OnXPChanged;
-        }
     }
 
     // ── Widget haut-gauche ────────────────────────────────────────────────────
@@ -448,32 +432,20 @@ public class MenuScorePanel : MonoBehaviour
 
     private void RefreshAll(bool animate)
     {
-        var lm = PlayerLevelManager.Instance;
-        if (lm == null) return;
-
-        // Widget
         if (_levelLabel != null)
-            _levelLabel.text = lm.Level.ToString();
+            _levelLabel.text = "-";
 
-        float targetRatio = lm.XPRatio;
         if (_xpFill != null)
-        {
-            if (animate)
-                StartCoroutine(AnimateFill(_xpFill, _xpFillFrom, targetRatio, XPAnimDur));
-            else
-                _xpFill.fillAmount = targetRatio;
-        }
-        _xpFillFrom = targetRatio;
+            _xpFill.fillAmount = 0f;
 
         if (_xpLabel != null)
-            _xpLabel.text = $"{lm.CurrentXP} / {lm.XPToNextLevel} XP";
+            _xpLabel.text = "";
 
-        // Panel (si visible)
         if (_panelRT != null && _panelRT.gameObject.activeSelf)
         {
-            if (_panelLevelLabel != null) _panelLevelLabel.text = lm.Level.ToString();
-            if (_panelXPLabel    != null) _panelXPLabel.text    = $"{lm.CurrentXP} / {lm.XPToNextLevel} XP";
-            if (_panelXPFill     != null) _panelXPFill.fillAmount = lm.XPRatio;
+            if (_panelLevelLabel != null) _panelLevelLabel.text    = "-";
+            if (_panelXPLabel    != null) _panelXPLabel.text       = "";
+            if (_panelXPFill     != null) _panelXPFill.fillAmount  = 0f;
         }
     }
 

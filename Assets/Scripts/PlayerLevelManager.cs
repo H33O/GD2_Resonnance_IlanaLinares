@@ -1,78 +1,62 @@
 using System;
-using System.IO;
 using UnityEngine;
-
-/// <summary>
-/// Données persistantes du niveau joueur.
-/// </summary>
-[Serializable]
-public class PlayerLevelData
-{
-    public int Level = 1;
-    public int XP    = 0;
-}
 
 /// <summary>
 /// Singleton persistant gérant le niveau et l'XP du joueur.
 ///
-/// Chaque palier demande exactement <see cref="XPPerLevel"/> XP (100).
-///   Level 1 → 2 : 100 XP
-///   Level 2 → 3 : 100 XP
-///   Level 3 → 4 : 100 XP
-///   Level 4      : niveau maximum — porte ParryGame déverrouillée.
-///
-/// L'XP est accordée via <see cref="AddXP(int)"/>.
+/// Règles :
+///   - 100 XP par niveau, 4 niveaux maximum.
+///   - L'XP et le niveau sont sauvegardés via <see cref="PlayerPrefs"/>.
+///   - Quand <see cref="AddXP"/> fait dépasser les 100 XP, le niveau monte
+///     et l'excédent est reporté.
+///   - Au niveau 4, la barre reste pleine et n'évolue plus.
 /// </summary>
 public class PlayerLevelManager : MonoBehaviour
 {
+    // ── Constantes ────────────────────────────────────────────────────────────
+
+    public const  int MaxLevel   = 4;
+    public const  int XPPerLevel = 100;
+
+    private const string KeyLevel = "plm_level";
+    private const string KeyXP    = "plm_xp";
+
     // ── Singleton ─────────────────────────────────────────────────────────────
 
     public static PlayerLevelManager Instance { get; private set; }
 
-    // ── Constantes ────────────────────────────────────────────────────────────
-
-    private const string SaveFileName = "player_level.json";
-
-    /// <summary>XP requis pour chaque palier (fixe).</summary>
-    public const int XPPerLevel = 100;
-
-    /// <summary>Niveau maximum déverrouillant le ParryGame.</summary>
-    public const int MaxLevel = 4;
-
     // ── Événements ────────────────────────────────────────────────────────────
 
-    /// <summary>Déclenché quand le joueur monte de niveau. Arg : nouveau niveau.</summary>
+    /// <summary>Déclenché quand le joueur monte de niveau (arg : nouveau niveau).</summary>
     public event Action<int> OnLevelUp;
 
-    /// <summary>Déclenché quand l'XP ou le niveau change.</summary>
+    /// <summary>Déclenché à chaque changement d'XP ou de niveau.</summary>
     public event Action OnProgressChanged;
 
-    // ── Données ───────────────────────────────────────────────────────────────
+    // ── État ──────────────────────────────────────────────────────────────────
 
-    private PlayerLevelData _data = new PlayerLevelData();
+    /// <summary>Niveau actuel (1–4).</summary>
+    public int Level     { get; private set; } = 1;
 
-    // ── Propriétés ────────────────────────────────────────────────────────────
+    /// <summary>XP dans le niveau courant (0–99).</summary>
+    public int CurrentXP { get; private set; } = 0;
 
-    /// <summary>Niveau actuel du joueur (1 à <see cref="MaxLevel"/>).</summary>
-    public int Level => _data.Level;
+    /// <summary>Ratio de remplissage de la barre (0–1).</summary>
+    public float XPRatio => IsMaxLevel ? 1f : CurrentXP / (float)XPPerLevel;
 
-    /// <summary>XP actuelle dans le palier courant (0–99).</summary>
-    public int CurrentXP => _data.XP;
-
-    /// <summary>XP requis pour passer au niveau suivant (toujours 100).</summary>
-    public int XPToNextLevel => XPPerLevel;
-
-    /// <summary>Ratio [0..1] de remplissage du palier courant.</summary>
-    public float XPRatio => Mathf.Clamp01((float)_data.XP / XPPerLevel);
-
-    /// <summary>Vrai quand le niveau maximum est atteint.</summary>
-    public bool IsMaxLevel => _data.Level >= MaxLevel;
+    /// <summary>Vrai si le niveau maximum est atteint.</summary>
+    public bool IsMaxLevel => Level >= MaxLevel;
 
     // ── Lifecycle ─────────────────────────────────────────────────────────────
 
     private void Awake()
     {
-        if (Instance != null && Instance != this) { Destroy(gameObject); return; }
+        if (Instance != null && Instance != this)
+        {
+            Destroy(gameObject);
+            return;
+        }
+
         Instance = this;
         DontDestroyOnLoad(gameObject);
         Load();
@@ -81,27 +65,38 @@ public class PlayerLevelManager : MonoBehaviour
     // ── API publique ──────────────────────────────────────────────────────────
 
     /// <summary>
-    /// Ajoute <paramref name="amount"/> XP. Monte de niveau autant de fois
-    /// que nécessaire, plafonne à <see cref="MaxLevel"/>.
+    /// Ajoute de l'XP et gère les montées de niveau en cascade.
+    /// Retourne le nombre de niveaux gagnés pendant cet appel.
     /// </summary>
-    public void AddXP(int amount)
+    public int AddXP(int amount)
     {
-        if (amount <= 0 || IsMaxLevel) return;
+        if (amount <= 0 || IsMaxLevel) return 0;
 
-        _data.XP += amount;
+        int levelsGained = 0;
+        CurrentXP += amount;
 
-        while (_data.XP >= XPPerLevel && _data.Level < MaxLevel)
+        while (CurrentXP >= XPPerLevel && !IsMaxLevel)
         {
-            _data.XP -= XPPerLevel;
-            _data.Level++;
-            OnLevelUp?.Invoke(_data.Level);
+            CurrentXP -= XPPerLevel;
+            Level++;
+            levelsGained++;
+            OnLevelUp?.Invoke(Level);
         }
 
-        // Plafonner l'XP au max si on est déjà niveau max
-        if (_data.Level >= MaxLevel)
-            _data.XP = 0;
+        if (IsMaxLevel) CurrentXP = XPPerLevel; // barre pleine au niveau max
 
         Save();
+        OnProgressChanged?.Invoke();
+        return levelsGained;
+    }
+
+    /// <summary>Force un niveau précis (outil de debug).</summary>
+    public void ForceLevel(int level)
+    {
+        Level     = Mathf.Clamp(level, 1, MaxLevel);
+        CurrentXP = level >= MaxLevel ? XPPerLevel : 0;
+        Save();
+        if (level >= MaxLevel) OnLevelUp?.Invoke(Level);
         OnProgressChanged?.Invoke();
     }
 
@@ -109,47 +104,23 @@ public class PlayerLevelManager : MonoBehaviour
 
     private void Save()
     {
-        try   { File.WriteAllText(SavePath, JsonUtility.ToJson(_data, false)); }
-        catch (Exception e) { Debug.LogError($"[PlayerLevelManager] Save failed: {e.Message}"); }
+        PlayerPrefs.SetInt(KeyLevel, Level);
+        PlayerPrefs.SetInt(KeyXP,    CurrentXP);
+        PlayerPrefs.Save();
     }
 
     private void Load()
     {
-        try
-        {
-            _data = File.Exists(SavePath)
-                ? JsonUtility.FromJson<PlayerLevelData>(File.ReadAllText(SavePath)) ?? new PlayerLevelData()
-                : new PlayerLevelData();
-        }
-        catch (Exception e)
-        {
-            Debug.LogError($"[PlayerLevelManager] Load failed: {e.Message}");
-            _data = new PlayerLevelData();
-        }
+        Level     = Mathf.Clamp(PlayerPrefs.GetInt(KeyLevel, 1), 1, MaxLevel);
+        CurrentXP = Mathf.Clamp(PlayerPrefs.GetInt(KeyXP,    0), 0, XPPerLevel);
     }
 
-    private string SavePath => Path.Combine(Application.persistentDataPath, SaveFileName);
+    // ── Factory ───────────────────────────────────────────────────────────────
 
-    /// <summary>
-    /// Force immédiatement le joueur au niveau cible avec 0 XP dans le palier.
-    /// Usage debug uniquement — déclenche <see cref="OnLevelUp"/> et <see cref="OnProgressChanged"/>.
-    /// </summary>
-    public void ForceLevel(int targetLevel)
+    /// <summary>Crée le singleton s'il est absent de la scène.</summary>
+    public static void EnsureExists()
     {
-        targetLevel    = Mathf.Max(1, targetLevel);
-        _data.Level    = targetLevel;
-        _data.XP       = 0;
-        Save();
-        OnLevelUp?.Invoke(_data.Level);
-        OnProgressChanged?.Invoke();
-    }
-
-    // ── EnsureExists ──────────────────────────────────────────────────────────
-
-    /// <summary>Crée le singleton s'il est absent.</summary>
-    public static PlayerLevelManager EnsureExists()
-    {
-        if (Instance != null) return Instance;
-        return new GameObject("PlayerLevelManager").AddComponent<PlayerLevelManager>();
+        if (Instance != null) return;
+        new GameObject("PlayerLevelManager").AddComponent<PlayerLevelManager>();
     }
 }

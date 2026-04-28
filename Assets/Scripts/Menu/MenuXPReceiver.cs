@@ -1,63 +1,57 @@
 using System.Collections;
 using UnityEngine;
 using UnityEngine.UI;
-using TMPro;
 
 /// <summary>
-/// Créé par <see cref="MenuMainSetup"/> au démarrage de la scène Menu.
+/// Démarre automatiquement dans la scène Menu quand <see cref="GameEndData.HasPending"/> est vrai.
 ///
-/// Si <see cref="GameEndData.HasPending"/> est vrai, lance la séquence :
-///   1. Mini-card score/XP slide-in depuis le haut
-///   2. Étoiles qui volent vers le HUD (barre XP)
-///   3. <see cref="ScoreManager.AddXP"/> → PlayerLevelManager gère la montée de niveau
-///   4. La card fade-out et se détruit
+/// Séquence :
+///   1. Attend un court délai pour que tous les widgets soient construits.
+///   2. Affiche une card de résultats (score + XP gagnée) qui slide du haut.
+///   3. Lance des tokens XP (boules bleues) depuis la card vers la <see cref="MenuXPWidget"/>.
+///   4. Crédite l'XP dans <see cref="PlayerLevelManager"/> et déclenche l'animation de la jauge.
+///   5. La card disparaît en fondu.
+///
+/// Usage : <see cref="Create(RectTransform)"/> depuis <see cref="MenuMainSetup"/>.
 /// </summary>
 public class MenuXPReceiver : MonoBehaviour
 {
     // ── Timings ───────────────────────────────────────────────────────────────
 
-    private const float WaitAfterLoad   = 0.80f;
-    private const float SlideInDur      = 0.40f;
-    private const float ScoreCountDur   = 1.00f;
-    private const float XPCountDur      = 0.70f;
-    private const float PreTransferWait = 0.55f;
-    private const float TransferDur     = 0.90f;
-    private const float HoldAfterDur    = 1.60f;
-    private const float FadeOutDur      = 0.35f;
-    private const float PulseDur        = 0.18f;
-    private const float PulseScale      = 1.22f;
+    private const float WaitAfterLoad  = 0.70f;
+    private const float SlideInDur     = 0.38f;
+    private const float CountUpDur     = 0.90f;
+    private const float PreTransferWait = 0.50f;
+    private const float TokenFlyDur    = 0.85f;
+    private const float TokenStagger   = 0.12f;
+    private const int   TokenCount     = 6;
+    private const float HoldDur        = 1.20f;
+    private const float FadeOutDur     = 0.30f;
 
     // ── Palette ───────────────────────────────────────────────────────────────
 
-    private static readonly Color ColCard     = new Color(0.07f, 0.06f, 0.13f, 0.97f);
-    private static readonly Color ColEdge     = new Color(0.95f, 0.15f, 0.15f, 0.85f);
-    private static readonly Color ColBorder   = new Color(1.00f, 1.00f, 1.00f, 0.10f);
-    private static readonly Color ColSub      = new Color(1.00f, 1.00f, 1.00f, 0.35f);
-    private static readonly Color ColScoreVal = new Color(1.00f, 0.82f, 0.18f, 1.00f);
-    private static readonly Color ColXPVal    = new Color(0.55f, 0.85f, 1.00f, 1.00f);
-    private static readonly Color ColToken    = new Color(0.55f, 0.85f, 1.00f, 1.00f);
-    private static readonly Color ColLbl      = new Color(1.00f, 1.00f, 1.00f, 0.40f);
+    private static readonly Color ColCard    = new Color(0.07f, 0.06f, 0.14f, 0.97f);
+    private static readonly Color ColEdge    = new Color(0.25f, 0.60f, 1.00f, 0.85f);
+    private static readonly Color ColLbl     = new Color(1.00f, 1.00f, 1.00f, 0.42f);
+    private static readonly Color ColScore   = new Color(1.00f, 0.82f, 0.18f, 1.00f);
+    private static readonly Color ColXP      = new Color(0.40f, 0.80f, 1.00f, 1.00f);
+    private static readonly Color ColToken   = new Color(0.35f, 0.72f, 1.00f, 1.00f);
+    private static readonly Color ColTitle   = new Color(1.00f, 1.00f, 1.00f, 0.55f);
+
+    // ── Références ────────────────────────────────────────────────────────────
+
+    private RectTransform _canvasRT;
 
     // ── Factory ───────────────────────────────────────────────────────────────
 
-    /// <summary>Crée le composant et l'attache au canvas du menu.</summary>
     public static MenuXPReceiver Create(RectTransform canvasRT)
     {
-        var go   = new GameObject("MenuXPReceiver");
+        var go = new GameObject("MenuXPReceiver");
         go.transform.SetParent(canvasRT, false);
-        var rt   = go.AddComponent<RectTransform>();
-        rt.anchorMin = Vector2.zero;
-        rt.anchorMax = Vector2.one;
-        rt.offsetMin = rt.offsetMax = Vector2.zero;
-
-        var comp      = go.AddComponent<MenuXPReceiver>();
-        comp.canvasRT = canvasRT;
-        return comp;
+        var r = go.AddComponent<MenuXPReceiver>();
+        r._canvasRT = canvasRT;
+        return r;
     }
-
-    // ── Champs ────────────────────────────────────────────────────────────────
-
-    private RectTransform canvasRT;
 
     // ── Lifecycle ─────────────────────────────────────────────────────────────
 
@@ -65,121 +59,153 @@ public class MenuXPReceiver : MonoBehaviour
     {
         if (!GameEndData.HasPending) return;
 
-        int      score    = GameEndData.FinalScore;
-        int      xp       = GameEndData.XPEarned;
-        GameType gameType = GameEndData.GameType;
+        int      score = GameEndData.FinalScore;
+        int      xp    = GameEndData.XPEarned;
         GameEndData.Consume();
 
-        StartCoroutine(Run(score, xp, gameType));
+        StartCoroutine(Run(score, xp));
     }
 
     // ── Séquence principale ───────────────────────────────────────────────────
 
-    private IEnumerator Run(int score, int xp, GameType gameType)
+    private IEnumerator Run(int score, int xp)
     {
-        yield return null;
-        yield return null;
         yield return new WaitForSeconds(WaitAfterLoad);
 
-        // ── 1. Construire et slide-in la card ─────────────────────────────────
-        var (cardRT, cardGroup, scoreVal, xpVal) = BuildCard();
+        // ── 1. Construire la card de résultats ────────────────────────────────
+        var (cardRT, cardGroup, xpLabelRT) = BuildResultCard(score, xp);
         cardRT.gameObject.SetActive(true);
 
-        yield return StartCoroutine(SlideIn(cardRT, cardGroup, SlideInDur));
+        // Slide-in depuis le haut
+        yield return StartCoroutine(SlideIn(cardRT, cardGroup));
 
-        // ── 2. Count-up score + pulse ─────────────────────────────────────────
-        yield return StartCoroutine(CountUp(scoreVal, 0, score, ScoreCountDur, isCoin: false));
-        StartCoroutine(Pulse(scoreVal.rectTransform));
+        // Count-up XP dans la card
+        yield return StartCoroutine(CountUpXP(xp, xpLabelRT));
 
-        // ── 3. Count-up XP ────────────────────────────────────────────────────
-        yield return new WaitForSeconds(0.30f);
-        yield return StartCoroutine(CountUp(xpVal, 0, xp, XPCountDur, isCoin: true));
-
-        // ── 4. Pause ──────────────────────────────────────────────────────────
         yield return new WaitForSeconds(PreTransferWait);
 
-        // ── 5. Étoiles volantes + crédit XP ───────────────────────────────────
-        yield return StartCoroutine(TransferXP(xpVal.rectTransform, xp));
+        // ── 2. Tokens XP → barre XP ──────────────────────────────────────────
+        int xpBefore    = PlayerLevelManager.Instance?.CurrentXP ?? 0;
+        int levelBefore = PlayerLevelManager.Instance?.Level     ?? 1;
 
-        // ── 6. Hold ───────────────────────────────────────────────────────────
-        yield return new WaitForSeconds(HoldAfterDur);
-
-        // ── 7. Fade-out ───────────────────────────────────────────────────────
-        yield return StartCoroutine(Fade(cardGroup, 1f, 0f, FadeOutDur));
-        Destroy(cardRT.gameObject);
-    }
-
-    // ── Transfert XP (étoiles volantes) ──────────────────────────────────────
-
-    private IEnumerator TransferXP(RectTransform xpLabelRT, int xp)
-    {
-        int count = Mathf.Clamp(xp / 5, 1, 10);
-
+        // Lancer les tokens en stagger
+        int count = Mathf.Clamp(xp, 1, TokenCount);
         for (int i = 0; i < count; i++)
         {
-            float delay = i * (TransferDur / count) * 0.55f;
+            float delay = i * TokenStagger;
             StartCoroutine(FlyToken(xpLabelRT, delay));
         }
 
-        // Créditer l'XP quand les premiers tokens atteignent le widget
-        yield return new WaitForSeconds(TransferDur * 0.30f);
+        // Créditer l'XP après le début du vol (~30% du trajet)
+        yield return new WaitForSeconds(TokenFlyDur * 0.30f);
 
-        ScoreManager.EnsureExists();
-        ScoreManager.Instance.AddXP(xp);
+        PlayerLevelManager.EnsureExists();
+        PlayerLevelManager.Instance.AddXP(xp);
 
-        // Animer la jauge et le compteur XP intégrés dans le MenuLevelWidget
-        var levelWidget = FindFirstObjectByType<MenuLevelWidget>();
-        levelWidget?.AnimateXPGain(xp);
+        // Déclencher l'animation de la jauge
+        var widget = FindFirstObjectByType<MenuXPWidget>();
+        widget?.AnimateXPGain(xpBefore, PlayerLevelManager.Instance.CurrentXP, levelBefore);
 
-        yield return new WaitForSeconds(TransferDur * 0.70f);
+        // Attendre la fin du vol
+        yield return new WaitForSeconds(TokenFlyDur * 0.70f + TokenStagger * count);
+
+        // ── 3. Fade-out de la card ────────────────────────────────────────────
+        yield return new WaitForSeconds(HoldDur);
+        yield return StartCoroutine(FadeGroup(cardGroup, 1f, 0f, FadeOutDur));
+        Destroy(cardRT.gameObject);
     }
+
+    // ── Animation card ────────────────────────────────────────────────────────
+
+    private IEnumerator SlideIn(RectTransform rt, CanvasGroup group)
+    {
+        float cardH = rt.sizeDelta.y;
+        rt.anchoredPosition = new Vector2(0f, cardH);
+        group.alpha = 0f;
+
+        float t = 0f;
+        while (t < SlideInDur)
+        {
+            t += Time.deltaTime;
+            float e = 1f - Mathf.Pow(1f - Mathf.Clamp01(t / SlideInDur), 3f);
+            rt.anchoredPosition = new Vector2(0f, Mathf.Lerp(cardH, 0f, e));
+            group.alpha = e;
+            yield return null;
+        }
+        rt.anchoredPosition = Vector2.zero;
+        group.alpha = 1f;
+    }
+
+    private IEnumerator CountUpXP(int xp, RectTransform labelRT)
+    {
+        var lbl = labelRT?.GetComponentInChildren<TMPro.TextMeshProUGUI>();
+        if (lbl == null) yield break;
+
+        float t = 0f;
+        while (t < CountUpDur)
+        {
+            t += Time.deltaTime;
+            float e = 1f - Mathf.Pow(1f - Mathf.Clamp01(t / CountUpDur), 4f);
+            int   v = Mathf.RoundToInt(Mathf.Lerp(0, xp, e));
+            lbl.text = $"+{v} XP";
+            yield return null;
+        }
+        lbl.text = $"+{xp} XP";
+    }
+
+    // ── Token XP volant ───────────────────────────────────────────────────────
 
     private IEnumerator FlyToken(RectTransform origin, float delay)
     {
         if (delay > 0f) yield return new WaitForSeconds(delay);
 
-        var go  = new GameObject("XPToken");
-        go.transform.SetParent(canvasRT, false);
+        var go = new GameObject("XPToken");
+        go.transform.SetParent(_canvasRT, false);
 
         var img = go.AddComponent<Image>();
         img.sprite = SpriteGenerator.CreateCircle(32);
         img.color  = ColToken;
         img.raycastTarget = false;
 
-        var rt   = img.rectTransform;
+        var rt = img.rectTransform;
         rt.anchorMin = rt.anchorMax = new Vector2(0.5f, 0.5f);
         rt.pivot     = new Vector2(0.5f, 0.5f);
-        rt.sizeDelta = new Vector2(22f, 22f);
+        rt.sizeDelta = new Vector2(18f, 18f);
 
-        Vector2 startAP = WorldToCanvasAnchoredPos(origin.TransformPoint(Vector3.zero))
-                        + new Vector2(Random.Range(-40f, 40f), Random.Range(-20f, 20f));
+        // Départ : depuis la zone XP de la card avec bruit
+        Vector2 startAP = ToCanvasPos(origin.TransformPoint(Vector3.zero))
+                        + new Vector2(Random.Range(-50f, 50f), Random.Range(-15f, 15f));
 
-        // Arrivée : centre du MenuLevelWidget
-        var levelWidget = FindFirstObjectByType<MenuLevelWidget>();
-        Vector2 endAP = levelWidget != null
-            ? WorldToCanvasAnchoredPos(levelWidget.GetWorldCenter())
-            : new Vector2(0f, (0.90f - 0.5f) * canvasRT.rect.height);
+        // Arrivée : centre de la barre XP du widget
+        var widget = FindFirstObjectByType<MenuXPWidget>();
+        Vector2 endAP = widget != null
+            ? ToCanvasPos(widget.GetBarWorldCenter())
+            : new Vector2(0f, (_canvasRT.rect.height * 0.5f) - 100f);
 
-        Vector2 ctrl = Vector2.Lerp(startAP, endAP, 0.40f)
-                     + new Vector2(Random.Range(-160f, 160f), Random.Range(40f, 160f));
+        // Arc de Bézier avec déviation aléatoire
+        Vector2 ctrl = Vector2.Lerp(startAP, endAP, 0.45f)
+                     + new Vector2(Random.Range(-130f, 130f), Random.Range(30f, 120f));
 
         float t = 0f;
-        while (t < TransferDur)
+        while (t < TokenFlyDur)
         {
             t += Time.deltaTime;
-            float n = Mathf.Clamp01(t / TransferDur);
+            float n = Mathf.Clamp01(t / TokenFlyDur);
             float e = 1f - Mathf.Pow(1f - n, 3f);
 
+            // Bézier quadratique
             rt.anchoredPosition =
-                  Mathf.Pow(1f - e, 2f) * startAP
-                + 2f * (1f - e) * e     * ctrl
-                + e * e                 * endAP;
+                Mathf.Pow(1f - e, 2f) * startAP
+              + 2f * (1f - e) * e     * ctrl
+              + e * e                 * endAP;
 
-            float alpha = n > 0.72f ? Mathf.InverseLerp(1f, 0.72f, n) : 1f;
-            img.color   = new Color(ColToken.r, ColToken.g, ColToken.b, alpha);
-            rt.localRotation = Quaternion.Euler(0f, 0f, e * 360f);
+            // Fondu en arrivée
+            float alpha = n > 0.70f ? Mathf.InverseLerp(1f, 0.70f, n) : 1f;
+            img.color = new Color(ColToken.r, ColToken.g, ColToken.b, alpha);
 
-            float s = Mathf.Sin(n * Mathf.PI) * 1.4f + 0.3f;
+            // Rotation + scale pulsé
+            rt.localRotation = Quaternion.Euler(0f, 0f, e * 300f);
+            float s = Mathf.Sin(n * Mathf.PI) * 1.3f + 0.35f;
             rt.localScale = Vector3.one * s;
 
             yield return null;
@@ -188,29 +214,18 @@ public class MenuXPReceiver : MonoBehaviour
         Destroy(go);
     }
 
-    private Vector2 WorldToCanvasAnchoredPos(Vector3 worldPos)
-    {
-        RectTransformUtility.ScreenPointToLocalPointInRectangle(
-            canvasRT,
-            RectTransformUtility.WorldToScreenPoint(null, worldPos),
-            null,
-            out Vector2 local);
-        return local;
-    }
-
     // ── Construction de la card ───────────────────────────────────────────────
 
-    private (RectTransform rt, CanvasGroup group,
-             TextMeshProUGUI scoreVal, TextMeshProUGUI xpVal) BuildCard()
+    private (RectTransform rt, CanvasGroup group, RectTransform xpLblRT) BuildResultCard(int score, int xp)
     {
-        const float W = 900f;
-        const float H = 220f;
+        const float W = 360f;
+        const float H = 200f;
 
         var go = new GameObject("ResultCard");
-        go.transform.SetParent(canvasRT, false);
+        go.transform.SetParent(_canvasRT, false);
         go.SetActive(false);
 
-        var group   = go.AddComponent<CanvasGroup>();
+        var group = go.AddComponent<CanvasGroup>();
         group.alpha = 0f;
 
         var rt = go.AddComponent<RectTransform>();
@@ -220,156 +235,121 @@ public class MenuXPReceiver : MonoBehaviour
         rt.sizeDelta        = new Vector2(W, H);
         rt.anchoredPosition = new Vector2(0f, H);
 
-        RawImg(rt, "Bg", ColCard);
+        // Fond
+        var bg = MakeImg(rt, "Bg", ColCard);
+        Stretch(bg.rectTransform);
 
-        // Accent rouge gauche
-        var accent    = new GameObject("Accent");
-        accent.transform.SetParent(rt, false);
-        var accentImg = accent.AddComponent<Image>();
-        accentImg.sprite = SpriteGenerator.CreateWhiteSquare();
-        accentImg.color  = ColEdge;
-        accentImg.raycastTarget = false;
-        var accentRT = accentImg.rectTransform;
-        accentRT.anchorMin = new Vector2(0f, 0f);
-        accentRT.anchorMax = new Vector2(0.008f, 1f);
-        accentRT.offsetMin = accentRT.offsetMax = Vector2.zero;
+        // Accent bleu gauche
+        var edge = MakeImg(rt, "Edge", ColEdge);
+        var eRT = edge.rectTransform;
+        eRT.anchorMin = new Vector2(0f, 0f); eRT.anchorMax = new Vector2(0f, 1f);
+        eRT.pivot     = new Vector2(0f, 0.5f);
+        eRT.sizeDelta = new Vector2(5f, 0f);
+        eRT.anchoredPosition = Vector2.zero;
 
-        Lbl(rt, "Title", "RÉSULTATS",
-            new Vector2(0.03f, 0.68f), new Vector2(0.97f, 1.0f),
-            22f, ColSub, FontStyles.Bold);
+        // Titre
+        var titleLbl = MakeLbl(rt, "Title", "RÉCOLTE D'XP",
+            new Vector2(0.06f, 0.80f), new Vector2(0.95f, 1.00f),
+            15f, ColTitle, TMPro.FontStyles.Bold);
 
-        Lbl(rt, "ScoreLbl", "SCORE",
-            new Vector2(0.04f, 0.35f), new Vector2(0.46f, 0.65f),
-            20f, ColLbl, FontStyles.Normal);
-        var scoreVal = Lbl(rt, "ScoreVal", "0",
-            new Vector2(0.04f, 0.02f), new Vector2(0.46f, 0.40f),
-            64f, ColScoreVal, FontStyles.Bold);
-
-        Lbl(rt, "XPLbl", "XP GAGNÉE",
-            new Vector2(0.54f, 0.35f), new Vector2(0.97f, 0.65f),
-            20f, ColLbl, FontStyles.Normal);
-        var xpVal = Lbl(rt, "XPVal", "+0 ⭐",
-            new Vector2(0.54f, 0.02f), new Vector2(0.97f, 0.40f),
-            56f, ColXPVal, FontStyles.Bold);
+        // Label score
+        MakeLbl(rt, "ScoreLbl", "SCORE",
+            new Vector2(0.06f, 0.54f), new Vector2(0.48f, 0.76f),
+            13f, ColLbl, TMPro.FontStyles.Normal);
+        MakeLbl(rt, "ScoreVal", score.ToString("N0"),
+            new Vector2(0.06f, 0.28f), new Vector2(0.48f, 0.56f),
+            30f, ColScore, TMPro.FontStyles.Bold);
 
         // Séparateur vertical
-        var vsep   = new GameObject("VSep");
-        vsep.transform.SetParent(rt, false);
-        var vsepImg = vsep.AddComponent<Image>();
-        vsepImg.sprite = SpriteGenerator.CreateWhiteSquare();
-        vsepImg.color  = new Color(1f, 1f, 1f, 0.07f);
-        vsepImg.raycastTarget = false;
-        var vsepRT = vsepImg.rectTransform;
-        vsepRT.anchorMin = new Vector2(0.498f, 0.05f);
-        vsepRT.anchorMax = new Vector2(0.502f, 0.62f);
-        vsepRT.offsetMin = vsepRT.offsetMax = Vector2.zero;
+        var sep = MakeImg(rt, "Sep", new Color(1f, 1f, 1f, 0.08f));
+        var sRT = sep.rectTransform;
+        sRT.anchorMin = new Vector2(0.50f, 0.12f); sRT.anchorMax = new Vector2(0.502f, 0.86f);
+        sRT.offsetMin = sRT.offsetMax = Vector2.zero;
 
-        return (rt, group, scoreVal, xpVal);
+        // Label XP (cible des tokens)
+        MakeLbl(rt, "XPLbl", "XP GAGNÉ",
+            new Vector2(0.54f, 0.54f), new Vector2(0.97f, 0.76f),
+            13f, ColLbl, TMPro.FontStyles.Normal);
+
+        var xpContainer = new GameObject("XPValContainer");
+        xpContainer.transform.SetParent(rt, false);
+        var xpRT = xpContainer.AddComponent<RectTransform>();
+        xpRT.anchorMin = new Vector2(0.54f, 0.28f);
+        xpRT.anchorMax = new Vector2(0.97f, 0.56f);
+        xpRT.offsetMin = xpRT.offsetMax = Vector2.zero;
+
+        MakeLbl(xpRT, "XPVal", "+0 XP",
+            Vector2.zero, Vector2.one,
+            28f, ColXP, TMPro.FontStyles.Bold);
+
+        // Hint bas
+        MakeLbl(rt, "Hint", "→ rechargement de la jauge XP",
+            new Vector2(0.06f, 0.00f), new Vector2(0.95f, 0.24f),
+            11f, ColLbl, TMPro.FontStyles.Italic);
+
+        return (rt, group, xpRT);
     }
 
-    // ── Helpers UI ────────────────────────────────────────────────────────────
+    // ── Helpers ───────────────────────────────────────────────────────────────
 
-    private static void RawImg(RectTransform parent, string name, Color col)
+    private Vector2 ToCanvasPos(Vector3 worldPos)
     {
-        var go  = new GameObject(name);
-        go.transform.SetParent(parent, false);
-        var img = go.AddComponent<Image>();
-        img.sprite = SpriteGenerator.CreateWhiteSquare();
-        img.color  = col;
-        img.raycastTarget = false;
-        var rt   = img.rectTransform;
-        rt.anchorMin = Vector2.zero;
-        rt.anchorMax = Vector2.one;
-        rt.offsetMin = rt.offsetMax = Vector2.zero;
+        RectTransformUtility.ScreenPointToLocalPointInRectangle(
+            _canvasRT,
+            RectTransformUtility.WorldToScreenPoint(null, worldPos),
+            null,
+            out Vector2 local);
+        return local;
     }
 
-    private static TextMeshProUGUI Lbl(RectTransform parent, string name, string text,
-        Vector2 aMin, Vector2 aMax, float size, Color col, FontStyles style)
+    private static IEnumerator FadeGroup(CanvasGroup g, float from, float to, float dur)
     {
-        var go  = new GameObject(name);
-        go.transform.SetParent(parent, false);
-        var tmp = go.AddComponent<TextMeshProUGUI>();
-        tmp.text             = text;
-        tmp.fontSize         = size;
-        tmp.fontStyle        = style;
-        tmp.color            = col;
-        tmp.alignment        = TextAlignmentOptions.Center;
-        tmp.raycastTarget    = false;
-        tmp.enableAutoSizing = false;
-        var rt = tmp.rectTransform;
-        rt.anchorMin = aMin;
-        rt.anchorMax = aMax;
-        rt.offsetMin = rt.offsetMax = Vector2.zero;
-        return tmp;
-    }
-
-    // ── Coroutines ────────────────────────────────────────────────────────────
-
-    private static IEnumerator Pulse(RectTransform rt)
-    {
-        Vector3 base3 = rt.localScale;
-        yield return PulseHalf(rt, base3, PulseScale, PulseDur);
-        yield return PulseHalf(rt, base3 * PulseScale, 1f, PulseDur * 0.8f);
-        yield return PulseHalf(rt, base3, 1f + (PulseScale - 1f) * 0.4f, PulseDur * 0.6f);
-        yield return PulseHalf(rt, base3 * (1f + (PulseScale - 1f) * 0.4f), 1f, PulseDur * 0.5f);
-        rt.localScale = base3;
-    }
-
-    private static IEnumerator PulseHalf(RectTransform rt, Vector3 from, float toFactor, float dur)
-    {
-        Vector3 to = rt.localScale * toFactor;
-        float   t  = 0f;
-        while (t < dur)
-        {
-            t            += Time.deltaTime;
-            rt.localScale = Vector3.Lerp(from, to, Mathf.Clamp01(t / dur));
-            yield return null;
-        }
-        rt.localScale = to;
-    }
-
-    private static IEnumerator SlideIn(RectTransform rt, CanvasGroup group, float dur)
-    {
-        float cardH   = rt.sizeDelta.y;
-        float targetY = -cardH * 0.02f;
-        float startY  = cardH;
-
         float t = 0f;
-        group.alpha = 1f;
         while (t < dur)
         {
             t += Time.deltaTime;
-            float e = 1f - Mathf.Pow(1f - Mathf.Clamp01(t / dur), 3f);
-            rt.anchoredPosition = new Vector2(0f, Mathf.Lerp(startY, targetY, e));
-            yield return null;
-        }
-        rt.anchoredPosition = new Vector2(0f, targetY);
-    }
-
-    private static IEnumerator Fade(CanvasGroup g, float from, float to, float dur)
-    {
-        float t = 0f;
-        while (t < dur)
-        {
-            t      += Time.deltaTime;
             g.alpha = Mathf.Lerp(from, to, Mathf.Clamp01(t / dur));
             yield return null;
         }
         g.alpha = to;
     }
 
-    private static IEnumerator CountUp(TextMeshProUGUI lbl, int from, int to, float dur, bool isCoin)
+    private static Image MakeImg(Transform parent, string name, Color col)
     {
-        if (lbl == null) yield break;
-        float t = 0f;
-        while (t < dur)
-        {
-            t += Time.unscaledDeltaTime;
-            float e = 1f - Mathf.Pow(1f - Mathf.Clamp01(t / dur), 4f);
-            int   v = Mathf.RoundToInt(Mathf.Lerp(from, to, e));
-            lbl.text = isCoin ? $"+{v} ⭐" : v.ToString("N0");
-            yield return null;
-        }
-        lbl.text = isCoin ? $"+{to} ⭐" : to.ToString("N0");
+        var go = new GameObject(name);
+        go.transform.SetParent(parent, false);
+        var img = go.AddComponent<Image>();
+        img.sprite = SpriteGenerator.CreateWhiteSquare();
+        img.color  = col;
+        img.raycastTarget = false;
+        return img;
+    }
+
+    private static TMPro.TextMeshProUGUI MakeLbl(Transform parent, string name, string text,
+        Vector2 anchorMin, Vector2 anchorMax,
+        float size, Color col, TMPro.FontStyles style)
+    {
+        var go = new GameObject(name);
+        go.transform.SetParent(parent, false);
+        var lbl = go.AddComponent<TMPro.TextMeshProUGUI>();
+        lbl.text      = text;
+        lbl.fontSize  = size;
+        lbl.fontStyle = style;
+        lbl.color     = col;
+        lbl.alignment = TMPro.TextAlignmentOptions.MidlineLeft;
+        lbl.raycastTarget = false;
+        MenuAssets.ApplyFont(lbl);
+        var rt = lbl.rectTransform;
+        rt.anchorMin = anchorMin;
+        rt.anchorMax = anchorMax;
+        rt.offsetMin = rt.offsetMax = Vector2.zero;
+        return lbl;
+    }
+
+    private static void Stretch(RectTransform rt)
+    {
+        rt.anchorMin = Vector2.zero;
+        rt.anchorMax = Vector2.one;
+        rt.offsetMin = rt.offsetMax = Vector2.zero;
     }
 }
