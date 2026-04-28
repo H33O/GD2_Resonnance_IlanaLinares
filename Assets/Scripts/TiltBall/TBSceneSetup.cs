@@ -91,7 +91,8 @@ public class TBSceneSetup : MonoBehaviour
         DestroyByName("Player", "Background", "Hole", "Key",
                       "HUD", "WallTop", "WallBottom", "WallLeft", "WallRight",
                       "EnemySpawner",
-                      "KillZoneTop", "KillZoneBottom", "KillZoneLeft", "KillZoneRight");
+                      "KillZoneTop", "KillZoneBottom", "KillZoneLeft", "KillZoneRight",
+                      "TBFireflies", "TBGrid");
 
         for (int i = 1; i <= 10; i++)
             DestroyByName($"Enemy{i}", $"Obs{i}A", $"Obs{i}B", $"Obs{i}C");
@@ -129,22 +130,17 @@ public class TBSceneSetup : MonoBehaviour
         var d = s_prefabsData;
         TBUIStyle.Init(d?.uiFont, d?.jaugeSprite);
 
-        Sprite fondJeuSprite = d?.backgroundSprite ?? LoadSprite("Assets/sprites/fond jeu.png");
-        Sprite enemySprite   = d?.enemySprite      ?? LoadSprite("Assets/sprites/ENNEMIS.png");
-        Sprite goalSprite    = d?.holeSprite        ?? LoadSprite("Assets/sprites/goal trou.png");
-
         SetupCamera();
-        BuildBackground(fondJeuSprite);
+        BuildBackground(null);   // fond noir procédural, sprite ignoré
         BuildBoundaries(d != null ? d.wallColor : ColWall);
         BuildObstaclesForLevel(levelIndex, d != null ? d.obstacleColor : ColObstacle,
                                d?.obstacleSprite, d?.obstaclePrefab);
-        BuildHole(levelIndex, requireKey, d, goalSprite);
+        BuildHole(levelIndex, requireKey, d, null);   // glow vert, sprite ignoré
         BuildPlayer(d);
-        BuildEnemies(levelIndex, enemyCount, d, enemySprite);
+        BuildEnemies(levelIndex, enemyCount, d, null);  // balle rouge procédurale
         if (requireKey) BuildKey(levelIndex, d);
 
-        TBEnemySpawner.Create(levelIndex, d != null ? d.enemyColor : ColEnemy,
-                              enemySprite ?? d?.enemySprite);
+        TBEnemySpawner.Create(levelIndex, new Color(1f, 0.07f, 0.07f, 1f), null);
 
         SpawnUpgrades();
     }
@@ -205,31 +201,61 @@ public class TBSceneSetup : MonoBehaviour
         if (follow != null) Destroy(follow);
     }
 
-    // ── Fond — couvre exactement 10.8 × 19.2 unités ──────────────────────────
+    // ── Fond noir + particules blanches ──────────────────────────────────────
 
-    private static void BuildBackground(Sprite fondSprite)
+    private static void BuildBackground(Sprite _)   // sprite ignoré — fond procédural
     {
-        var go = new GameObject("Background");
-        var sr = go.AddComponent<SpriteRenderer>();
-        if (fondSprite != null)
+        // Fond noir pur (la caméra est déjà clearFlags=SolidColor/black, mais on
+        // ajoute un SR pour être certain même si clearFlags change)
+        var bg  = new GameObject("Background");
+        var sr  = bg.AddComponent<SpriteRenderer>();
+        sr.sprite       = SpriteGenerator.CreateWhiteSquare();
+        sr.color        = new Color(0f, 0f, 0f, 1f);
+        sr.sortingOrder = -11;
+        bg.transform.localScale = new Vector3(HalfW * 2f, HalfH * 2f, 1f);
+
+        // Particules blanches rebondissantes (identique au Menu)
+        var dotsGO = new GameObject("TBFireflies");
+        dotsGO.AddComponent<TBWorldDots>().Init(HalfW, HalfH);
+
+        // Grille translucide
+        BuildWorldGrid();
+    }
+
+    private static void BuildWorldGrid()
+    {
+        float h = HalfH * 2f;
+        float w = HalfW * 2f;
+
+        var root = new GameObject("TBGrid");
+
+        for (int i = 1; i <= 5; i++)
         {
-            sr.sprite       = fondSprite;
-            sr.drawMode     = SpriteDrawMode.Tiled;
-            sr.tileMode     = SpriteTileMode.Continuous;
-            sr.color        = Color.white;
-            sr.sortingOrder = -10;
-            // Dimensionner pour couvrir exactement le monde 10.8 × 19.2
-            float scaleX = (HalfW * 2f) / fondSprite.bounds.size.x;
-            float scaleY = (HalfH * 2f) / fondSprite.bounds.size.y;
-            go.transform.localScale = new Vector3(scaleX, scaleY, 1f);
+            float x = -HalfW + w * (i / 6f);
+            MakeAmbientLine(root.transform, new Vector3(x, 0f, 0f), true,  h);
         }
-        else
+
+        for (int i = 1; i <= 9; i++)
         {
-            sr.sprite       = SpriteGenerator.CreateWhiteSquare();
-            sr.color        = ColBg;
-            sr.sortingOrder = -10;
-            go.transform.localScale = new Vector3(HalfW * 2f, HalfH * 2f, 1f);
+            float y = -HalfH + h * (i / 10f);
+            MakeAmbientLine(root.transform, new Vector3(0f, y, 0f), false, w);
         }
+    }
+
+    private static void MakeAmbientLine(Transform parent, Vector3 pos, bool vertical, float length)
+    {
+        var go = new GameObject(vertical ? "VLine" : "HLine");
+        go.transform.SetParent(parent, false);
+        go.transform.position = pos;
+
+        var sr          = go.AddComponent<SpriteRenderer>();
+        sr.sprite       = SpriteGenerator.CreateCircle(4);
+        sr.color        = new Color(1f, 1f, 1f, 0.04f);
+        sr.sortingOrder = -9;
+
+        go.transform.localScale = vertical
+            ? new Vector3(0.02f, length, 1f)
+            : new Vector3(length, 0.02f, 1f);
     }
 
     // ── Murs — cadre exact du monde ───────────────────────────────────────────
@@ -243,17 +269,17 @@ public class TBSceneSetup : MonoBehaviour
         MakeWall("WallRight",  HalfW - t * 0.5f, 0f,               t,          HalfH * 2f, wallColor);
     }
 
-    // ── Trou / Goal — positionné dans y ∈ [−9.6, 9.6] ────────────────────────
+    // ── Trou / Goal ───────────────────────────────────────────────────────────
 
     private static readonly float[] HoleXByLevel = {
         0.0f, -3.5f,  3.5f, -3.0f,  2.5f,
        -4.0f,  3.5f, -2.0f,  1.0f, -3.5f,
     };
 
-    private static void BuildHole(int levelIndex, bool requireKey, TBLevelPrefabsData d, Sprite fallbackGoalSprite)
+    private static void BuildHole(int levelIndex, bool requireKey,
+                                   TBLevelPrefabsData d, Sprite _)   // sprite ignoré
     {
         float x   = HoleXByLevel[Mathf.Clamp(levelIndex, 0, 9)];
-        // Le trou est dans la moitié haute : y ∈ [6.5, 7.5] selon le niveau
         float y   = HoleY - (levelIndex % 3) * 0.4f;
         var   pos = new Vector3(x, y, 0f);
 
@@ -262,31 +288,32 @@ public class TBSceneSetup : MonoBehaviour
         {
             go      = Object.Instantiate(d.holePrefab, pos, Quaternion.identity);
             go.name = "Hole";
-            var sr  = go.GetComponent<SpriteRenderer>();
-            if (sr != null) sr.color = requireKey ? d.holeLockedColor : d.holeOpenColor;
             if (go.GetComponent<TBHole>() == null) go.AddComponent<TBHole>();
         }
         else
         {
-            Sprite goalSprite = d?.holeSprite ?? fallbackGoalSprite;
-
             go = new GameObject("Hole");
             var sr = go.AddComponent<SpriteRenderer>();
-            sr.sprite       = goalSprite != null ? goalSprite : SpriteGenerator.CreateCircle(128);
-            sr.color        = requireKey ? (d != null ? d.holeLockedColor : ColHoleLocked) : (d != null ? d.holeOpenColor : ColHoleOpen);
+            sr.sprite       = SpriteGenerator.CreateCircle(128);
+            sr.color        = new Color(0.10f, 0.95f, 0.30f, 1f);   // vert — remplacé par TBHoleGlow
             sr.sortingOrder = 5;
             go.transform.position   = pos;
-            go.transform.localScale = new Vector3(1.2f, 1.2f, 1f);
+            go.transform.localScale = new Vector3(0.90f, 0.90f, 1f);
 
             var col       = go.AddComponent<CircleCollider2D>();
             col.isTrigger = true;
-            col.radius    = 0.55f;
+            col.radius    = 0.45f;
 
             go.AddComponent<TBHole>();
         }
+
+        // Glow vert pulsant (remplace la couleur locked/open par une couleur unique verte)
+        var holeSr = go.GetComponent<SpriteRenderer>();
+        if (holeSr != null)
+            go.AddComponent<TBHoleGlow>().Init(holeSr);
     }
 
-    // ── Joueur ────────────────────────────────────────────────────────────────
+    // ── Joueur — balle blanche brillante ─────────────────────────────────────
 
     private static void BuildPlayer(TBLevelPrefabsData d)
     {
@@ -298,8 +325,6 @@ public class TBSceneSetup : MonoBehaviour
             go      = Object.Instantiate(d.playerPrefab, spawnPos, Quaternion.identity);
             go.name = "Player";
             go.tag  = "Player";
-            var sr  = go.GetComponent<SpriteRenderer>();
-            if (sr != null) sr.color = d.playerColor;
             if (go.GetComponent<TBPlayerController>() == null)
                 go.AddComponent<TBPlayerController>();
         }
@@ -307,18 +332,33 @@ public class TBSceneSetup : MonoBehaviour
         {
             go     = new GameObject("Player");
             go.tag = "Player";
-            var sr = go.AddComponent<SpriteRenderer>();
-            sr.sprite       = d?.playerSprite != null ? d.playerSprite : SpriteGenerator.CreateCircle(128);
-            sr.color        = d != null ? d.playerColor : ColPlayer;
+
+            var sr          = go.AddComponent<SpriteRenderer>();
+            sr.sprite       = SpriteGenerator.CreateCircle(128);
+            sr.color        = Color.white;
             sr.sortingOrder = 3;
             go.transform.position   = spawnPos;
             go.transform.localScale = new Vector3(0.85f, 0.85f, 1f);
+
             var rb = go.AddComponent<Rigidbody2D>();
             rb.gravityScale = 0f;
-            var col    = go.AddComponent<CircleCollider2D>();
-            col.radius = 0.42f;
+            var col       = go.AddComponent<CircleCollider2D>();
+            col.radius    = 0.42f;
+            col.isTrigger = true;  // l'ennemi traverse le joueur librement
             go.AddComponent<TBPlayerController>();
         }
+
+        // Halo blanc pulsant permanent (géré par TBUpgradeFX)
+        AttachUpgradeFX(go);
+    }
+
+    /// <summary>Attache <see cref="TBUpgradeFX"/> au joueur et l'initialise avec son SpriteRenderer.</summary>
+    private static void AttachUpgradeFX(GameObject player)
+    {
+        var sr = player.GetComponent<SpriteRenderer>();
+        if (sr == null) return;
+        var fx = player.AddComponent<TBUpgradeFX>();
+        fx.Init(sr);
     }
 
     // ── Ennemis — positions dans y ∈ [−8, 6] pour rester dans le monde ────────
@@ -345,24 +385,48 @@ public class TBSceneSetup : MonoBehaviour
             SpawnEnemy($"Enemy{i + 1}", positions[i], d, fallbackEnemySprite);
     }
 
-    private static void SpawnEnemy(string name, Vector2 position, TBLevelPrefabsData d, Sprite fallbackEnemySprite)
+    private static void SpawnEnemy(string name, Vector2 position, TBLevelPrefabsData d, Sprite _)
     {
+        // ── Corps ─────────────────────────────────────────────────────────────
         var go = new GameObject(name);
         go.tag = LevelContentTag;
-        var sr = go.AddComponent<SpriteRenderer>();
-        sr.sprite       = d?.enemySprite ?? fallbackEnemySprite ?? SpriteGenerator.CreateCircle(128);
-        sr.color        = d != null ? d.enemyColor : ColEnemy;
+
+        var sr          = go.AddComponent<SpriteRenderer>();
+        sr.sprite       = SpriteGenerator.CreateCircle(128);
+        sr.color        = new Color(1f, 0.07f, 0.07f, 1f);   // rouge vif — TBEnemyVisuals le confirmera
         sr.sortingOrder = 2;
+
         go.transform.position   = position;
-        go.transform.localScale = new Vector3(0.18f, 0.18f, 1f);   // petit
+        go.transform.localScale = new Vector3(0.75f, 0.75f, 1f);
+
         var rb = go.AddComponent<Rigidbody2D>();
         rb.gravityScale = 0f;
         rb.bodyType     = RigidbodyType2D.Kinematic;
         rb.constraints  = RigidbodyConstraints2D.FreezeRotation;
+
         var col       = go.AddComponent<CircleCollider2D>();
         col.isTrigger = true;
-        col.radius    = 0.22f;
+        col.radius    = 0.50f;
+
+        // ── Yeux noirs ────────────────────────────────────────────────────────
+        BuildEnemyEye(go.transform,  0.22f, 0.20f);   // œil gauche
+        BuildEnemyEye(go.transform, -0.22f, 0.20f);   // œil droit
+
         go.AddComponent<TBEnemyController>();
+    }
+
+    /// <summary>Crée un petit œil noir en local-space de l'ennemi.</summary>
+    private static void BuildEnemyEye(Transform parent, float localX, float localY)
+    {
+        var eye = new GameObject("Eye");
+        eye.transform.SetParent(parent, false);
+        eye.transform.localPosition = new Vector3(localX, localY, 0f);
+        eye.transform.localScale    = new Vector3(0.16f, 0.18f, 1f);
+
+        var sr          = eye.AddComponent<SpriteRenderer>();
+        sr.sprite       = SpriteGenerator.CreateCircle(32);
+        sr.color        = new Color(0f, 0f, 0f, 0.90f);
+        sr.sortingOrder = 3;   // au-dessus du corps
     }
 
     // ── Clé — positions dans y ∈ [−5, 4] ─────────────────────────────────────
@@ -546,8 +610,11 @@ public class TBSceneSetup : MonoBehaviour
 
         canvasGO.AddComponent<GraphicRaycaster>();
 
+        var canvasRT = canvas.GetComponent<RectTransform>();
+
+        // ── HUD principal ─────────────────────────────────────────────────────
         var hud = canvasGO.AddComponent<TBHud>();
-        hud.Init(needKey, canvas.GetComponent<RectTransform>(), levelIndex);
+        hud.Init(needKey, canvasRT, levelIndex);
     }
 
     // ── Builders helpers ──────────────────────────────────────────────────────

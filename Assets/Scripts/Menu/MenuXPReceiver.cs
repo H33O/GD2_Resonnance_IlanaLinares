@@ -127,6 +127,10 @@ public class MenuXPReceiver : MonoBehaviour
         ScoreManager.EnsureExists();
         ScoreManager.Instance.AddXP(xp);
 
+        // Animer la barre XP avec les boules bleues
+        var xpBar = FindFirstObjectByType<MenuXPBar>();
+        xpBar?.AnimateXPGain(xp);
+
         yield return new WaitForSeconds(TransferDur * 0.70f);
     }
 

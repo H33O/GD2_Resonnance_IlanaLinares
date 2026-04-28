@@ -3,13 +3,13 @@ using UnityEngine.EventSystems;
 using UnityEngine.UI;
 
 /// <summary>
-/// Joystick virtuel affiché en bas à droite de l'écran.
+/// Joystick virtuel affiché en bas au centre de l'écran.
 /// Se crée entièrement en code, aucun prefab requis.
 ///
 /// Utilisation :
 ///   Vector2 dir = TBJoystick.Instance?.Direction ?? Vector2.zero;
 ///
-/// Direction est un Vector2 dans [-1, 1] avec zone morte.
+/// Direction est un Vector2 normalisé dans [-1, 1] avec zone morte.
 /// Le joystick suit le premier doigt posé (multi-touch safe).
 /// </summary>
 public class TBJoystick : MonoBehaviour, IPointerDownHandler, IDragHandler, IPointerUpHandler
@@ -18,76 +18,89 @@ public class TBJoystick : MonoBehaviour, IPointerDownHandler, IDragHandler, IPoi
 
     // ── Paramètres ────────────────────────────────────────────────────────────
 
-    private const float BaseRadius = 120f;   // rayon de la base (px référence 1080)
-    private const float KnobRadius = 50f;    // rayon du bouton mobile
-    private const float DeadZone   = 0.10f;  // zone morte normalisée
+    private const float BaseRadius = 120f;
+    private const float KnobRadius = 50f;
+    private const float DeadZone   = 0.12f;
 
     // ── Couleurs ──────────────────────────────────────────────────────────────
 
-    private static readonly Color ColBase = new Color(1f, 1f, 1f, 0.10f);
-    private static readonly Color ColKnob = new Color(1f, 1f, 1f, 0.38f);
+    private static readonly Color ColBase = new Color(1f, 1f, 1f, 0.12f);
+    private static readonly Color ColKnob = new Color(1f, 1f, 1f, 0.40f);
 
     // ── État ──────────────────────────────────────────────────────────────────
 
     /// <summary>Direction normalisée [-1,1] lue par TBPlayerController.</summary>
     public Vector2 Direction { get; private set; }
 
-    private RectTransform baseRT;
+    private RectTransform visualRT;   // conteneur centré — sert de référence pour UpdateKnob
     private RectTransform knobRT;
     private int           touchId = -1;
 
     // ── Création statique ─────────────────────────────────────────────────────
 
-    /// <summary>Crée le joystick sur le Canvas fourni (moitié droite du bas).</summary>
+    /// <summary>Crée le joystick centré en bas du Canvas.</summary>
     public static TBJoystick Create(RectTransform canvasRT)
     {
-        // Zone de touch : moitié droite, 25% bas de l'écran
+        // ── Zone de touch : toute la largeur, 22% bas de l'écran ──────────────
         var zoneGO = new GameObject("Joystick");
         zoneGO.transform.SetParent(canvasRT, false);
 
-        var zone              = zoneGO.AddComponent<Image>();
-        zone.color            = Color.clear;
-        zone.raycastTarget    = true;
+        var zoneImg           = zoneGO.AddComponent<Image>();
+        zoneImg.color         = Color.clear;
+        zoneImg.raycastTarget = true;
 
-        var zoneRT            = zone.rectTransform;
-        zoneRT.anchorMin      = new Vector2(0.50f, 0f);
-        zoneRT.anchorMax      = new Vector2(1.00f, 0.28f);
-        zoneRT.offsetMin      = zoneRT.offsetMax = Vector2.zero;
+        var zRT          = zoneImg.rectTransform;
+        zRT.anchorMin    = new Vector2(0f,  0f);
+        zRT.anchorMax    = new Vector2(1f,  0.22f);
+        zRT.offsetMin    = zRT.offsetMax = Vector2.zero;
 
-        // Base (cercle semi-transparent) — ancrée au centre de la zone
+        // ── Conteneur visuel centré dans la zone ──────────────────────────────
+        var visualGO = new GameObject("JoystickVisual");
+        visualGO.transform.SetParent(zoneGO.transform, false);
+
+        var visualRT         = visualGO.AddComponent<RectTransform>();
+        visualRT.anchorMin   = new Vector2(0.5f, 0.5f);
+        visualRT.anchorMax   = new Vector2(0.5f, 0.5f);
+        visualRT.pivot       = new Vector2(0.5f, 0.5f);
+        visualRT.sizeDelta   = Vector2.zero;
+        visualRT.anchoredPosition = Vector2.zero;
+
+        // ── Base ──────────────────────────────────────────────────────────────
         var baseGO = new GameObject("Base");
-        baseGO.transform.SetParent(zoneGO.transform, false);
+        baseGO.transform.SetParent(visualGO.transform, false);
 
-        var baseImg              = baseGO.AddComponent<Image>();
-        baseImg.sprite           = SpriteGenerator.CreateCircle(128);
-        baseImg.color            = ColBase;
-        baseImg.raycastTarget    = false;
+        var baseImg           = baseGO.AddComponent<Image>();
+        baseImg.sprite        = SpriteGenerator.CreateCircle(128);
+        baseImg.color         = ColBase;
+        baseImg.raycastTarget = false;
 
-        var bRT                  = baseImg.rectTransform;
-        bRT.anchorMin            = new Vector2(0.5f, 0.5f);
-        bRT.anchorMax            = new Vector2(0.5f, 0.5f);
-        bRT.sizeDelta            = new Vector2(BaseRadius * 2f, BaseRadius * 2f);
-        bRT.anchoredPosition     = Vector2.zero;
+        var bRT               = baseImg.rectTransform;
+        bRT.anchorMin         = new Vector2(0.5f, 0.5f);
+        bRT.anchorMax         = new Vector2(0.5f, 0.5f);
+        bRT.pivot             = new Vector2(0.5f, 0.5f);
+        bRT.sizeDelta         = new Vector2(BaseRadius * 2f, BaseRadius * 2f);
+        bRT.anchoredPosition  = Vector2.zero;
 
-        // Knob
+        // ── Knob ──────────────────────────────────────────────────────────────
         var knobGO = new GameObject("Knob");
-        knobGO.transform.SetParent(zoneGO.transform, false);
+        knobGO.transform.SetParent(visualGO.transform, false);
 
-        var knobImg              = knobGO.AddComponent<Image>();
-        knobImg.sprite           = SpriteGenerator.CreateCircle(128);
-        knobImg.color            = ColKnob;
-        knobImg.raycastTarget    = false;
+        var knobImg           = knobGO.AddComponent<Image>();
+        knobImg.sprite        = SpriteGenerator.CreateCircle(128);
+        knobImg.color         = ColKnob;
+        knobImg.raycastTarget = false;
 
-        var kRT                  = knobImg.rectTransform;
-        kRT.anchorMin            = new Vector2(0.5f, 0.5f);
-        kRT.anchorMax            = new Vector2(0.5f, 0.5f);
-        kRT.sizeDelta            = new Vector2(KnobRadius * 2f, KnobRadius * 2f);
-        kRT.anchoredPosition     = Vector2.zero;
+        var kRT               = knobImg.rectTransform;
+        kRT.anchorMin         = new Vector2(0.5f, 0.5f);
+        kRT.anchorMax         = new Vector2(0.5f, 0.5f);
+        kRT.pivot             = new Vector2(0.5f, 0.5f);
+        kRT.sizeDelta         = new Vector2(KnobRadius * 2f, KnobRadius * 2f);
+        kRT.anchoredPosition  = Vector2.zero;
 
-        var js      = zoneGO.AddComponent<TBJoystick>();
-        js.baseRT   = bRT;
-        js.knobRT   = kRT;
-        Instance    = js;
+        var js            = zoneGO.AddComponent<TBJoystick>();
+        js.visualRT       = visualRT;   // pivot (0.5,0.5) centré → localPos (0,0) = centre
+        js.knobRT         = kRT;
+        Instance          = js;
 
         return js;
     }
@@ -110,8 +123,8 @@ public class TBJoystick : MonoBehaviour, IPointerDownHandler, IDragHandler, IPoi
     public void OnPointerUp(PointerEventData e)
     {
         if (e.pointerId != touchId) return;
-        touchId                 = -1;
-        Direction               = Vector2.zero;
+        touchId               = -1;
+        Direction             = Vector2.zero;
         knobRT.anchoredPosition = Vector2.zero;
     }
 
@@ -119,13 +132,13 @@ public class TBJoystick : MonoBehaviour, IPointerDownHandler, IDragHandler, IPoi
 
     private void UpdateKnob(Vector2 screenPos)
     {
+        // Convertit la position écran en local du conteneur visuel.
+        // visualRT a un pivot (0.5, 0.5) au centre → localPos (0,0) = centre exact du joystick.
         RectTransformUtility.ScreenPointToLocalPointInRectangle(
-            baseRT.parent as RectTransform, screenPos,
-            null, out Vector2 localPos);
+            visualRT, screenPos, null, out Vector2 localPos);
 
-        Vector2 offset  = localPos - (Vector2)baseRT.localPosition;
-        float   dist    = offset.magnitude;
-        Vector2 norm    = dist > 0f ? offset / dist : Vector2.zero;
+        float   dist  = localPos.magnitude;
+        Vector2 norm  = dist > 0f ? localPos / dist : Vector2.zero;
 
         float clamped           = Mathf.Min(dist, BaseRadius);
         knobRT.anchoredPosition = norm * clamped;

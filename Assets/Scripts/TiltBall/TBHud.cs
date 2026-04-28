@@ -134,8 +134,10 @@ public class TBHud : MonoBehaviour
         if (requireKey)
             BuildKeyIndicator(widgetRT);
 
-        TBSwipeInput.Create(container);
+        // Le bouton menu est créé avant le joystick pour qu'il soit en dessous
+        // dans la hiérarchie → le joystick reçoit les touches en priorité.
         BuildMenuButton();
+        TBJoystick.Create(container);
     }
 
     private void BuildScoreColumn(RectTransform parent, float rowYMin)

@@ -55,6 +55,7 @@ public class MenuMainSetup : MonoBehaviour
         BuildDoorManager(canvasRT);
         BuildDoor(canvasRT);
         BuildGamesButton(canvasRT);
+        MenuXPBar.Create(canvasRT);           // Barre XP avec boules bleues et pulse
         MenuXPReceiver.Create(canvasRT);
         EnsureSceneTransition();
 

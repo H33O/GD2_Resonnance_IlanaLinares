@@ -1,21 +1,42 @@
 using UnityEngine;
 
 /// <summary>
-/// Ennemi qui se déplace case par case sur la grille, à la même cadence que le joueur.
-/// En mode poursuite (joueur dans la zone de détection) : avance vers le joueur.
-/// En mode errance : choisit une cible aléatoire sur la grille.
-/// Tue le joueur au contact via trigger.
+/// Ennemi qui pourchasse et traverse le joueur.
+///
+/// Comportement :
+/// - Poursuite permanente en continu, sans grille ni timer.
+/// - L'ennemi se déplace librement à travers le joueur (pas de blocage).
+/// - Le kill se déclenche quand l'ennemi entre dans le rayon de collision du joueur.
+/// - Anti-collage : après le kill (ou si le joueur est mort), l'ennemi s'arrête.
+/// - L'ennemi est bloqué par les murs et obstacles (colliders solides),
+///   mais traverse le joueur qui est en trigger.
 /// </summary>
 [RequireComponent(typeof(Rigidbody2D))]
 public class TBEnemyController : MonoBehaviour
 {
+    // ── Constantes ────────────────────────────────────────────────────────────
+
+    /// <summary>Vitesse de poursuite en unités par seconde.</summary>
+    private const float ChaseSpeed = 3.0f;
+
+    /// <summary>
+    /// Distance de kill : quand l'ennemi est à moins de cette distance
+    /// du centre du joueur, le joueur meurt. Doit être inférieure
+    /// au rayon du collider du joueur pour simuler une vraie traversée.
+    /// </summary>
+    private const float KillDistance = 0.30f;
+
+    /// <summary>
+    /// Délai minimum en secondes entre deux checks de kill pour le même ennemi.
+    /// Évite de déclencher Die() plusieurs fois d'affilée si le joueur respawn lentement.
+    /// </summary>
+    private const float KillCooldown = 1.0f;
+
     // ── État ──────────────────────────────────────────────────────────────────
 
     private Rigidbody2D        rb;
     private TBPlayerController player;
-    private Vector2            gridPos;
-    private float              moveTimer;
-    private Vector2            wanderTarget;
+    private float              killTimer;
 
     // ── Lifecycle ─────────────────────────────────────────────────────────────
 
@@ -29,116 +50,39 @@ public class TBEnemyController : MonoBehaviour
 
     private void Start()
     {
-        player       = FindFirstObjectByType<TBPlayerController>();
-        gridPos      = SnapToGrid(rb.position);
-        rb.position  = gridPos;
-        PickNewWanderTarget();
+        player = FindFirstObjectByType<TBPlayerController>();
 
-        // Décalage aléatoire pour éviter que tous les ennemis bougent en même temps.
-        moveTimer = Random.Range(0f, TBGrid.MoveInterval);
+        var sr = GetComponent<SpriteRenderer>();
+        if (sr != null)
+            gameObject.AddComponent<TBEnemyVisuals>().Init(sr);
     }
 
-    private void Update()
+    private void FixedUpdate()
     {
-        moveTimer -= Time.deltaTime;
-        if (moveTimer > 0f) return;
+        if (player == null || !player.IsAlive) return;
 
-        moveTimer = TBGrid.MoveInterval;
+        killTimer = Mathf.Max(0f, killTimer - Time.fixedDeltaTime);
 
-        Vector2 dir = ChooseDirection();
-        if (dir == Vector2.zero) return;
+        Vector2 enemyPos  = rb.position;
+        Vector2 playerPos = (Vector2)player.transform.position;
+        Vector2 toPlayer  = playerPos - enemyPos;
+        float   dist      = toPlayer.magnitude;
 
-        Vector2 target = gridPos + dir * TBGrid.StepSize;
-
-        if (CanMoveTo(target))
+        // ── Kill par traversée ────────────────────────────────────────────────
+        // L'ennemi est passé à travers le centre du joueur → mort
+        if (dist < KillDistance && killTimer <= 0f)
         {
-            gridPos = target;
-            rb.MovePosition(gridPos);
+            killTimer = KillCooldown;
+            TBExplosionFX.Spawn(transform.position);
+            player.Die();
+            return;
         }
-        else
-        {
-            // Cible de errance devenue invalide : en choisir une nouvelle.
-            PickNewWanderTarget();
-        }
-    }
 
-    // ── Décision de mouvement ─────────────────────────────────────────────────
+        // ── Poursuite continue ────────────────────────────────────────────────
+        if (dist < 0.01f) return;
 
-    /// <summary>Choisit la direction de déplacement selon le mode actif.</summary>
-    private Vector2 ChooseDirection()
-    {
-        float detectionRange = TBLevelBootstrap.Settings != null
-            ? TBLevelBootstrap.Settings.enemyDetectionRange
-            : 10f;
-
-        bool inChase = player != null
-            && player.IsAlive
-            && Vector2.Distance(gridPos, (Vector2)player.transform.position) < detectionRange;
-
-        Vector2 goalPos = inChase ? (Vector2)player.transform.position : wanderTarget;
-
-        // Actualiser la cible d'errance si atteinte.
-        if (!inChase && Vector2.Distance(gridPos, wanderTarget) < TBGrid.StepSize * 0.5f)
-            PickNewWanderTarget();
-
-        return DominantDirection(goalPos - gridPos);
-    }
-
-    /// <summary>Retourne l'axe dominant (4 directions) d'un vecteur.</summary>
-    private static Vector2 DominantDirection(Vector2 delta)
-    {
-        if (delta == Vector2.zero) return Vector2.zero;
-
-        if (Mathf.Abs(delta.x) >= Mathf.Abs(delta.y))
-            return delta.x > 0f ? Vector2.right : Vector2.left;
-        else
-            return delta.y > 0f ? Vector2.up : Vector2.down;
-    }
-
-    // ── Grille ────────────────────────────────────────────────────────────────
-
-    private static Vector2 SnapToGrid(Vector2 pos)
-    {
-        return new Vector2(
-            Mathf.Round(pos.x / TBGrid.StepSize) * TBGrid.StepSize,
-            Mathf.Round(pos.y / TBGrid.StepSize) * TBGrid.StepSize
-        );
-    }
-
-    /// <summary>
-    /// Vérifie si l'ennemi peut se déplacer vers target.
-    /// Bloque sur les murs (non-trigger) et les bords de l'écran.
-    /// </summary>
-    private bool CanMoveTo(Vector2 target)
-    {
-        if (Mathf.Abs(target.x) > TBGrid.MaxX) return false;
-        if (Mathf.Abs(target.y) > TBGrid.MaxY) return false;
-
-        var hits = Physics2D.OverlapCircleAll(target, TBGrid.CheckRadius);
-        foreach (var hit in hits)
-        {
-            if (hit.isTrigger)               continue;
-            if (hit.gameObject == gameObject) continue;
-            return false;
-        }
-        return true;
-    }
-
-    // ── Errance ───────────────────────────────────────────────────────────────
-
-    private void PickNewWanderTarget()
-    {
-        wanderTarget = new Vector2(
-            Mathf.Round(Random.Range(-TBGrid.MaxX, TBGrid.MaxX) / TBGrid.StepSize) * TBGrid.StepSize,
-            Mathf.Round(Random.Range(-TBGrid.MaxY, TBGrid.MaxY) / TBGrid.StepSize) * TBGrid.StepSize
-        );
-    }
-
-    // ── Contact joueur ────────────────────────────────────────────────────────
-
-    private void OnTriggerEnter2D(Collider2D other)
-    {
-        var p = other.GetComponent<TBPlayerController>();
-        if (p != null) p.Die();
+        Vector2 dir  = toPlayer / dist;
+        Vector2 next = enemyPos + dir * (ChaseSpeed * Time.fixedDeltaTime);
+        rb.MovePosition(next);
     }
 }

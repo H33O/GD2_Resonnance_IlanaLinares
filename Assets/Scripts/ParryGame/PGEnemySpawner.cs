@@ -1,9 +1,6 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
-#if UNITY_EDITOR
-using UnityEditor;
-#endif
 
 /// <summary>
 /// Spawns enemies that charge from depth toward the player.
@@ -20,7 +17,6 @@ public class PGEnemySpawner : MonoBehaviour
 
     private readonly List<PGEnemy> activeEnemies = new();
     private Coroutine spawnRoutine;
-    private Sprite    enemySprite;
 
     // ── Public ────────────────────────────────────────────────────────────────
 
@@ -30,7 +26,7 @@ public class PGEnemySpawner : MonoBehaviour
 
     private void Awake()
     {
-        enemySprite = LoadSprite("Assets/sprites/ENNEMIS.png");
+        // Plus de sprite ENNEMIS.png — visuel 100 % procédural via PGEnemyVisuals
     }
 
     private void OnEnable()
@@ -108,60 +104,14 @@ public class PGEnemySpawner : MonoBehaviour
         activeEnemies.Add(enemy);
     }
 
-    // ── Sprite loading ─────────────────────────────────────────────────────────
-
-    private static Sprite LoadSprite(string assetPath)
-    {
-#if UNITY_EDITOR
-        var tex = AssetDatabase.LoadAssetAtPath<Texture2D>(assetPath);
-        if (tex != null)
-        {
-            foreach (var obj in AssetDatabase.LoadAllAssetsAtPath(assetPath))
-                if (obj is Sprite sp) return sp;
-            return Sprite.Create(tex, new Rect(0, 0, tex.width, tex.height),
-                new Vector2(0.5f, 0.5f), 100f);
-        }
-#endif
-        return Resources.Load<Sprite>(System.IO.Path.GetFileNameWithoutExtension(assetPath));
-    }
-
     // ── Enemy visual ─────────────────────────────────────────────────────────
 
-    private GameObject CreateEnemyVisual()
+    private static GameObject CreateEnemyVisual()
     {
         var go = new GameObject("Enemy");
-
-        if (enemySprite != null)
-        {
-            var sr  = go.AddComponent<SpriteRenderer>();
-            sr.sprite       = enemySprite;
-            sr.sortingOrder = 4;
-
-            // Taille cible à pleine approche (z=playerZ) : ~0.55u de haut.
-            // RefreshScale dans PGEnemy interpole de 0.05 à 1.0 sur ce scale de base.
-            // Caméra FOV 60°, z=-7 → hauteur visible ≈ 8.08u.
-            // Ennemi ≈ 7% de hauteur écran ≈ 0.55u.
-            const float targetHeightU = 0.55f;
-            float       ppu           = enemySprite.pixelsPerUnit > 0 ? enemySprite.pixelsPerUnit : 100f;
-            float       spriteH       = enemySprite.rect.height / ppu;
-            float       s             = spriteH > 0 ? targetHeightU / spriteH : 0.009f;
-            go.transform.localScale   = new Vector3(s, s, s);
-        }
-        else
-        {
-            // Fallback: diamant rouge ~0.5u
-            var quad = GameObject.CreatePrimitive(PrimitiveType.Quad);
-            quad.name = "EnemyQuad";
-            Destroy(quad.GetComponent<Collider>());
-            quad.transform.SetParent(go.transform, false);
-            quad.transform.localRotation = Quaternion.Euler(0f, 0f, 45f);
-            quad.transform.localScale    = new Vector3(0.5f, 0.5f, 0.5f);
-            var mat   = new Material(Shader.Find("Universal Render Pipeline/2D/Sprite-Unlit-Default"));
-            mat.color = new Color(0.95f, 0.25f, 0.15f, 1f);
-            mat.renderQueue = 3000;
-            quad.GetComponent<Renderer>().material = mat;
-        }
-
+        // Taille de base — PGEnemy.RefreshScale interpole de 0.05 à 1.0 sur ce scale.
+        go.transform.localScale = new Vector3(0.55f, 0.55f, 0.55f);
+        PGEnemyVisuals.Build(go.transform);
         return go;
     }
 }

@@ -233,6 +233,7 @@ public class TBUpgradeShopWidget : MonoBehaviour
         int score = TBGameManager.Instance.Score;
         if (!upgrades.BuyAlly(ref score)) return;
         TBGameManager.Instance.SetScore(score);
+        TBGameManager.Instance.RegisterUpgradePurchase();
         RefreshButtons();
     }
 
@@ -241,6 +242,7 @@ public class TBUpgradeShopWidget : MonoBehaviour
         int score = TBGameManager.Instance.Score;
         if (!upgrades.BuyWeapon(ref score)) return;
         TBGameManager.Instance.SetScore(score);
+        TBGameManager.Instance.RegisterUpgradePurchase();
         RefreshButtons();
     }
 
@@ -249,6 +251,7 @@ public class TBUpgradeShopWidget : MonoBehaviour
         int score = TBGameManager.Instance.Score;
         if (!upgrades.BuyBarrier(ref score)) return;
         TBGameManager.Instance.SetScore(score);
+        TBGameManager.Instance.RegisterUpgradePurchase();
         RefreshButtons();
     }
 

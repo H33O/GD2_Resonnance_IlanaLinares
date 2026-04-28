@@ -101,7 +101,10 @@ public class PGEnemy : MonoBehaviour
 
     private IEnumerator ParryFlash()
     {
-        // Large scale burst + white flash
+        // Explosion visuelle sur l'ennemi
+        PGExplosionFX.Spawn(transform.position);
+
+        // Burst de scale + fade du corps de l'ennemi
         float t = 0f;
         while (t < 0.15f)
         {
@@ -109,13 +112,10 @@ public class PGEnemy : MonoBehaviour
             float ratio = t / 0.15f;
             transform.localScale = Vector3.one * Mathf.Lerp(1f, 2.2f, ratio);
 
-            var sr = GetComponent<SpriteRenderer>();
+            var sr = GetComponentInChildren<SpriteRenderer>();
             if (sr != null)
-                sr.color = Color.Lerp(Color.white, new Color(1f, 1f, 1f, 0f), ratio);
-
-            var rend = GetComponent<Renderer>();
-            if (rend != null && rend != sr as Renderer)
-                rend.material.color = Color.Lerp(Color.white, new Color(1f, 1f, 1f, 0f), ratio);
+                sr.color = Color.Lerp(new Color(1f, 0.2f, 0.05f, 1f),
+                                      new Color(1f, 0.2f, 0.05f, 0f), ratio);
 
             yield return null;
         }
@@ -183,22 +183,15 @@ public class PGEnemy : MonoBehaviour
         float s = Mathf.Lerp(0.05f, 1.0f, t);
         transform.localScale = new Vector3(s, s, s);
 
-        // Fade alpha based on distance
-        var sr = GetComponent<SpriteRenderer>();
-        if (sr != null)
+        // Fade alpha sur le SpriteRenderer du corps (enfant EnemyBody)
+        float alpha = Mathf.Lerp(0.15f, 1f, t);
+        foreach (var sr in GetComponentsInChildren<SpriteRenderer>())
         {
-            Color c = sr.color;
-            c.a     = Mathf.Lerp(0.15f, 1f, t);
+            // Ne pas toucher au warning icon
+            if (sr.transform == transform || sr.gameObject.name == "Warning") continue;
+            var c = sr.color;
+            c.a      = alpha;
             sr.color = c;
-            return;
-        }
-
-        var rend = GetComponent<Renderer>();
-        if (rend != null)
-        {
-            Color c = rend.material.color;
-            c.a = Mathf.Lerp(0.15f, 1f, t);
-            rend.material.color = c;
         }
     }
 }

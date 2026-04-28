@@ -90,6 +90,9 @@ public class BubbleLevelManager : MonoBehaviour
         BubbleGrid.Instance?.ApplyLevelData(data);
         BubbleGameManager.Instance?.ApplyLevelData(data);
         BubbleSceneSetup.ApplyBackground(data);
+
+        // Agrandit l'anomalie à chaque nouveau niveau (1-based).
+        BubbleSceneSetup.Anomaly?.SetLevel(index + 1);
     }
 
     // ── Transition entre niveaux ──────────────────────────────────────────────

@@ -241,6 +241,48 @@ public class MenuDoor : MonoBehaviour
 
     // ── Pulse lumineuse mystique ───────────────────────────────────────────────
 
+    // ── Pulse jaune (niveau 4 atteint) ───────────────────────────────────────
+
+    /// <summary>
+    /// Remplace le pulse blanc mystique par un pulse jaune vif indiquant que
+    /// le Parry Game est accessible. Appelé par <see cref="MenuXPBar"/> au niveau 4.
+    /// </summary>
+    public void StartYellowPulse()
+    {
+        // Stoppe le pulse blanc si actif
+        if (_pulseCoroutine != null) StopCoroutine(_pulseCoroutine);
+        _pulsingGlow = true;
+        _pulseCoroutine = StartCoroutine(YellowPulseLoop());
+    }
+
+    private IEnumerator YellowPulseLoop()
+    {
+        float t = 0f;
+        while (true)
+        {
+            t += Time.deltaTime;
+            float phase = Mathf.PingPong(t / 1.4f, 1f);
+            float alpha = Mathf.SmoothStep(0.80f, 1.0f, phase);
+
+            Color yellow = new Color(1f, 0.85f + phase * 0.10f, 0.0f, alpha);
+            if (_doorImage != null) _doorImage.color = yellow;
+
+            // Halos teintés en jaune
+            if (_haloImages != null)
+            {
+                for (int i = 0; i < _haloImages.Length; i++)
+                {
+                    float hp  = Mathf.PingPong((t + i * 0.25f) / 1.4f, 1f);
+                    float ha  = 0.08f + hp * 0.14f;
+                    if (_haloImages[i] != null)
+                        _haloImages[i].color = new Color(1f, 0.88f, 0.0f, ha);
+                }
+            }
+
+            yield return null;
+        }
+    }
+
     /// <summary>Démarre la pulsation blanche fluorescente infinie sur la porte.</summary>
     public void StartGlowPulse()
     {

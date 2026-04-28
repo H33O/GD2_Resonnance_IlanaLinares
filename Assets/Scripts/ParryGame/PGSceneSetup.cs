@@ -1,9 +1,6 @@
 using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.EventSystems;
-#if UNITY_EDITOR
-using UnityEditor;
-#endif
 
 /// <summary>
 /// Procedurally builds the entire Parry Game scene at runtime.
@@ -77,48 +74,11 @@ public class PGSceneSetup : MonoBehaviour
         camGO.AddComponent<AudioListener>();
     }
 
-    // ── Sprite loading ────────────────────────────────────────────────────────
-
-    private static Sprite LoadSprite(string assetPath)
-    {
-#if UNITY_EDITOR
-        var tex = AssetDatabase.LoadAssetAtPath<Texture2D>(assetPath);
-        if (tex != null)
-        {
-            foreach (var obj in AssetDatabase.LoadAllAssetsAtPath(assetPath))
-                if (obj is Sprite sp) return sp;
-            return Sprite.Create(tex, new Rect(0, 0, tex.width, tex.height),
-                new Vector2(0.5f, 0.5f), 100f);
-        }
-#endif
-        return Resources.Load<Sprite>(System.IO.Path.GetFileNameWithoutExtension(assetPath));
-    }
-
     // ── Background ────────────────────────────────────────────────────────────
 
     private void BuildBackground()
     {
-        BuildGround();
         BuildDepthMarkers();
-        BuildVignette();
-    }
-
-    /// <summary>
-    /// Construit le fond en espace UI (RawImage plein écran) pour que fond jeu.png
-    /// couvre exactement les 1080×1920 indépendamment de la caméra perspective.
-    /// Appelé depuis BuildUI après création du canvas.
-    /// </summary>
-    private void BuildBackgroundUI(RectTransform canvasRT)
-    {
-        // Fond noir pur — la couleur de clear de la caméra suffit.
-        // Les lucioles sont ajoutées séparément via MenuFireflies.
-    }
-
-    /// <summary>A flat ground plane for depth markers — kept as subtle décor.</summary>
-    private void BuildGround()
-    {
-        // Le fond principal est maintenant en UI (BuildBackgroundUI).
-        // On garde juste un plan discret pour les lignes de profondeur.
     }
 
     /// <summary>Subtle grid lines receding into the distance for depth cues.</summary>
@@ -182,7 +142,7 @@ public class PGSceneSetup : MonoBehaviour
     /// <summary>Screen-space vignette drawn via a UI image on the HUD canvas.</summary>
     private void BuildVignette()
     {
-        // Added to canvas after canvas build — handled in BuildUI
+        // Handled in BuildUI via BuildVignetteUI
     }
 
     // ── Game Manager ──────────────────────────────────────────────────────────
@@ -199,93 +159,13 @@ public class PGSceneSetup : MonoBehaviour
     private void BuildPlayer()
     {
         var go = new GameObject("Player");
-
-        // Position: bottom-center slightly right of camera center,
-        // at Z=0 (front of scene)
         go.transform.position = new Vector3(0.4f, -0.6f, 0f);
 
-        // Player body — silhouette (dark capsule shape simulated with two quads)
-        BuildPlayerVisual(go.transform);
+        // Visuel procédural : ovale blanc + éclairs internes
+        PGPlayerVisuals.Build(go.transform);
 
         player = go.AddComponent<PGPlayerController>();
         player.settings = settings;
-    }
-
-    private void BuildPlayerVisual(Transform parent)
-    {
-        Sprite playerSprite = LoadSprite("Assets/sprites/personnage.png");
-
-        if (playerSprite != null)
-        {
-            var go = new GameObject("PlayerSprite");
-            go.transform.SetParent(parent, false);
-            go.transform.localPosition = Vector3.zero;
-
-            // Caméra perspective FOV 60° à z=-7, écran 9:16.
-            // Hauteur visible à z=0 ≈ 8.08u → joueur cible 3.0u de haut (~37%).
-            const float targetHeightU = 3.0f;
-            float ppu        = playerSprite.pixelsPerUnit > 0 ? playerSprite.pixelsPerUnit : 100f;
-            float spriteH    = playerSprite.rect.height / ppu;
-            float s          = spriteH > 0 ? targetHeightU / spriteH : 0.012f;
-            go.transform.localScale = new Vector3(s, s, s);
-
-            var sr          = go.AddComponent<SpriteRenderer>();
-            sr.sprite       = playerSprite;
-            sr.sortingOrder = 5;
-        }
-        else
-        {
-            BuildPlayerVisualFallback(parent);
-        }
-    }
-
-    private void BuildPlayerVisualFallback(Transform parent)
-    {
-        // Body (tall quad)
-        var body = GameObject.CreatePrimitive(PrimitiveType.Quad);
-        body.name = "PlayerBody";
-        Destroy(body.GetComponent<Collider>());
-        body.transform.SetParent(parent, false);
-        body.transform.localPosition = new Vector3(0f, 0.4f, 0f);
-        body.transform.localScale    = new Vector3(0.55f, 1.1f, 1f);
-        var bodyMat = new Material(Shader.Find("Universal Render Pipeline/2D/Sprite-Unlit-Default"));
-        bodyMat.color = new Color(0.12f, 0.10f, 0.18f, 1f);
-        body.GetComponent<Renderer>().material = bodyMat;
-
-        // Head (small circle quad)
-        var head = GameObject.CreatePrimitive(PrimitiveType.Quad);
-        head.name = "PlayerHead";
-        Destroy(head.GetComponent<Collider>());
-        head.transform.SetParent(parent, false);
-        head.transform.localPosition = new Vector3(0.05f, 1.1f, 0f);
-        head.transform.localScale    = new Vector3(0.38f, 0.38f, 1f);
-        var headMat = new Material(Shader.Find("Universal Render Pipeline/2D/Sprite-Unlit-Default"));
-        headMat.color = new Color(0.18f, 0.15f, 0.25f, 1f);
-        head.GetComponent<Renderer>().material = headMat;
-
-        // Weapon arm
-        var arm = GameObject.CreatePrimitive(PrimitiveType.Quad);
-        arm.name = "WeaponArm";
-        Destroy(arm.GetComponent<Collider>());
-        arm.transform.SetParent(parent, false);
-        arm.transform.localPosition = new Vector3(0.35f, 0.55f, -0.05f);
-        arm.transform.localRotation = Quaternion.Euler(0f, 0f, -35f);
-        arm.transform.localScale    = new Vector3(0.10f, 0.85f, 1f);
-        var armMat = new Material(Shader.Find("Universal Render Pipeline/2D/Sprite-Unlit-Default"));
-        armMat.color = new Color(0.75f, 0.70f, 0.85f, 1f);
-        arm.GetComponent<Renderer>().material = armMat;
-
-        // Weapon blade
-        var blade = GameObject.CreatePrimitive(PrimitiveType.Quad);
-        blade.name = "WeaponBlade";
-        Destroy(blade.GetComponent<Collider>());
-        blade.transform.SetParent(parent, false);
-        blade.transform.localPosition = new Vector3(0.6f, 0.9f, -0.05f);
-        blade.transform.localRotation = Quaternion.Euler(0f, 0f, -55f);
-        blade.transform.localScale    = new Vector3(0.07f, 0.7f, 1f);
-        var bladeMat = new Material(Shader.Find("Universal Render Pipeline/2D/Sprite-Unlit-Default"));
-        bladeMat.color = new Color(0.9f, 0.9f, 1f, 1f);
-        blade.GetComponent<Renderer>().material = bladeMat;
     }
 
     // ── Enemy Spawner ─────────────────────────────────────────────────────────
@@ -335,6 +215,16 @@ public class PGSceneSetup : MonoBehaviour
         var fireflies = fireflyGO.AddComponent<MenuBouncingDots>();
         fireflies.Init(fireflyRT);
 
+        // ── Anomalie blanche (coins bas-gauche et bas-droite) ─────────────────
+        var anomalyGO = new GameObject("PGAnomaly");
+        anomalyGO.transform.SetParent(canvasRT, false);
+        var anomalyRT        = anomalyGO.AddComponent<RectTransform>();
+        anomalyRT.anchorMin  = Vector2.zero;
+        anomalyRT.anchorMax  = Vector2.one;
+        anomalyRT.offsetMin  = anomalyRT.offsetMax = Vector2.zero;
+        anomalyGO.transform.SetSiblingIndex(1);   // juste au-dessus des dots
+        anomalyGO.AddComponent<PGAnomalyUI>().Init(canvasRT);
+
         // ── HUD ───────────────────────────────────────────────────────────────
         var hudGO = new GameObject("PGHUD");
         hudGO.transform.SetParent(canvasRT, false);
@@ -354,6 +244,9 @@ public class PGSceneSetup : MonoBehaviour
 
         // ── Vignette (cosmétique, au-dessus de tout) ──────────────────────────
         BuildVignetteUI(canvasRT);
+
+        // ── Feedbacks visuels (explosion, danger, combo, amélioration) ────────
+        PGFeedback.Spawn(canvasRT);
     }
 
     private void BuildVignetteUI(RectTransform canvasRT)

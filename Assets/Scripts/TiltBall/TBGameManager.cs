@@ -41,6 +41,9 @@ public class TBGameManager : MonoBehaviour
 
     private bool isRunning;
 
+    /// <summary>Nombre d'améliorations achetées pendant la boutique courante (reset à chaque niveau).</summary>
+    public int PendingUpgradeCount { get; private set; }
+
     // ── Événements ────────────────────────────────────────────────────────────
 
     public readonly UnityEvent OnKeyCollected = new UnityEvent();
@@ -71,10 +74,11 @@ public class TBGameManager : MonoBehaviour
     /// <summary>Appelé par TBSceneSetup.Start() au lancement d'un niveau.</summary>
     public void StartLevel(int levelIndex)
     {
-        LevelIndex  = levelIndex;
-        HasKey      = false;
-        ElapsedTime = 0f;
-        isRunning   = true;
+        LevelIndex           = levelIndex;
+        HasKey               = false;
+        ElapsedTime          = 0f;
+        isRunning            = true;
+        PendingUpgradeCount  = 0;
     }
 
     /// <summary>Appelé par TBKey quand le joueur ramasse la clé.</summary>
@@ -101,17 +105,16 @@ public class TBGameManager : MonoBehaviour
             // ── Victoire finale — 10 niveaux complétés ────────────────────────
             ScoreManager.EnsureExists();
 
-            // XP de base (score → XP) puis doublement
-            int baseXp   = Mathf.Max(1, Score / 10);
-            int bonusXp  = Mathf.RoundToInt(baseXp * XpVictoryMultiplier);
-            int totalXp  = bonusXp;   // on envoie directement le total doublé
-
-            // Enregistre le score sans déclencher l'XP standard (on la gère manuellement)
-            ScoreManager.Instance.AddScoreOnly(GameType.BallAndGoal, Score);
-            ScoreManager.Instance.AddXP(totalXp);
+            int baseXp  = Mathf.Max(1, Score / 10);
+            int totalXp = Mathf.RoundToInt(baseXp * XpVictoryMultiplier);
 
             HasKey = false;
-            TBWinWidget.ShowVictory(ElapsedTime, Score, totalXp, baseXp, GoToMenuDirect);
+
+            // Affiche d'abord le widget victoire, puis la séquence XP avant le retour menu
+            TBWinWidget.ShowVictory(ElapsedTime, Score, totalXp, baseXp, () =>
+            {
+                MiniGameXPSequence.Show(Score, totalXp, GameType.BallAndGoal, GoToMenuDirect);
+            });
         }
         else
         {
@@ -123,6 +126,9 @@ public class TBGameManager : MonoBehaviour
 
     /// <summary>Modifie le score (utilisé par TBUpgradeShopWidget après un achat).</summary>
     public void SetScore(int newScore) => Score = Mathf.Max(0, newScore);
+
+    /// <summary>Incrémente le compteur d'améliorations achetées dans la boutique courante.</summary>
+    public void RegisterUpgradePurchase() => PendingUpgradeCount++;
 
     /// <summary>
     /// Appelé après la mort du joueur.
@@ -164,6 +170,22 @@ public class TBGameManager : MonoBehaviour
         LevelIndex = nextLevel;
         HasKey     = false;
         TBSceneSetup.RebuildLevel(nextLevel);
+
+        // Déclenche les feedbacks d'amélioration une fois le joueur recréé
+        if (PendingUpgradeCount > 0)
+        {
+            yield return null;   // attend un frame que BuildPlayer() soit exécuté
+            var player = FindFirstObjectByType<TBPlayerController>();
+            Vector3 pos = player != null ? player.transform.position : Vector3.zero;
+
+            for (int i = 0; i < PendingUpgradeCount; i++)
+            {
+                TBUpgradeFX.TriggerUpgrade(pos);
+                yield return new WaitForSeconds(0.18f);
+            }
+
+            PendingUpgradeCount = 0;
+        }
     }
 
     private IEnumerator RestartFromLevel0Routine()

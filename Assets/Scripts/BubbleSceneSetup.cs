@@ -22,6 +22,9 @@ public class BubbleSceneSetup : MonoBehaviour
     private static BubbleSceneSetup _instance;
     private GameObject _bgObject;
 
+    /// <summary>Accès à l'effet d'anomalie pour <see cref="BubbleLevelManager"/>.</summary>
+    public static BubbleAnomaly Anomaly { get; private set; }
+
     private void Awake() => _instance = this;
 
     private void Start()
@@ -31,6 +34,28 @@ public class BubbleSceneSetup : MonoBehaviour
 
         _bgObject = BuildWorldBackground();
         BuildGrid();
+        SpawnFireflies();
+        SpawnAnomaly();
+    }
+
+    // ── Lucioles ──────────────────────────────────────────────────────────────
+
+    private void SpawnFireflies()
+    {
+        var go = new GameObject("BubbleFireflies");
+        go.transform.SetParent(transform, false);
+        go.AddComponent<BubbleFireflies>().Init();
+    }
+
+    // ── Anomalie ──────────────────────────────────────────────────────────────
+
+    private void SpawnAnomaly()
+    {
+        var go = new GameObject("BubbleAnomaly");
+        go.transform.SetParent(transform, false);
+        Anomaly = go.AddComponent<BubbleAnomaly>();
+        Anomaly.Init();
+        Anomaly.SetLevel(1);
     }
 
     // ── Fond monde (carré noir semi-opaque) ───────────────────────────────────

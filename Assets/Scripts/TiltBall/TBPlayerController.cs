@@ -3,26 +3,29 @@ using UnityEngine;
 using UnityEngine.InputSystem;
 
 /// <summary>
-/// Déplacement du joueur case par case piloté par le swipe (TBSwipeInput)
+/// Déplacement du joueur piloté par le joystick virtuel (<see cref="TBJoystick"/>)
 /// ou le clavier WASD / flèches en éditeur.
 ///
-/// Un swipe = une case dans la direction de l'axe dominant.
-/// Le déplacement est interpolé visuellement sur MoveInterval secondes.
-/// Le joueur est bloqué par les murs et obstacles (CanMoveTo via Physics2D).
-/// Les triggers (trou, clé, ennemi) sont détectés par OnTriggerEnter2D.
+/// Le joueur se déplace de façon continue (non tour-par-tour) :
+/// la direction du joystick est lue chaque frame et appliquée directement
+/// en <see cref="Rigidbody2D.MovePosition"/>, avec une vitesse fixe en unités/s.
+/// Les murs et obstacles bloquent le mouvement via Physics2D.
 /// </summary>
 [RequireComponent(typeof(Rigidbody2D))]
 [RequireComponent(typeof(SpriteRenderer))]
 public class TBPlayerController : MonoBehaviour
 {
+    // ── Constantes ────────────────────────────────────────────────────────────
+
+    /// <summary>Vitesse de déplacement du joueur en unités par seconde.</summary>
+    private const float MoveSpeed = 5f;
+
     // ── État ──────────────────────────────────────────────────────────────────
 
     private Rigidbody2D    rb;
     private SpriteRenderer sr;
     private bool           isDead;
     private bool           isEnteringHole;
-    private bool           isMoving;
-    private Vector2        gridPos;
 
     public bool IsAlive => !isDead && !isEnteringHole;
 
@@ -38,104 +41,85 @@ public class TBPlayerController : MonoBehaviour
         rb.collisionDetectionMode = CollisionDetectionMode2D.Continuous;
     }
 
-    private void Start()
+    private void FixedUpdate()
     {
-        gridPos     = SnapToGrid(rb.position);
-        rb.position = gridPos;
-    }
-
-    private void Update()
-    {
-        if (!IsAlive || isMoving) return;
+        if (!IsAlive) return;
 
         Vector2 dir = ReadInput();
         if (dir == Vector2.zero) return;
 
-        Vector2 target = gridPos + dir * TBGrid.StepSize;
-        if (!CanMoveTo(target)) return;
+        Vector2 next = rb.position + dir.normalized * (MoveSpeed * Time.fixedDeltaTime);
 
-        gridPos = target;
-        StartCoroutine(SlideTo(gridPos));
+        // Bloque contre les murs et obstacles solides
+        if (!IsBlockedAt(next))
+            rb.MovePosition(Clamp(next));
     }
 
-    // ── Déplacement interpolé ─────────────────────────────────────────────────
-
-    private IEnumerator SlideTo(Vector2 target)
+    /// <summary>Maintient le joueur dans les limites du monde.</summary>
+    private static Vector2 Clamp(Vector2 pos)
     {
-        isMoving = true;
-
-        Vector2 start    = rb.position;
-        float   elapsed  = 0f;
-        float   duration = TBGrid.MoveInterval;
-
-        while (elapsed < duration)
-        {
-            elapsed += Time.deltaTime;
-            rb.MovePosition(Vector2.Lerp(start, target, Mathf.Clamp01(elapsed / duration)));
-            yield return null;
-        }
-
-        rb.MovePosition(target);
-        isMoving = false;
+        float margin = 0.5f;
+        return new Vector2(
+            Mathf.Clamp(pos.x, -(TBSceneSetup.HalfW - margin), TBSceneSetup.HalfW - margin),
+            Mathf.Clamp(pos.y, -(TBSceneSetup.HalfH - margin), TBSceneSetup.HalfH - margin)
+        );
     }
 
     // ── Input ─────────────────────────────────────────────────────────────────
 
     /// <summary>
-    /// Lit la direction depuis le swipe (TBSwipeInput en build)
-    /// ou le clavier WASD / flèches (éditeur).
-    /// Retourne un vecteur cardinal (Vector2.up/down/left/right) ou zéro.
+    /// Lit la direction depuis le joystick virtuel et/ou le clavier WASD / flèches.
+    /// Les deux sources sont actives en même temps (éditeur et build).
+    /// Retourne un vecteur normalisé ou zéro.
     /// </summary>
     private static Vector2 ReadInput()
     {
-#if UNITY_EDITOR
+        // ── Joystick virtuel (tactile) ────────────────────────────────────────
+        Vector2 dir = TBJoystick.Instance != null ? TBJoystick.Instance.Direction : Vector2.zero;
+
+        // ── Clavier (éditeur ou build avec clavier) ───────────────────────────
         var kb = Keyboard.current;
-        if (kb == null) return Vector2.zero;
+        if (kb != null)
+        {
+            if (kb.rightArrowKey.isPressed || kb.dKey.isPressed) dir += Vector2.right;
+            if (kb.leftArrowKey.isPressed  || kb.aKey.isPressed) dir += Vector2.left;
+            if (kb.upArrowKey.isPressed    || kb.wKey.isPressed) dir += Vector2.up;
+            if (kb.downArrowKey.isPressed  || kb.sKey.isPressed) dir += Vector2.down;
+        }
 
-        if (kb.rightArrowKey.wasPressedThisFrame || kb.dKey.wasPressedThisFrame) return Vector2.right;
-        if (kb.leftArrowKey.wasPressedThisFrame  || kb.aKey.wasPressedThisFrame) return Vector2.left;
-        if (kb.upArrowKey.wasPressedThisFrame    || kb.wKey.wasPressedThisFrame) return Vector2.up;
-        if (kb.downArrowKey.wasPressedThisFrame  || kb.sKey.wasPressedThisFrame) return Vector2.down;
-
-        return Vector2.zero;
-#else
-        if (TBSwipeInput.Instance != null)
-            return TBSwipeInput.Instance.ConsumeDirection();
-
-        return Vector2.zero;
-#endif
+        return dir.magnitude > 1f ? dir.normalized : dir;
     }
 
-    // ── Vérification mouvement ────────────────────────────────────────────────
+    // ── Collision ─────────────────────────────────────────────────────────────
 
-    private bool CanMoveTo(Vector2 target)
+    /// <summary>Retourne true si la position cible est bloquée par un collider solide.</summary>
+    private bool IsBlockedAt(Vector2 pos)
     {
-        if (Mathf.Abs(target.x) > TBGrid.MaxX) return false;
-        if (Mathf.Abs(target.y) > TBGrid.MaxY) return false;
-
-        var hits = Physics2D.OverlapCircleAll(target, TBGrid.CheckRadius);
+        var hits = Physics2D.OverlapCircleAll(pos, TBGrid.CheckRadius);
         foreach (var hit in hits)
         {
             if (hit.isTrigger)               continue;
             if (hit.gameObject == gameObject) continue;
-            return false;
+            return true;
         }
-        return true;
+        return false;
     }
 
-    // ── Utilitaire grille ─────────────────────────────────────────────────────
+    // ── Contact ennemi — côté joueur ──────────────────────────────────────────
 
-    private static Vector2 SnapToGrid(Vector2 pos)
+    private void OnTriggerEnter2D(Collider2D other)
     {
-        return new Vector2(
-            Mathf.Round(pos.x / TBGrid.StepSize) * TBGrid.StepSize,
-            Mathf.Round(pos.y / TBGrid.StepSize) * TBGrid.StepSize
-        );
+        // Filet de sécurité : le kill principal est dans TBEnemyController.
+        if (other.GetComponent<TBEnemyController>() != null)
+        {
+            TBExplosionFX.Spawn(transform.position);
+            Die();
+        }
     }
 
     // ── Mort ──────────────────────────────────────────────────────────────────
 
-    /// <summary>Déclenche la mort du joueur (appelée par TBEnemyController).</summary>
+    /// <summary>Déclenche la mort du joueur.</summary>
     public void Die()
     {
         if (!IsAlive) return;

@@ -438,7 +438,19 @@ public class BubbleGameManager : MonoBehaviour
         MakeButton(panel.transform, "MENU",
                    new Vector2(0f, -500f),
                    ColorBtnMenu,
-                   () => SceneManager.LoadScene(SceneMenu));
+                   () =>
+                   {
+                       // Séquence boules XP avant retour menu
+                       int xp = Mathf.Max(1, Score / 5);
+                       MiniGameXPSequence.Show(Score, xp, GameType.BubbleShooter,
+                           () =>
+                           {
+                               if (SceneTransition.Instance != null)
+                                   SceneTransition.Instance.LoadScene(SceneMenu, SceneMenu);
+                               else
+                                   SceneManager.LoadScene(SceneMenu);
+                           });
+                   });
     }
 
     private void MakePanelText(Transform parent, string text, Vector2 pos, Vector2 size,
